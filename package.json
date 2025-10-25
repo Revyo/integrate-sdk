@@ -1,0 +1,47 @@
+{
+  "name": "integrate-sdk",
+  "version": "0.1.0",
+  "description": "Type-safe TypeScript SDK for MCP Client with plugin-based OAuth provider configuration",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node --format esm && bun run build:types",
+    "build:types": "tsc --emitDeclarationOnly --declaration --declarationMap",
+    "dev": "bun --watch src/index.ts",
+    "type-check": "tsc --noEmit",
+    "test": "bun test tests/protocol tests/plugins tests/client tests/integration/simple-integration.test.ts",
+    "test:watch": "bun test --watch tests/protocol tests/plugins tests/client tests/integration/simple-integration.test.ts",
+    "test:unit": "bun test tests/protocol tests/plugins tests/client",
+    "test:integration": "bun test tests/integration/simple-integration.test.ts",
+    "test:coverage": "bun test --coverage tests/protocol tests/plugins tests/client tests/integration/simple-integration.test.ts"
+  },
+  "keywords": [
+    "mcp",
+    "client",
+    "sdk",
+    "typescript",
+    "oauth",
+    "plugin"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  }
+}
+
