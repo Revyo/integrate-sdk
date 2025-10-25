@@ -1,0 +1,23 @@
+# Source files (only ship dist/)
+src/
+tests/
+examples/
+
+# Configuration
+tsconfig.json
+.github/
+.cursorignore
+
+# Test files
+*.test.ts
+*.spec.ts
+
+# Development files
+.env
+.env.*
+bun.lock
+
+# Temporary files
+*.log
+.DS_Store
+
