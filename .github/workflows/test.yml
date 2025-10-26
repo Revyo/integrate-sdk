@@ -26,11 +26,8 @@ jobs:
       - name: Type check
         run: bun run type-check
 
-      - name: Run unit tests
-        run: bun run test:unit
-
-      - name: Run integration tests
-        run: bun run test:integration
+      - name: Run all tests
+        run: bun run test
 
       - name: Build
         run: bun run build

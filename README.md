@@ -1,5 +1,9 @@
 # Integrate SDK
 
+[![Tests](https://github.com/Revyo/integrate-sdk/actions/workflows/test.yml/badge.svg)](https://github.com/Revyo/integrate-sdk/actions/workflows/test.yml)
+[![npm version](https://badge.fury.io/js/integrate-sdk.svg)](https://www.npmjs.com/package/integrate-sdk)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A type-safe TypeScript SDK for connecting to the Integrate MCP (Model Context Protocol) server. Access GitHub, Gmail, Notion, and other integrations through a simple, plugin-based API.
 
 **Server:** `https://mcp.integrate.dev/api/v1/mcp`
