@@ -1,0 +1,432 @@
+---
+title: Advanced Usage
+description: Advanced patterns and techniques for the Integrate SDK
+---
+
+# Advanced Usage
+
+Learn advanced patterns and techniques for using the Integrate SDK effectively.
+
+## Accessing OAuth Configurations
+
+Get OAuth configurations for your plugins:
+
+```typescript
+// Get OAuth config for a specific plugin
+const githubOAuth = client.getOAuthConfig("github");
+console.log("GitHub OAuth scopes:", githubOAuth?.scopes);
+
+// Get all OAuth configs
+const allConfigs = client.getAllOAuthConfigs();
+for (const [pluginId, config] of allConfigs) {
+  console.log(`${pluginId}: ${config.provider}`);
+}
+```
+
+## Listing Available Tools
+
+Discover what tools are available:
+
+```typescript
+await client.connect();
+
+// Get all enabled tools (filtered by plugins)
+const enabledTools = client.getEnabledTools();
+console.log(
+  "Enabled tools:",
+  enabledTools.map((t) => t.name)
+);
+
+// Get all available tools from server (unfiltered)
+const allTools = client.getAvailableTools();
+console.log(
+  "All tools:",
+  allTools.map((t) => t.name)
+);
+
+// Get a specific tool
+const tool = client.getTool("github_create_issue");
+if (tool) {
+  console.log("Tool schema:", tool.inputSchema);
+  console.log("Description:", tool.description);
+}
+```
+
+## Inspecting Tool Schemas
+
+Understand what parameters a tool accepts:
+
+```typescript
+const tool = client.getTool("github_create_issue");
+
+if (tool) {
+  console.log("Tool name:", tool.name);
+  console.log("Description:", tool.description);
+  console.log("Input schema:", JSON.stringify(tool.inputSchema, null, 2));
+}
+
+// Example output:
+// {
+//   "type": "object",
+//   "properties": {
+//     "repo": { "type": "string" },
+//     "title": { "type": "string" },
+//     "body": { "type": "string" },
+//     "labels": { "type": "array" }
+//   },
+//   "required": ["repo", "title"]
+// }
+```
+
+## Handling Messages and Notifications
+
+Listen for server messages:
+
+```typescript
+// Register message handler
+const unsubscribe = client.onMessage((message) => {
+  console.log("Received message:", message);
+
+  if (message.method === "tools/list_changed") {
+    console.log("Available tools have changed!");
+  }
+});
+
+// Later, unsubscribe when done
+unsubscribe();
+```
+
+## Custom Headers and Timeouts
+
+Configure HTTP behavior:
+
+```typescript
+const client = createMCPClient({
+  plugins: [
+    /* ... */
+  ],
+
+  // Custom headers
+  headers: {
+    Authorization: "Bearer token",
+    "X-Custom-Header": "value",
+    "User-Agent": "my-app/1.0.0",
+  },
+
+  // Request timeout (default: 30000ms)
+  timeout: 60000,
+
+  // Custom client info
+  clientInfo: {
+    name: "my-app",
+    version: "1.0.0",
+  },
+});
+```
+
+## Error Handling Patterns
+
+### Basic Error Handling
+
+```typescript
+try {
+  await client.connect();
+  const result = await client.callTool("github_create_issue", {
+    repo: "owner/repo",
+    title: "Bug report",
+  });
+} catch (error) {
+  console.error("Error:", error.message);
+} finally {
+  await client.disconnect();
+}
+```
+
+### Detailed Error Handling
+
+```typescript
+try {
+  const result = await client.callTool("github_create_issue", {
+    repo: "owner/repo",
+    title: "Bug report",
+  });
+} catch (error) {
+  if (error.message.includes("not enabled")) {
+    console.error("Tool is not enabled. Add the appropriate plugin.");
+  } else if (error.message.includes("not available")) {
+    console.error("Tool is not available on the server.");
+  } else if (error.message.includes("authentication")) {
+    console.error("Authentication failed. Check OAuth credentials.");
+  } else if (error.message.includes("timeout")) {
+    console.error("Request timed out. Try increasing timeout.");
+  } else {
+    console.error("Unexpected error:", error);
+  }
+}
+```
+
+### Retry Logic
+
+```typescript
+async function callToolWithRetry(
+  client: MCPClient,
+  toolName: string,
+  args: any,
+  maxRetries = 3
+) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await client.callTool(toolName, args);
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+
+      console.log(`Retry ${i + 1}/${maxRetries}...`);
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
+    }
+  }
+}
+
+// Usage
+const result = await callToolWithRetry(client, "github_create_issue", {
+  repo: "owner/repo",
+  title: "Bug report",
+});
+```
+
+## Connection Management
+
+### Check Connection Status
+
+```typescript
+console.log("Connected:", client.isConnected());
+console.log("Initialized:", client.isInitialized());
+```
+
+### Reconnection Pattern
+
+```typescript
+async function ensureConnected(client: MCPClient) {
+  if (!client.isConnected()) {
+    console.log("Not connected, connecting...");
+    await client.connect();
+  }
+}
+
+// Usage
+await ensureConnected(client);
+const result = await client.callTool("github_list_issues", {
+  repo: "owner/repo",
+});
+```
+
+### Connection Pool Pattern
+
+```typescript
+class ClientPool {
+  private clients: MCPClient[] = [];
+  private currentIndex = 0;
+
+  constructor(size: number, plugins: MCPPlugin[]) {
+    for (let i = 0; i < size; i++) {
+      this.clients.push(createMCPClient({ plugins }));
+    }
+  }
+
+  async connect() {
+    await Promise.all(this.clients.map((c) => c.connect()));
+  }
+
+  getClient(): MCPClient {
+    const client = this.clients[this.currentIndex];
+    this.currentIndex = (this.currentIndex + 1) % this.clients.length;
+    return client;
+  }
+
+  async disconnect() {
+    await Promise.all(this.clients.map((c) => c.disconnect()));
+  }
+}
+
+// Usage
+const pool = new ClientPool(3, [
+  githubPlugin({
+    /* ... */
+  }),
+]);
+await pool.connect();
+
+const client1 = pool.getClient();
+const client2 = pool.getClient();
+
+// Use clients...
+
+await pool.disconnect();
+```
+
+## Batch Tool Calls
+
+Execute multiple tools in parallel:
+
+```typescript
+const results = await Promise.all([
+  client.callTool("github_get_issue", { repo: "owner/repo", issue_number: 1 }),
+  client.callTool("github_get_issue", { repo: "owner/repo", issue_number: 2 }),
+  client.callTool("github_get_issue", { repo: "owner/repo", issue_number: 3 }),
+]);
+
+console.log("Issues:", results);
+```
+
+## Dynamic Plugin Loading
+
+Load plugins based on configuration:
+
+```typescript
+import { createMCPClient, githubPlugin, gmailPlugin } from "integrate-sdk";
+
+function createPlugins(config: any) {
+  const plugins = [];
+
+  if (config.github) {
+    plugins.push(
+      githubPlugin({
+        clientId: config.github.clientId,
+        clientSecret: config.github.clientSecret,
+      })
+    );
+  }
+
+  if (config.gmail) {
+    plugins.push(
+      gmailPlugin({
+        clientId: config.gmail.clientId,
+        clientSecret: config.gmail.clientSecret,
+      })
+    );
+  }
+
+  return plugins;
+}
+
+const config = {
+  github: {
+    clientId: process.env.GITHUB_CLIENT_ID,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+  },
+  // gmail not configured
+};
+
+const client = createMCPClient({
+  plugins: createPlugins(config),
+});
+```
+
+## Tool Result Processing
+
+Process and transform tool results:
+
+```typescript
+interface Issue {
+  number: number;
+  title: string;
+  state: string;
+}
+
+const result = await client.callTool("github_list_issues", {
+  repo: "owner/repo",
+  state: "open",
+});
+
+// Parse and transform
+const issues: Issue[] = result.content
+  .filter((item) => item.type === "text")
+  .map((item) => JSON.parse(item.text));
+
+// Filter and process
+const highPriorityIssues = issues.filter((issue) =>
+  issue.title.includes("[URGENT]")
+);
+
+console.log("High priority issues:", highPriorityIssues);
+```
+
+## Environment Configuration
+
+Organize environment variables:
+
+```typescript
+// config.ts
+export const config = {
+  github: {
+    clientId: process.env.GITHUB_CLIENT_ID!,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    scopes: ["repo", "user"],
+  },
+  gmail: {
+    clientId: process.env.GMAIL_CLIENT_ID!,
+    clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+  },
+  mcp: {
+    timeout: Number(process.env.MCP_TIMEOUT) || 30000,
+    headers: {
+      "User-Agent": "my-app/1.0.0",
+    },
+  },
+};
+
+// main.ts
+import { config } from "./config";
+
+const client = createMCPClient({
+  plugins: [githubPlugin(config.github), gmailPlugin(config.gmail)],
+  timeout: config.mcp.timeout,
+  headers: config.mcp.headers,
+});
+```
+
+## Logging and Debugging
+
+Add comprehensive logging:
+
+```typescript
+class LoggedMCPClient {
+  constructor(private client: MCPClient) {
+    // Log all messages
+    client.onMessage((message) => {
+      console.log("[MCP]", JSON.stringify(message));
+    });
+  }
+
+  async callTool(name: string, args: any) {
+    console.log(`[CALL] ${name}`, args);
+
+    try {
+      const result = await this.client.callTool(name, args);
+      console.log(`[SUCCESS] ${name}`, result);
+      return result;
+    } catch (error) {
+      console.error(`[ERROR] ${name}`, error);
+      throw error;
+    }
+  }
+}
+
+// Usage
+const client = createMCPClient({
+  plugins: [
+    /* ... */
+  ],
+});
+await client.connect();
+
+const loggedClient = new LoggedMCPClient(client);
+await loggedClient.callTool("github_create_issue", {
+  /* ... */
+});
+```
+
+## Next Steps
+
+- Check the [API Reference](/docs/reference/api-reference) for complete method documentation
+- Explore [Architecture](/docs/reference/architecture) to understand how the SDK works
+- See example code in the repository's `examples/` directory

@@ -1,0 +1,363 @@
+---
+title: Architecture
+description: Understanding the Integrate SDK architecture and internals
+---
+
+# Architecture
+
+Learn about the internal architecture of the Integrate SDK.
+
+## Overview
+
+The SDK is built with a modular architecture that separates concerns into distinct layers:
+
+```
+┌─────────────────────────────────────┐
+│         Application Code            │
+│  (Your code using the SDK)          │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│         MCPClient                   │
+│  (Main SDK interface)               │
+└──────────────┬──────────────────────┘
+               │
+    ┌──────────┼──────────┐
+    │          │          │
+    ▼          ▼          ▼
+┌────────┐ ┌──────┐ ┌─────────┐
+│Plugins │ │Proto-│ │Transport│
+│        │ │col   │ │         │
+└────────┘ └──────┘ └─────────┘
+                │
+                ▼
+    ┌───────────────────────┐
+    │   MCP Server          │
+    │   (HTTP Streaming)    │
+    └───────────────────────┘
+```
+
+## Directory Structure
+
+```
+integrate-sdk/
+├── src/
+│   ├── client.ts           # Main MCPClient class
+│   ├── index.ts            # Public exports
+│   ├── config/
+│   │   └── types.ts        # Configuration types
+│   ├── transport/
+│   │   ├── http-stream.ts  # HTTP streaming transport (NDJSON)
+│   │   └── http-session.ts # Session management
+│   ├── protocol/
+│   │   ├── messages.ts     # MCP message types
+│   │   └── jsonrpc.ts      # JSON-RPC 2.0 implementation
+│   ├── plugins/
+│   │   ├── types.ts        # Plugin interface
+│   │   ├── github.ts       # GitHub plugin
+│   │   ├── gmail.ts        # Gmail plugin
+│   │   └── generic.ts      # Generic OAuth plugin
+│   └── integrations/
+│       └── vercel-ai.ts    # Vercel AI SDK integration
+```
+
+## Core Components
+
+### 1. MCPClient
+
+The `MCPClient` class is the main entry point. It:
+
+- Manages the connection to the MCP server
+- Coordinates plugins
+- Exposes the public API
+- Handles tool calls and responses
+
+**Key responsibilities:**
+
+- Plugin initialization
+- Connection lifecycle
+- Tool filtering based on enabled plugins
+- OAuth configuration management
+- Message routing
+
+### 2. Transport Layer
+
+The transport layer handles communication with the MCP server.
+
+**HTTP Streaming (`http-stream.ts`):**
+
+- Uses newline-delimited JSON (NDJSON)
+- Single persistent HTTP connection
+- Bidirectional communication
+- Automatic heartbeat to keep connection alive
+
+**Protocol:**
+
+```
+Client                          Server
+  │                               │
+  │  POST /api/v1/mcp             │
+  │─────────────────────────────>│
+  │                               │
+  │  {json}\n                     │
+  │<─────────────────────────────│
+  │                               │
+  │  {json}\n                     │
+  │─────────────────────────────>│
+  │                               │
+  │  {json}\n                     │
+  │<─────────────────────────────│
+  │                               │
+```
+
+### 3. Protocol Layer
+
+Implements JSON-RPC 2.0 protocol.
+
+**Key features:**
+
+- Request/response formatting
+- Notification handling
+- Error responses
+- ID generation and tracking
+
+**Message types:**
+
+```typescript
+// Request
+{
+  jsonrpc: "2.0",
+  id: 1,
+  method: "tools/call",
+  params: { name: "github_create_issue", arguments: {...} }
+}
+
+// Response
+{
+  jsonrpc: "2.0",
+  id: 1,
+  result: { content: [...] }
+}
+
+// Notification
+{
+  jsonrpc: "2.0",
+  method: "tools/list_changed"
+}
+
+// Error
+{
+  jsonrpc: "2.0",
+  id: 1,
+  error: { code: -32000, message: "Error" }
+}
+```
+
+### 4. Plugin System
+
+Plugins provide modularity and extensibility.
+
+**Plugin lifecycle:**
+
+1. **Creation** - Plugin instance created with `createMCPClient()`
+2. **Initialization** - `onInit()` hook called
+3. **Pre-connection** - `onBeforeConnect()` hook called
+4. **Connection** - Client connects to server
+5. **Post-connection** - `onAfterConnect()` hook called
+6. **Runtime** - Tools can be called
+7. **Disconnection** - `onDisconnect()` hook called
+
+**Plugin interface:**
+
+```typescript
+interface MCPPlugin {
+  id: string; // Unique identifier
+  tools: string[]; // Tool names to enable
+  oauth?: OAuthConfig; // OAuth config (optional)
+  onInit?: PluginHook;
+  onBeforeConnect?: PluginHook;
+  onAfterConnect?: PluginHook;
+  onDisconnect?: PluginHook;
+}
+```
+
+## Communication Flow
+
+### Connection Establishment
+
+```
+1. Application creates MCPClient with plugins
+2. Client initializes plugins (onInit)
+3. Application calls client.connect()
+4. Client calls plugin hooks (onBeforeConnect)
+5. Transport establishes HTTP connection
+6. Client sends "initialize" request
+7. Server responds with capabilities
+8. Client sends "tools/list" request
+9. Server responds with available tools
+10. Client filters tools by enabled plugins
+11. Client calls plugin hooks (onAfterConnect)
+12. Connection established ✓
+```
+
+### Tool Call Flow
+
+```
+1. Application calls client.callTool(name, args)
+2. Client validates tool is enabled
+3. Client creates JSON-RPC request
+4. Transport sends request to server
+5. Server executes tool (OAuth happens here)
+6. Server sends JSON-RPC response
+7. Transport receives response
+8. Client parses and returns result
+```
+
+## Tool Filtering
+
+The SDK implements client-side tool filtering:
+
+1. **Server provides all tools** - `tools/list` returns all available tools
+2. **Client filters by plugins** - Only tools matching enabled plugins are exposed
+3. **Validation on call** - Ensures called tools are enabled
+
+```typescript
+// Example: If only GitHub plugin is enabled
+const allTools = [
+  "github_create_issue",
+  "gmail_send_email", // Filtered out
+  "notion_search", // Filtered out
+];
+
+const enabledTools = allTools.filter((tool) => tool.startsWith("github_"));
+// Result: ['github_create_issue']
+```
+
+## OAuth Flow
+
+The SDK doesn't handle OAuth directly. Instead:
+
+1. **Configuration** - Client stores OAuth credentials
+2. **Tool call** - Client sends credentials with tool call request
+3. **Server handles OAuth** - Server manages authentication flow
+4. **Execution** - Server executes tool with authenticated credentials
+5. **Response** - Server returns result to client
+
+```
+┌─────────┐        ┌────────┐        ┌─────────┐
+│  Client │        │  MCP   │        │ GitHub  │
+│   SDK   │        │ Server │        │   API   │
+└────┬────┘        └───┬────┘        └────┬────┘
+     │                 │                  │
+     │ Tool call +     │                  │
+     │ OAuth config    │                  │
+     │────────────────>│                  │
+     │                 │                  │
+     │                 │ Authenticate     │
+     │                 │ with OAuth       │
+     │                 │─────────────────>│
+     │                 │                  │
+     │                 │ Access token     │
+     │                 │<─────────────────│
+     │                 │                  │
+     │                 │ API call         │
+     │                 │─────────────────>│
+     │                 │                  │
+     │                 │ Result           │
+     │                 │<─────────────────│
+     │                 │                  │
+     │ Response        │                  │
+     │<────────────────│                  │
+     │                 │                  │
+```
+
+## State Management
+
+The client maintains several states:
+
+```typescript
+class MCPClient {
+  private connected: boolean = false;
+  private initialized: boolean = false;
+  private availableTools: MCPTool[] = [];
+  private oauthConfigs: Map<string, OAuthConfig>;
+  private messageHandlers: Set<MessageHandler>;
+  // ...
+}
+```
+
+**State transitions:**
+
+- `disconnected` → `connecting` → `connected` → `initialized`
+- `initialized` → `disconnected` (on disconnect)
+
+## Error Handling
+
+The SDK uses a hierarchical error handling approach:
+
+1. **Transport errors** - Connection failures, timeouts
+2. **Protocol errors** - JSON-RPC errors, malformed messages
+3. **Application errors** - Tool not found, invalid arguments
+
+```typescript
+try {
+  await client.callTool("github_create_issue", args);
+} catch (error) {
+  // Error includes context about what failed
+  console.error(error.message);
+}
+```
+
+## Type Safety
+
+The SDK is built with TypeScript for full type safety:
+
+- **Interface definitions** - All public APIs have type definitions
+- **Generic types** - Tool schemas use generic types
+- **Type guards** - Runtime type validation where needed
+- **IntelliSense support** - Full autocomplete in IDEs
+
+## Performance Considerations
+
+### HTTP Streaming
+
+- **Persistent connection** - Avoids reconnection overhead
+- **NDJSON format** - Efficient parsing of individual messages
+- **Heartbeat** - Keeps connection alive without data overhead
+
+### Tool Filtering
+
+- **Client-side filtering** - Fast, no server round-trip
+- **Cached tool list** - Tools fetched once at connection time
+
+### Concurrent Requests
+
+- **Multiple tools calls** - Can be made in parallel
+- **Request tracking** - JSON-RPC IDs track individual requests
+
+## Security
+
+### OAuth Credentials
+
+- **Not stored server-side** - Credentials only sent with requests
+- **HTTPS required** - All communication over secure connection
+- **Scoped access** - OAuth scopes limit permissions
+
+### Tool Access Control
+
+- **Plugin-based filtering** - Only enabled tools are accessible
+- **Server-side validation** - Server validates all requests
+
+## Compatibility
+
+The SDK is compatible with:
+
+- **MCP Protocol** - Model Context Protocol specification
+- **StreamableHTTPServer** - MCP's HTTP streaming server
+- **JSON-RPC 2.0** - Standard protocol for requests/responses
+
+## Next Steps
+
+- Review the [API Reference](/docs/reference/api-reference)
+- Explore [Advanced Usage](/docs/guides/advanced-usage) patterns
+- Check the source code in the repository

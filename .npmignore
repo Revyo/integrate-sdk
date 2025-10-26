@@ -1,5 +1,6 @@
 # Source files (only ship dist/)
 src/
+docs/
 tests/
 examples/
 
