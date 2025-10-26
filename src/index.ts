@@ -31,6 +31,14 @@ export {
 } from "./plugins/generic.js";
 export type { GenericOAuthPluginConfig } from "./plugins/generic.js";
 
+// Integrations
+export {
+  convertMCPToolToVercelAI,
+  convertMCPToolsToVercelAI,
+  getVercelAITools,
+} from "./integrations/vercel-ai.js";
+export type { VercelAITool } from "./integrations/vercel-ai.js";
+
 // Protocol types
 export type {
   JSONRPCRequest,

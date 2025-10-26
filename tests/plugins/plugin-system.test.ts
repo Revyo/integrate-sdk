@@ -54,6 +54,29 @@ describe("Plugin System", () => {
       expect(plugin.tools).toContain("github_list_repos");
       expect(plugin.tools).toContain("github_create_pull_request");
     });
+
+    test("has lifecycle hooks defined", () => {
+      const plugin = githubPlugin({
+        clientId: "test-id",
+        clientSecret: "test-secret",
+      });
+
+      expect(plugin.onInit).toBeDefined();
+      expect(plugin.onAfterConnect).toBeDefined();
+    });
+
+    test("lifecycle hooks execute successfully", async () => {
+      const plugin = githubPlugin({
+        clientId: "test-id",
+        clientSecret: "test-secret",
+      });
+
+      // Test onInit
+      await expect(plugin.onInit?.(null as any)).resolves.toBeUndefined();
+
+      // Test onAfterConnect
+      await expect(plugin.onAfterConnect?.(null as any)).resolves.toBeUndefined();
+    });
   });
 
   describe("Gmail Plugin", () => {
@@ -89,6 +112,29 @@ describe("Plugin System", () => {
       expect(plugin.tools).toContain("gmail_send_email");
       expect(plugin.tools).toContain("gmail_list_emails");
       expect(plugin.tools).toContain("gmail_search_emails");
+    });
+
+    test("has lifecycle hooks defined", () => {
+      const plugin = gmailPlugin({
+        clientId: "test-id",
+        clientSecret: "test-secret",
+      });
+
+      expect(plugin.onInit).toBeDefined();
+      expect(plugin.onAfterConnect).toBeDefined();
+    });
+
+    test("lifecycle hooks execute successfully", async () => {
+      const plugin = gmailPlugin({
+        clientId: "test-id",
+        clientSecret: "test-secret",
+      });
+
+      // Test onInit
+      await expect(plugin.onInit?.(null as any)).resolves.toBeUndefined();
+
+      // Test onAfterConnect
+      await expect(plugin.onAfterConnect?.(null as any)).resolves.toBeUndefined();
     });
   });
 

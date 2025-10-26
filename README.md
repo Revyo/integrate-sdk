@@ -14,6 +14,7 @@ A type-safe TypeScript SDK for connecting to the Integrate MCP (Model Context Pr
   - [GitHub Plugin](#github-plugin)
   - [Gmail Plugin](#gmail-plugin)
 - [Creating Custom Plugins](#creating-custom-plugins)
+- [Integration with Vercel AI SDK](#integration-with-vercel-ai-sdk)
 - [Advanced Usage](#advanced-usage)
 - [API Reference](#api-reference)
 - [Architecture](#architecture)
@@ -228,6 +229,57 @@ export function customPlugin(config: CustomConfig): MCPPlugin {
   };
 }
 ```
+
+## Integration with Vercel AI SDK
+
+The SDK includes built-in support for Vercel's AI SDK, allowing you to give AI models access to all your integrations.
+
+### Quick Example
+
+```typescript
+import { createMCPClient, githubPlugin, getVercelAITools } from 'integrate-sdk';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+// 1. Create and connect MCP client
+const mcpClient = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    }),
+  ],
+});
+
+await mcpClient.connect();
+
+// 2. Get tools in Vercel AI SDK format
+const tools = getVercelAITools(mcpClient);
+
+// 3. Use with AI models
+const result = await generateText({
+  model: openai('gpt-4'),
+  prompt: 'Create a GitHub issue titled "Bug in login" in myrepo',
+  tools,
+  maxToolRoundtrips: 5,
+});
+
+console.log(result.text);
+```
+
+### How It Works
+
+1. **`getVercelAITools(client)`** - Converts all enabled MCP tools to Vercel AI SDK format
+2. **Automatic execution** - When the AI calls a tool, it executes through your MCP client
+3. **Type-safe** - Full TypeScript support with proper types
+
+### Available Functions
+
+- **`getVercelAITools(client)`** - Get all enabled tools in Vercel AI SDK format
+- **`convertMCPToolsToVercelAI(client)`** - Same as above, alternative name
+- **`convertMCPToolToVercelAI(tool, client)`** - Convert a single MCP tool
+
+See `examples/vercel-ai-integration.ts` for a complete working example.
 
 ## Advanced Usage
 
