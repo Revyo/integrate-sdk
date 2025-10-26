@@ -1,0 +1,46 @@
+---
+title: Installation
+description: Install the Integrate SDK in your project
+---
+
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+# Installation
+
+Install the Integrate SDK using your preferred package manager.
+
+<Tabs items={['bun (Recommended)', 'npm', 'pnpm', 'yarn']}>
+  <Tab value="bun (Recommended)">
+    ```bash
+    bun add integrate-sdk
+    ```
+  </Tab>
+  <Tab value="npm">
+    ```bash
+    npm install integrate-sdk
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add integrate-sdk
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn add integrate-sdk
+    ```
+  </Tab>
+</Tabs>
+
+## TypeScript Support
+
+The SDK is built with TypeScript and includes type definitions out of the box. No additional `@types` packages are needed.
+
+## Requirements
+
+- Node.js 16+ or Bun 1.0+
+- TypeScript 4.5+ (for TypeScript projects)
+
+## Next Steps
+
+Now that you have the SDK installed, check out the [Quick Start](/docs/getting-started/quick-start) guide to create your first integration.

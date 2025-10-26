@@ -1,0 +1,170 @@
+---
+title: GitHub Plugin
+description: Manage GitHub repositories, issues, and pull requests
+---
+
+# GitHub Plugin
+
+The GitHub plugin provides access to GitHub's API through the Integrate MCP server.
+
+## Installation
+
+The GitHub plugin is included with the SDK:
+
+```typescript
+import { createMCPClient, githubPlugin } from "integrate-sdk";
+```
+
+## Setup
+
+### 1. Create a GitHub OAuth App
+
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Click "New OAuth App"
+3. Fill in the application details
+4. Note your Client ID and Client Secret
+
+### 2. Configure the Plugin
+
+```typescript
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ["repo", "user", "read:org"], // Optional
+      redirectUri: "http://localhost:3000/callback", // Optional
+    }),
+  ],
+});
+```
+
+## Configuration Options
+
+| Option         | Type     | Required | Default            | Description                |
+| -------------- | -------- | -------- | ------------------ | -------------------------- |
+| `clientId`     | string   | Yes      | -                  | GitHub OAuth client ID     |
+| `clientSecret` | string   | Yes      | -                  | GitHub OAuth client secret |
+| `scopes`       | string[] | No       | `['repo', 'user']` | OAuth scopes               |
+| `redirectUri`  | string   | No       | -                  | OAuth redirect URI         |
+
+## Available Tools
+
+### Issues
+
+- **`github_create_issue`** - Create a new issue
+- **`github_list_issues`** - List issues in a repository
+- **`github_get_issue`** - Get a specific issue
+- **`github_update_issue`** - Update an issue
+- **`github_close_issue`** - Close an issue
+
+### Pull Requests
+
+- **`github_create_pull_request`** - Create a new pull request
+- **`github_list_pull_requests`** - List pull requests
+- **`github_get_pull_request`** - Get a specific pull request
+- **`github_merge_pull_request`** - Merge a pull request
+
+### Repositories
+
+- **`github_list_repos`** - List repositories for a user/org
+- **`github_list_own_repos`** - List your repositories
+- **`github_get_repo`** - Get repository details
+- **`github_create_repo`** - Create a new repository
+
+### And More...
+
+The plugin provides access to many more GitHub tools. Use `client.getEnabledTools()` to see all available tools.
+
+## Examples
+
+### Create an Issue
+
+```typescript
+await client.connect();
+
+const result = await client.callTool("github_create_issue", {
+  repo: "username/repository",
+  title: "Bug: App crashes on startup",
+  body: "When I start the app, it immediately crashes with error XYZ",
+  labels: ["bug", "priority:high"],
+  assignees: ["username"],
+});
+
+console.log("Issue created:", result);
+```
+
+### List Pull Requests
+
+```typescript
+const result = await client.callTool("github_list_pull_requests", {
+  repo: "username/repository",
+  state: "open",
+  sort: "created",
+  direction: "desc",
+});
+
+console.log("Open PRs:", result);
+```
+
+### Create a Repository
+
+```typescript
+const result = await client.callTool("github_create_repo", {
+  name: "my-new-project",
+  description: "A new project",
+  private: false,
+  auto_init: true,
+});
+
+console.log("Repository created:", result);
+```
+
+### Merge a Pull Request
+
+```typescript
+const result = await client.callTool("github_merge_pull_request", {
+  repo: "username/repository",
+  pull_number: 42,
+  merge_method: "squash",
+  commit_title: "Feature: Add new functionality",
+});
+
+console.log("PR merged:", result);
+```
+
+## OAuth Scopes
+
+The default scopes are `['repo', 'user']`. You may need additional scopes depending on what tools you use:
+
+- **`repo`** - Full control of private repositories
+- **`user`** - Read/write access to profile info
+- **`read:org`** - Read organization data
+- **`write:org`** - Manage organization data
+- **`admin:repo_hook`** - Manage repository webhooks
+- **`gist`** - Create and manage gists
+
+## Error Handling
+
+```typescript
+try {
+  const result = await client.callTool("github_create_issue", {
+    repo: "username/repository",
+    title: "New issue",
+  });
+} catch (error) {
+  if (error.message.includes("not found")) {
+    console.error("Repository not found");
+  } else if (error.message.includes("authentication")) {
+    console.error("Authentication failed");
+  } else {
+    console.error("Unexpected error:", error);
+  }
+}
+```
+
+## Next Steps
+
+- Explore the [Gmail Plugin](/docs/plugins/gmail)
+- Learn about [Custom Plugins](/docs/plugins/custom-plugins)
+- See [Advanced Usage](/docs/guides/advanced-usage) for more examples

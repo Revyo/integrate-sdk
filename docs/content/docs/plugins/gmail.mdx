@@ -1,0 +1,193 @@
+---
+title: Gmail Plugin
+description: Send emails, manage labels, and search messages
+---
+
+# Gmail Plugin
+
+The Gmail plugin provides access to Gmail's API through the Integrate MCP server.
+
+## Installation
+
+The Gmail plugin is included with the SDK:
+
+```typescript
+import { createMCPClient, gmailPlugin } from "integrate-sdk";
+```
+
+## Setup
+
+### 1. Create Google OAuth Credentials
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project or select an existing one
+3. Enable the Gmail API
+4. Create OAuth 2.0 credentials
+5. Note your Client ID and Client Secret
+
+### 2. Configure the Plugin
+
+```typescript
+const client = createMCPClient({
+  plugins: [
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: [
+        // Optional
+        "https://www.googleapis.com/auth/gmail.send",
+        "https://www.googleapis.com/auth/gmail.readonly",
+      ],
+    }),
+  ],
+});
+```
+
+## Configuration Options
+
+| Option         | Type     | Required | Default             | Description                |
+| -------------- | -------- | -------- | ------------------- | -------------------------- |
+| `clientId`     | string   | Yes      | -                   | Google OAuth client ID     |
+| `clientSecret` | string   | Yes      | -                   | Google OAuth client secret |
+| `scopes`       | string[] | No       | Common Gmail scopes | OAuth scopes               |
+| `redirectUri`  | string   | No       | -                   | OAuth redirect URI         |
+
+## Available Tools
+
+### Email Management
+
+- **`gmail_send_email`** - Send an email
+- **`gmail_list_emails`** - List emails in your inbox
+- **`gmail_get_email`** - Get a specific email
+- **`gmail_delete_email`** - Delete an email
+- **`gmail_search_emails`** - Search emails by query
+
+### Email Status
+
+- **`gmail_mark_as_read`** - Mark email(s) as read
+- **`gmail_mark_as_unread`** - Mark email(s) as unread
+
+### Labels
+
+- **`gmail_list_labels`** - List all labels
+- **`gmail_create_label`** - Create a new label
+
+### And More...
+
+Use `client.getEnabledTools()` to see all available Gmail tools.
+
+## Examples
+
+### Send an Email
+
+```typescript
+await client.connect();
+
+const result = await client.callTool("gmail_send_email", {
+  to: "recipient@example.com",
+  subject: "Hello from Integrate SDK",
+  body: "This email was sent using the Integrate SDK!",
+  cc: ["cc@example.com"],
+  bcc: ["bcc@example.com"],
+});
+
+console.log("Email sent:", result);
+```
+
+### List Emails
+
+```typescript
+const result = await client.callTool("gmail_list_emails", {
+  maxResults: 10,
+  labelIds: ["INBOX"],
+  includeSpamTrash: false,
+});
+
+console.log("Emails:", result);
+```
+
+### Search Emails
+
+```typescript
+const result = await client.callTool("gmail_search_emails", {
+  query: "from:sender@example.com subject:important",
+  maxResults: 20,
+});
+
+console.log("Search results:", result);
+```
+
+### Create a Label
+
+```typescript
+const result = await client.callTool("gmail_create_label", {
+  name: "Projects/My Project",
+  labelListVisibility: "labelShow",
+  messageListVisibility: "show",
+});
+
+console.log("Label created:", result);
+```
+
+### Mark as Read
+
+```typescript
+const result = await client.callTool("gmail_mark_as_read", {
+  messageIds: ["message-id-1", "message-id-2"],
+});
+
+console.log("Marked as read:", result);
+```
+
+## OAuth Scopes
+
+The default scopes provide common Gmail access. You may need additional scopes:
+
+- **`https://www.googleapis.com/auth/gmail.send`** - Send email
+- **`https://www.googleapis.com/auth/gmail.readonly`** - Read email
+- **`https://www.googleapis.com/auth/gmail.modify`** - Modify email
+- **`https://www.googleapis.com/auth/gmail.labels`** - Manage labels
+- **`https://mail.google.com/`** - Full Gmail access
+
+## Gmail Search Queries
+
+The `gmail_search_emails` tool supports Gmail's search syntax:
+
+- `from:sender@example.com` - From specific sender
+- `to:recipient@example.com` - To specific recipient
+- `subject:keyword` - Subject contains keyword
+- `has:attachment` - Has attachments
+- `is:unread` - Unread emails
+- `after:2024/01/01` - After specific date
+- `newer_than:7d` - Newer than 7 days
+
+Combine with operators:
+
+- `from:sender@example.com OR from:other@example.com`
+- `subject:urgent AND is:unread`
+
+## Error Handling
+
+```typescript
+try {
+  const result = await client.callTool("gmail_send_email", {
+    to: "recipient@example.com",
+    subject: "Test",
+    body: "Test email",
+  });
+} catch (error) {
+  if (error.message.includes("authentication")) {
+    console.error("Authentication failed - check OAuth credentials");
+  } else if (error.message.includes("quota")) {
+    console.error("Gmail API quota exceeded");
+  } else {
+    console.error("Unexpected error:", error);
+  }
+}
+```
+
+## Next Steps
+
+- Learn about the [GitHub Plugin](/docs/plugins/github)
+- Create [Custom Plugins](/docs/plugins/custom-plugins)
+- See [Advanced Usage](/docs/guides/advanced-usage) for more examples

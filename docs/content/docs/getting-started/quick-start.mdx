@@ -1,0 +1,149 @@
+---
+title: Quick Start
+description: Get up and running with Integrate SDK in minutes
+---
+
+# Quick Start
+
+This guide will help you create your first integration with the Integrate SDK.
+
+## Basic Example
+
+Here's a complete example that connects to the MCP server and calls a GitHub tool:
+
+```typescript
+import { createMCPClient, githubPlugin, gmailPlugin } from "integrate-sdk";
+
+// Create a client with plugins
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ["repo", "user"],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+    }),
+  ],
+});
+
+// Connect to the server
+await client.connect();
+
+// Call tools
+const result = await client.callTool("github_create_issue", {
+  repo: "owner/repo",
+  title: "Bug report",
+  body: "Description of the bug",
+});
+
+console.log("Issue created:", result);
+
+// Disconnect when done
+await client.disconnect();
+```
+
+## Step-by-Step Breakdown
+
+### 1. Import the SDK
+
+```typescript
+import { createMCPClient, githubPlugin, gmailPlugin } from "integrate-sdk";
+```
+
+### 2. Set Up OAuth Credentials
+
+Before using the SDK, you need to create OAuth apps for the services you want to integrate:
+
+- **GitHub**: Create an OAuth App at [GitHub Developer Settings](https://github.com/settings/developers)
+- **Gmail**: Create a project and OAuth 2.0 credentials in [Google Cloud Console](https://console.cloud.google.com)
+
+Store your credentials in environment variables:
+
+```bash
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+GMAIL_CLIENT_ID=your_gmail_client_id
+GMAIL_CLIENT_SECRET=your_gmail_client_secret
+```
+
+### 3. Create the Client
+
+```typescript
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+### 4. Connect to the Server
+
+```typescript
+await client.connect();
+```
+
+This establishes an HTTP streaming connection to `https://mcp.integrate.dev/api/v1/mcp`.
+
+### 5. Call Tools
+
+```typescript
+const result = await client.callTool("github_create_issue", {
+  repo: "owner/repo",
+  title: "Bug report",
+  body: "Description of the bug",
+});
+```
+
+### 6. Disconnect
+
+```typescript
+await client.disconnect();
+```
+
+Always disconnect when you're done to clean up resources.
+
+## List Available Tools
+
+To see what tools are available:
+
+```typescript
+await client.connect();
+
+const tools = client.getEnabledTools();
+console.log(
+  "Available tools:",
+  tools.map((t) => t.name)
+);
+```
+
+## Error Handling
+
+Wrap your code in try-catch blocks to handle errors:
+
+```typescript
+try {
+  await client.connect();
+  const result = await client.callTool("github_create_issue", {
+    repo: "owner/repo",
+    title: "Bug report",
+  });
+  console.log("Success:", result);
+} catch (error) {
+  console.error("Error:", error.message);
+} finally {
+  await client.disconnect();
+}
+```
+
+## Next Steps
+
+- Explore [Built-in Plugins](/docs/plugins) to see what integrations are available
+- Learn how to [Create Custom Plugins](/docs/plugins/custom-plugins)
+- Integrate with [Vercel AI SDK](/docs/integrations/vercel-ai) to give AI models access to your tools

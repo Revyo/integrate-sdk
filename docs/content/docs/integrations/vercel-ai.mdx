@@ -1,0 +1,347 @@
+---
+title: Vercel AI SDK Integration
+description: Give AI models access to all your integrations
+---
+
+# Vercel AI SDK Integration
+
+The Integrate SDK includes built-in support for Vercel's AI SDK, allowing you to give AI models access to all your integrations with just a few lines of code.
+
+## Overview
+
+The integration converts MCP tools into Vercel AI SDK tool format, enabling AI models to:
+
+- Create GitHub issues and pull requests
+- Send emails via Gmail
+- Search Notion databases
+- And any other MCP tool you enable
+
+## Quick Example
+
+```typescript
+import { createMCPClient, githubPlugin, getVercelAITools } from "integrate-sdk";
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+// 1. Create and connect MCP client
+const mcpClient = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    }),
+  ],
+});
+
+await mcpClient.connect();
+
+// 2. Get tools in Vercel AI SDK format
+const tools = getVercelAITools(mcpClient);
+
+// 3. Use with AI models
+const result = await generateText({
+  model: openai("gpt-5"),
+  prompt: 'Create a GitHub issue titled "Bug in login" in myrepo',
+  tools,
+  maxToolRoundtrips: 5,
+});
+
+console.log(result.text);
+```
+
+## Installation
+
+You need both the Integrate SDK and Vercel AI SDK:
+
+```bash
+bun add integrate-sdk ai @ai-sdk/openai
+```
+
+## Step-by-Step Guide
+
+### 1. Set Up the MCP Client
+
+First, create and configure your MCP client with the plugins you need:
+
+```typescript
+import { createMCPClient, githubPlugin, gmailPlugin } from "integrate-sdk";
+
+const mcpClient = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+    }),
+  ],
+});
+
+await mcpClient.connect();
+```
+
+### 2. Convert Tools
+
+Use `getVercelAITools()` to convert all enabled MCP tools:
+
+```typescript
+const tools = getVercelAITools(mcpClient);
+```
+
+This automatically:
+
+- Converts tool schemas to Vercel AI format
+- Sets up execution handlers
+- Preserves tool descriptions and parameters
+
+### 3. Use with AI Models
+
+Pass the tools to Vercel AI SDK's `generateText` or `streamText`:
+
+```typescript
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const result = await generateText({
+  model: openai("gpt-5"),
+  prompt: "Your prompt here",
+  tools,
+  maxToolRoundtrips: 5, // Allow multiple tool calls
+});
+```
+
+## Complete Example with Multiple Tools
+
+```typescript
+import {
+  createMCPClient,
+  githubPlugin,
+  gmailPlugin,
+  getVercelAITools,
+} from "integrate-sdk";
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+async function main() {
+  // Set up MCP client
+  const mcpClient = createMCPClient({
+    plugins: [
+      githubPlugin({
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      }),
+      gmailPlugin({
+        clientId: process.env.GMAIL_CLIENT_ID!,
+        clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      }),
+    ],
+  });
+
+  await mcpClient.connect();
+
+  // Get tools
+  const tools = getVercelAITools(mcpClient);
+
+  // Use with AI
+  const result = await generateText({
+    model: openai("gpt-5"),
+    prompt: `
+      Check my GitHub repo 'username/myapp' for open issues.
+      For any issues labeled 'bug', send me an email at me@example.com
+      with a summary of the bugs.
+    `,
+    tools,
+    maxToolRoundtrips: 10,
+  });
+
+  console.log(result.text);
+  console.log("\nTools called:", result.toolCalls);
+
+  await mcpClient.disconnect();
+}
+
+main();
+```
+
+## Streaming Responses
+
+Use `streamText` for real-time streaming:
+
+```typescript
+import { streamText } from "ai";
+
+const result = await streamText({
+  model: openai("gpt-5"),
+  prompt: "Create a GitHub issue about the login bug",
+  tools,
+  maxToolRoundtrips: 5,
+});
+
+// Stream the response
+for await (const chunk of result.textStream) {
+  process.stdout.write(chunk);
+}
+```
+
+## API Reference
+
+### getVercelAITools(client)
+
+Converts all enabled MCP tools to Vercel AI SDK format.
+
+**Parameters:**
+
+- `client: MCPClient` - The connected MCP client
+
+**Returns:**
+
+- `Record<string, CoreTool>` - Tools in Vercel AI SDK format
+
+**Example:**
+
+```typescript
+const tools = getVercelAITools(mcpClient);
+```
+
+### convertMCPToolsToVercelAI(client)
+
+Alternative name for `getVercelAITools()`.
+
+### convertMCPToolToVercelAI(tool, client)
+
+Converts a single MCP tool to Vercel AI SDK format.
+
+**Parameters:**
+
+- `tool: MCPTool` - The MCP tool definition
+- `client: MCPClient` - The MCP client for execution
+
+**Returns:**
+
+- `CoreTool` - Tool in Vercel AI SDK format
+
+**Example:**
+
+```typescript
+const githubTools = mcpClient
+  .getEnabledTools()
+  .filter((t) => t.name.startsWith("github_"))
+  .map((t) => convertMCPToolToVercelAI(t, mcpClient));
+```
+
+## Tool Execution
+
+When the AI model calls a tool:
+
+1. Vercel AI SDK invokes the tool handler
+2. The handler calls `mcpClient.callTool()`
+3. The request is sent to the MCP server
+4. Results are returned to the AI model
+5. The AI continues processing
+
+## Error Handling
+
+Handle errors during tool execution:
+
+```typescript
+try {
+  const result = await generateText({
+    model: openai("gpt-5"),
+    prompt: "Create a GitHub issue",
+    tools,
+    maxToolRoundtrips: 5,
+  });
+
+  if (result.toolResults) {
+    for (const toolResult of result.toolResults) {
+      if (toolResult.result.error) {
+        console.error("Tool error:", toolResult.result.error);
+      }
+    }
+  }
+} catch (error) {
+  console.error("Generation error:", error);
+}
+```
+
+## Filtering Tools
+
+If you want to expose only specific tools to the AI:
+
+```typescript
+const allTools = getVercelAITools(mcpClient);
+
+// Only GitHub tools
+const githubTools = Object.fromEntries(
+  Object.entries(allTools).filter(([name]) => name.startsWith("github_"))
+);
+
+const result = await generateText({
+  model: openai("gpt-5"),
+  prompt: "Work with GitHub",
+  tools: githubTools,
+});
+```
+
+## Best Practices
+
+1. **Set appropriate `maxToolRoundtrips`** - Allow enough rounds for complex tasks
+2. **Use clear prompts** - Help the AI understand what tools to use
+3. **Handle tool errors** - Check for and log tool execution errors
+4. **Filter tools when needed** - Limit tools to prevent confusion
+5. **Clean up connections** - Always disconnect when done
+
+## Example: AI-Powered Project Manager
+
+```typescript
+import { createMCPClient, githubPlugin, getVercelAITools } from "integrate-sdk";
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+async function aiProjectManager(task: string) {
+  const mcpClient = createMCPClient({
+    plugins: [
+      githubPlugin({
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      }),
+    ],
+  });
+
+  await mcpClient.connect();
+
+  const tools = getVercelAITools(mcpClient);
+
+  const result = await generateText({
+    model: openai("gpt-5"),
+    prompt: `
+      You are a project manager. The user says: "${task}"
+      
+      Use GitHub tools to:
+      1. Check for relevant issues
+      2. Create or update issues as needed
+      3. Provide a summary of actions taken
+    `,
+    tools,
+    maxToolRoundtrips: 10,
+  });
+
+  await mcpClient.disconnect();
+
+  return result.text;
+}
+
+// Usage
+const summary = await aiProjectManager(
+  "Set up issues for the new authentication feature"
+);
+console.log(summary);
+```
+
+## Next Steps
+
+- Explore [Advanced Usage](/docs/guides/advanced-usage)
+- Check the [API Reference](/docs/reference/api-reference)
+- See example code in the repository's `examples/` directory

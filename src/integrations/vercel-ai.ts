@@ -70,7 +70,7 @@ export function convertMCPToolToVercelAI(
  * const tools = convertMCPToolsToVercelAI(mcpClient);
  * 
  * const result = await generateText({
- *   model: openai('gpt-4'),
+ *   model: openai('gpt-5'),
  *   prompt: 'Create a GitHub issue in my repo',
  *   tools,
  * });

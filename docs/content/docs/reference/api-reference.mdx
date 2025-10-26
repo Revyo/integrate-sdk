@@ -1,0 +1,511 @@
+---
+title: API Reference
+description: Complete API reference for the Integrate SDK
+---
+
+# API Reference
+
+Complete reference documentation for the Integrate SDK.
+
+## createMCPClient
+
+Creates a new MCP client instance.
+
+```typescript
+function createMCPClient(config: MCPClientConfig): MCPClient;
+```
+
+### Parameters
+
+```typescript
+interface MCPClientConfig {
+  plugins: MCPPlugin[]; // Array of plugins to enable
+  headers?: Record<string, string>; // Custom HTTP headers (optional)
+  timeout?: number; // Request timeout in ms (default: 30000)
+  clientInfo?: {
+    // Client identification (optional)
+    name: string;
+    version: string;
+  };
+}
+```
+
+### Returns
+
+An `MCPClient` instance.
+
+### Example
+
+```typescript
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    }),
+  ],
+  timeout: 60000,
+  headers: {
+    "User-Agent": "my-app/1.0.0",
+  },
+  clientInfo: {
+    name: "my-app",
+    version: "1.0.0",
+  },
+});
+```
+
+## MCPClient
+
+The main client class for interacting with the MCP server.
+
+### connect()
+
+Establishes connection to the MCP server.
+
+```typescript
+async connect(): Promise<void>
+```
+
+**Example:**
+
+```typescript
+await client.connect();
+```
+
+### disconnect()
+
+Closes the connection to the MCP server.
+
+```typescript
+async disconnect(): Promise<void>
+```
+
+**Example:**
+
+```typescript
+await client.disconnect();
+```
+
+### callTool()
+
+Invokes a tool on the MCP server.
+
+```typescript
+async callTool(name: string, args?: Record<string, any>): Promise<MCPToolCallResponse>
+```
+
+**Parameters:**
+
+- `name` - Tool name (e.g., 'github_create_issue')
+- `args` - Tool arguments as key-value pairs (optional)
+
+**Returns:**
+
+- `MCPToolCallResponse` - Tool execution result
+
+**Example:**
+
+```typescript
+const result = await client.callTool("github_create_issue", {
+  repo: "owner/repo",
+  title: "Bug report",
+  body: "Description",
+});
+```
+
+### getTool()
+
+Gets a specific tool definition.
+
+```typescript
+getTool(name: string): MCPTool | undefined
+```
+
+**Parameters:**
+
+- `name` - Tool name
+
+**Returns:**
+
+- `MCPTool` or `undefined` if not found
+
+**Example:**
+
+```typescript
+const tool = client.getTool("github_create_issue");
+console.log(tool?.inputSchema);
+```
+
+### getEnabledTools()
+
+Gets all enabled tools (filtered by plugins).
+
+```typescript
+getEnabledTools(): MCPTool[]
+```
+
+**Returns:**
+
+- Array of `MCPTool` objects
+
+**Example:**
+
+```typescript
+const tools = client.getEnabledTools();
+console.log(
+  "Enabled tools:",
+  tools.map((t) => t.name)
+);
+```
+
+### getAvailableTools()
+
+Gets all available tools from the server (unfiltered).
+
+```typescript
+getAvailableTools(): MCPTool[]
+```
+
+**Returns:**
+
+- Array of `MCPTool` objects
+
+**Example:**
+
+```typescript
+const tools = client.getAvailableTools();
+console.log(
+  "All tools:",
+  tools.map((t) => t.name)
+);
+```
+
+### getOAuthConfig()
+
+Gets OAuth configuration for a specific plugin.
+
+```typescript
+getOAuthConfig(pluginId: string): OAuthConfig | undefined
+```
+
+**Parameters:**
+
+- `pluginId` - Plugin identifier
+
+**Returns:**
+
+- `OAuthConfig` or `undefined` if not found
+
+**Example:**
+
+```typescript
+const config = client.getOAuthConfig("github");
+console.log("Scopes:", config?.scopes);
+```
+
+### getAllOAuthConfigs()
+
+Gets all OAuth configurations.
+
+```typescript
+getAllOAuthConfigs(): Map<string, OAuthConfig>
+```
+
+**Returns:**
+
+- Map of plugin IDs to OAuth configurations
+
+**Example:**
+
+```typescript
+const configs = client.getAllOAuthConfigs();
+for (const [pluginId, config] of configs) {
+  console.log(`${pluginId}: ${config.provider}`);
+}
+```
+
+### onMessage()
+
+Registers a message handler.
+
+```typescript
+onMessage(handler: (message: any) => void): () => void
+```
+
+**Parameters:**
+
+- `handler` - Function to handle messages
+
+**Returns:**
+
+- Unsubscribe function
+
+**Example:**
+
+```typescript
+const unsubscribe = client.onMessage((message) => {
+  console.log("Message:", message);
+});
+
+// Later...
+unsubscribe();
+```
+
+### isConnected()
+
+Checks if the client is connected.
+
+```typescript
+isConnected(): boolean
+```
+
+**Returns:**
+
+- `true` if connected, `false` otherwise
+
+**Example:**
+
+```typescript
+if (client.isConnected()) {
+  console.log("Client is connected");
+}
+```
+
+### isInitialized()
+
+Checks if the client is initialized.
+
+```typescript
+isInitialized(): boolean
+```
+
+**Returns:**
+
+- `true` if initialized, `false` otherwise
+
+**Example:**
+
+```typescript
+if (client.isInitialized()) {
+  console.log("Client is initialized");
+}
+```
+
+## Type Definitions
+
+### MCPTool
+
+```typescript
+interface MCPTool {
+  name: string; // Tool name
+  description?: string; // Tool description
+  inputSchema: {
+    // JSON schema for parameters
+    type: "object";
+    properties?: Record<string, any>;
+    required?: string[];
+  };
+}
+```
+
+### MCPToolCallResponse
+
+```typescript
+interface MCPToolCallResponse {
+  content: Array<{
+    type: "text" | "image" | "resource";
+    text?: string;
+    data?: string;
+    mimeType?: string;
+  }>;
+  isError?: boolean;
+}
+```
+
+### OAuthConfig
+
+```typescript
+interface OAuthConfig {
+  provider: string; // OAuth provider name
+  clientId: string; // Client ID
+  clientSecret: string; // Client secret
+  scopes: string[]; // OAuth scopes
+  redirectUri?: string; // Redirect URI (optional)
+}
+```
+
+### MCPPlugin
+
+```typescript
+interface MCPPlugin {
+  id: string; // Unique identifier
+  tools: string[]; // Tool names to enable
+  oauth?: OAuthConfig; // OAuth config (optional)
+  onInit?: PluginHook; // Initialization hook (optional)
+  onBeforeConnect?: PluginHook; // Pre-connection hook (optional)
+  onAfterConnect?: PluginHook; // Post-connection hook (optional)
+  onDisconnect?: PluginHook; // Disconnect hook (optional)
+}
+
+type PluginHook = (client: MCPClient) => Promise<void> | void;
+```
+
+## Built-in Plugins
+
+### githubPlugin()
+
+Creates a GitHub plugin.
+
+```typescript
+function githubPlugin(config: GitHubPluginConfig): MCPPlugin;
+
+interface GitHubPluginConfig {
+  clientId: string;
+  clientSecret: string;
+  scopes?: string[]; // Default: ['repo', 'user']
+  redirectUri?: string;
+}
+```
+
+### gmailPlugin()
+
+Creates a Gmail plugin.
+
+```typescript
+function gmailPlugin(config: GmailPluginConfig): MCPPlugin;
+
+interface GmailPluginConfig {
+  clientId: string;
+  clientSecret: string;
+  scopes?: string[]; // Default: common Gmail scopes
+  redirectUri?: string;
+}
+```
+
+### genericOAuthPlugin()
+
+Creates a generic OAuth plugin.
+
+```typescript
+function genericOAuthPlugin(config: GenericOAuthPluginConfig): MCPPlugin;
+
+interface GenericOAuthPluginConfig {
+  id: string; // Plugin identifier
+  provider: string; // OAuth provider name
+  clientId: string;
+  clientSecret: string;
+  scopes: string[];
+  tools: string[]; // Tool names to enable
+  redirectUri?: string;
+}
+```
+
+### createSimplePlugin()
+
+Creates a simple plugin without OAuth.
+
+```typescript
+function createSimplePlugin(config: SimplePluginConfig): MCPPlugin;
+
+interface SimplePluginConfig {
+  id: string; // Plugin identifier
+  tools: string[]; // Tool names to enable
+  onInit?: PluginHook;
+  onBeforeConnect?: PluginHook;
+  onAfterConnect?: PluginHook;
+  onDisconnect?: PluginHook;
+}
+```
+
+## Vercel AI SDK Integration
+
+### getVercelAITools()
+
+Converts all enabled MCP tools to Vercel AI SDK format.
+
+```typescript
+function getVercelAITools(client: MCPClient): Record<string, CoreTool>;
+```
+
+**Parameters:**
+
+- `client` - Connected MCP client
+
+**Returns:**
+
+- Object mapping tool names to Vercel AI SDK tools
+
+**Example:**
+
+```typescript
+const tools = getVercelAITools(mcpClient);
+const result = await generateText({
+  model: openai("gpt-5"),
+  prompt: "Create a GitHub issue",
+  tools,
+});
+```
+
+### convertMCPToolsToVercelAI()
+
+Alternative name for `getVercelAITools()`.
+
+```typescript
+function convertMCPToolsToVercelAI(client: MCPClient): Record<string, CoreTool>;
+```
+
+### convertMCPToolToVercelAI()
+
+Converts a single MCP tool to Vercel AI SDK format.
+
+```typescript
+function convertMCPToolToVercelAI(tool: MCPTool, client: MCPClient): CoreTool;
+```
+
+**Parameters:**
+
+- `tool` - MCP tool definition
+- `client` - MCP client for execution
+
+**Returns:**
+
+- Tool in Vercel AI SDK format
+
+**Example:**
+
+```typescript
+const tool = client.getTool("github_create_issue");
+if (tool) {
+  const vercelTool = convertMCPToolToVercelAI(tool, client);
+}
+```
+
+## Constants
+
+### Server URL
+
+```typescript
+const MCP_SERVER_URL = "https://mcp.integrate.dev/api/v1/mcp";
+```
+
+### Default Timeout
+
+```typescript
+const DEFAULT_TIMEOUT = 30000; // 30 seconds
+```
+
+## Error Types
+
+The SDK throws standard JavaScript `Error` objects with descriptive messages:
+
+- **Connection errors** - "Failed to connect to MCP server"
+- **Tool errors** - "Tool 'name' is not enabled" / "Tool 'name' is not available"
+- **Authentication errors** - "Authentication failed"
+- **Timeout errors** - "Request timed out"
+
+## Next Steps
+
+- Explore [Advanced Usage](/docs/guides/advanced-usage) for patterns and techniques
+- Check [Architecture](/docs/reference/architecture) to understand the internals
+- See example code in the repository
