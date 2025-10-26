@@ -49,8 +49,6 @@ export class TokenExpiredError extends AuthenticationError {
   constructor(message: string, provider?: string) {
     super(message, 401, provider);
     this.name = "TokenExpiredError";
-    // Explicitly set provider in case parent class doesn't set it correctly
-    this.provider = provider;
   }
 }
 
