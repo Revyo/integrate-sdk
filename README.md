@@ -1,19 +1,50 @@
 # Integrate SDK
 
-A type-safe TypeScript SDK for building MCP (Model Context Protocol) clients with plugin-based OAuth provider configuration.
+A type-safe TypeScript SDK for connecting to the Integrate MCP (Model Context Protocol) server. Access GitHub, Gmail, Notion, and other integrations through a simple, plugin-based API.
+
+**Server:** `https://mcp.integrate.dev/api/v1/mcp`
+
+## Table of Contents
+
+- [What is this SDK?](#what-is-this-sdk)
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Built-in Plugins](#built-in-plugins)
+  - [GitHub Plugin](#github-plugin)
+  - [Gmail Plugin](#gmail-plugin)
+- [Creating Custom Plugins](#creating-custom-plugins)
+- [Advanced Usage](#advanced-usage)
+- [API Reference](#api-reference)
+- [Architecture](#architecture)
+- [How It Works](#how-it-works)
+
+## What is this SDK?
+
+This SDK is a **client library** that connects to the Integrate MCP server to access various third-party integrations.
+
+**Key concepts:**
+1. **Connect to the Integrate MCP server** - The SDK connects to `https://mcp.integrate.dev/api/v1/mcp`
+2. **Configure OAuth credentials** - You provide your own OAuth app credentials for each integration (GitHub, Gmail, etc.)
+3. **Call tools** - Execute actions like creating GitHub issues, sending emails, searching Notion pages
+4. **OAuth flow happens server-side** - The SDK sends your OAuth config to the server, which handles the actual authentication flow
+
+**Important:** You need to create your own OAuth apps (e.g., GitHub OAuth app, Google OAuth app) and provide the credentials to the SDK. The SDK does not provide OAuth credentials.
 
 ## Features
 
-- 🔌 **Plugin-Based Architecture** - Enable only the tools you need with a BetterAuth-inspired plugin pattern
-- 🔒 **Type-Safe Configuration** - Full TypeScript support with IntelliSense for tools and configurations
-- 🌊 **HTTP Streaming** - Real-time bidirectional communication via HTTP streaming with newline-delimited JSON (NDJSON)
-- 🔐 **OAuth Support** - Built-in OAuth configuration for multiple providers
-- 🛠️ **Extensible** - Easy to create custom plugins for any OAuth provider or tool set
-- 📦 **Zero Dependencies** - Lightweight with no external runtime dependencies
+- 🔌 **Plugin-Based Architecture** - Enable only the integrations you need
+- 🔒 **Type-Safe** - Full TypeScript support with IntelliSense
+- 🌊 **Real-time Communication** - HTTP streaming with NDJSON
+- 🔐 **OAuth Ready** - Configure OAuth credentials for each provider
+- 🛠️ **Extensible** - Create custom plugins for new integrations
+- 📦 **Zero Dependencies** - Lightweight implementation
 
 ## Installation
 
 ```bash
+npm install integrate-sdk
+# or
 bun add integrate-sdk
 ```
 
@@ -133,10 +164,10 @@ const slackPlugin = genericOAuthPlugin({
   clientSecret: process.env.SLACK_CLIENT_SECRET!,
   scopes: ['chat:write', 'channels:read', 'users:read'],
   tools: [
-    'slack/sendMessage',
-    'slack/listChannels',
-    'slack/getChannel',
-    'slack/inviteUser',
+    'slack_send_message',
+    'slack_list_channels',
+    'slack_get_channel',
+    'slack_invite_user',
   ],
   redirectUri: 'https://your-app.com/callback',
 });
@@ -155,7 +186,7 @@ import { createSimplePlugin } from 'integrate-sdk';
 
 const mathPlugin = createSimplePlugin({
   id: 'math',
-  tools: ['math/add', 'math/subtract', 'math/multiply', 'math/divide'],
+  tools: ['math_add', 'math_subtract', 'math_multiply', 'math_divide'],
   onInit: async (client) => {
     console.log('Math plugin initialized');
   },
@@ -170,7 +201,7 @@ import type { MCPPlugin } from 'integrate-sdk';
 export function customPlugin(config: CustomConfig): MCPPlugin {
   return {
     id: 'custom',
-    tools: ['custom/tool1', 'custom/tool2'],
+    tools: ['custom_tool1', 'custom_tool2'],
     oauth: {
       provider: 'custom-provider',
       clientId: config.clientId,
@@ -345,29 +376,21 @@ The SDK uses HTTP streaming with newline-delimited JSON (NDJSON) for bidirection
 - Automatic heartbeat to keep connection alive
 - Compatible with MCP's `StreamableHTTPServer`
 
-## MCP Server Requirements
+## How It Works
 
-Your MCP server should implement HTTP streaming transport compatible with MCP's `StreamableHTTPServer`:
+1. **Client Configuration**: You configure the SDK with plugins for the integrations you want to use (GitHub, Gmail, etc.)
+2. **Connection**: The SDK connects to `https://mcp.integrate.dev/api/v1/mcp` using HTTP streaming (NDJSON)
+3. **Tool Discovery**: The SDK fetches available tools from the server and filters them based on your enabled plugins
+4. **OAuth Configuration**: Your OAuth credentials are stored in the client configuration (not sent to the server yet)
+5. **Tool Calls**: When you call a tool, the SDK sends a JSON-RPC request to the server
+6. **OAuth Flow**: The server uses your OAuth configuration to authenticate and execute the tool
 
-- A single streaming endpoint (e.g., `POST /api/v1/mcp`) that:
-  - Accepts HTTP POST with streaming request body (NDJSON format)
-  - Returns streaming response body (NDJSON format)
-  - Supports bidirectional communication over a single persistent connection
-  - Messages are newline-delimited JSON (one JSON object per line)
+## Server Information
 
-And support these MCP protocol methods:
-- `initialize` - Initialize the protocol connection
-- `tools/list` - List available tools
-- `tools/call` - Invoke a tool
-
-**Example Go server setup:**
-```go
-httpServer := server.NewStreamableHTTPServer(s,
-    server.WithEndpointPath("/api/v1/mcp"),
-    server.WithHeartbeatInterval(30*time.Second),
-    server.WithStateLess(false),
-)
-```
+**Endpoint:** `https://mcp.integrate.dev/api/v1/mcp`  
+**Protocol:** MCP (Model Context Protocol) over HTTP streaming  
+**Format:** Newline-delimited JSON (NDJSON)  
+**Methods:** `initialize`, `tools/list`, `tools/call`
 
 ## TypeScript Support
 
@@ -394,9 +417,9 @@ const result: MCPToolCallResponse = await client.callTool('github_create_issue',
 });
 ```
 
-# Test Suite
+## Contributing
 
-Comprehensive test suite for the Integrate SDK.
+Contributions are welcome! Please see the tests in the `tests/` directory for examples of how to test new features.
 
 ## Test Structure
 
