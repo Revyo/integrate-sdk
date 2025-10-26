@@ -121,7 +121,7 @@ const tools = getVercelAITools(mcpClient);
 
 // Use with AI models
 const result = await generateText({
-  model: openai("gpt-4"),
+  model: openai("gpt-5"),
   prompt: "Create a GitHub issue about the login bug",
   tools,
   maxToolRoundtrips: 5,

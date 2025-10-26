@@ -43,7 +43,7 @@ async function main() {
   import { openai } from '@ai-sdk/openai';
 
   const result = await generateText({
-    model: openai('gpt-4'),
+    model: openai('gpt-5'),
     prompt: 'Create a GitHub issue titled "Bug: Login not working" in the repository owner/repo',
     tools,
     maxToolRoundtrips: 5,
@@ -61,13 +61,13 @@ async function main() {
       console.log(`\nTool: github_get_repo`);
       console.log(`Description: ${githubRepoTool.description}`);
       console.log(`Parameters: ${JSON.stringify(githubRepoTool.parameters, null, 2)}`);
-      
+
       // Execute the tool
       const result = await githubRepoTool.execute({
         owner: "facebook",
         repo: "react",
       });
-      
+
       console.log("\n✅ Tool executed successfully!");
       console.log("Result preview:", JSON.stringify(result, null, 2).substring(0, 300) + "...");
     }

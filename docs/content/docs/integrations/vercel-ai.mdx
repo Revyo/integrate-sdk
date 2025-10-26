@@ -40,7 +40,7 @@ const tools = getVercelAITools(mcpClient);
 
 // 3. Use with AI models
 const result = await generateText({
-  model: openai("gpt-4"),
+  model: openai("gpt-5"),
   prompt: 'Create a GitHub issue titled "Bug in login" in myrepo',
   tools,
   maxToolRoundtrips: 5,
@@ -105,7 +105,7 @@ import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 const result = await generateText({
-  model: openai("gpt-4"),
+  model: openai("gpt-5"),
   prompt: "Your prompt here",
   tools,
   maxToolRoundtrips: 5, // Allow multiple tool calls
@@ -146,7 +146,7 @@ async function main() {
 
   // Use with AI
   const result = await generateText({
-    model: openai("gpt-4"),
+    model: openai("gpt-5"),
     prompt: `
       Check my GitHub repo 'username/myapp' for open issues.
       For any issues labeled 'bug', send me an email at me@example.com
@@ -173,7 +173,7 @@ Use `streamText` for real-time streaming:
 import { streamText } from "ai";
 
 const result = await streamText({
-  model: openai("gpt-4"),
+  model: openai("gpt-5"),
   prompt: "Create a GitHub issue about the login bug",
   tools,
   maxToolRoundtrips: 5,
@@ -248,7 +248,7 @@ Handle errors during tool execution:
 ```typescript
 try {
   const result = await generateText({
-    model: openai("gpt-4"),
+    model: openai("gpt-5"),
     prompt: "Create a GitHub issue",
     tools,
     maxToolRoundtrips: 5,
@@ -279,7 +279,7 @@ const githubTools = Object.fromEntries(
 );
 
 const result = await generateText({
-  model: openai("gpt-4"),
+  model: openai("gpt-5"),
   prompt: "Work with GitHub",
   tools: githubTools,
 });
@@ -315,7 +315,7 @@ async function aiProjectManager(task: string) {
   const tools = getVercelAITools(mcpClient);
 
   const result = await generateText({
-    model: openai("gpt-4"),
+    model: openai("gpt-5"),
     prompt: `
       You are a project manager. The user says: "${task}"
       
