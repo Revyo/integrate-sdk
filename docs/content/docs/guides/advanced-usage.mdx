@@ -124,7 +124,25 @@ const client = createMCPClient({
 });
 ```
 
-## Error Handling Patterns
+## Error Handling
+
+The SDK provides comprehensive error handling with specific error types for different failure scenarios.
+
+### Error Types
+
+```typescript
+import {
+  IntegrateSDKError,
+  AuthenticationError,
+  AuthorizationError,
+  TokenExpiredError,
+  ConnectionError,
+  ToolCallError,
+  isAuthError,
+  isTokenExpiredError,
+  isAuthorizationError,
+} from "integrate-sdk";
+```
 
 ### Basic Error Handling
 
@@ -142,30 +160,209 @@ try {
 }
 ```
 
-### Detailed Error Handling
+### Type-Safe Error Handling
 
 ```typescript
+import {
+  isAuthError,
+  isTokenExpiredError,
+  isAuthorizationError,
+} from "integrate-sdk";
+
 try {
   const result = await client.callTool("github_create_issue", {
     repo: "owner/repo",
     title: "Bug report",
   });
 } catch (error) {
-  if (error.message.includes("not enabled")) {
+  if (isTokenExpiredError(error)) {
+    console.error("OAuth token expired:", error.provider);
+    // Trigger re-authentication
+  } else if (isAuthError(error)) {
+    console.error("Authentication failed:", error.message);
+  } else if (isAuthorizationError(error)) {
+    console.error("Insufficient permissions:", error.requiredScopes);
+  } else if (error.message.includes("not enabled")) {
     console.error("Tool is not enabled. Add the appropriate plugin.");
   } else if (error.message.includes("not available")) {
     console.error("Tool is not available on the server.");
-  } else if (error.message.includes("authentication")) {
-    console.error("Authentication failed. Check OAuth credentials.");
-  } else if (error.message.includes("timeout")) {
-    console.error("Request timed out. Try increasing timeout.");
   } else {
     console.error("Unexpected error:", error);
   }
 }
 ```
 
-### Retry Logic
+## Re-authentication & Token Refresh
+
+The SDK automatically handles OAuth token expiration and can trigger re-authentication flows when tokens expire.
+
+### Basic Setup
+
+```typescript
+import { createMCPClient, githubPlugin, type ReauthContext } from "integrate-sdk";
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ["repo", "user"],
+    }),
+  ],
+
+  // Handle token expiration and re-authentication
+  onReauthRequired: async (context: ReauthContext) => {
+    console.log(`Re-auth needed for ${context.provider}`);
+    console.log(`Reason: ${context.error.message}`);
+
+    // Trigger your OAuth flow here
+    // Return true if successful, false otherwise
+    const success = await triggerOAuthFlow(context.provider);
+    return success;
+  },
+
+  // Optional: Set max retry attempts (default: 1)
+  maxReauthRetries: 2,
+});
+```
+
+### How It Works
+
+1. When a tool call fails with a 401/token expired error, the SDK detects it
+2. Your `onReauthRequired` handler is called with error context
+3. You trigger your OAuth flow (show UI, redirect, open popup, etc.)
+4. Return `true` if re-authentication succeeds, `false` otherwise
+5. The SDK automatically retries the failed tool call if re-auth succeeds
+
+### Re-authentication Context
+
+The `ReauthContext` object passed to your handler contains:
+
+```typescript
+interface ReauthContext {
+  provider: string; // e.g., "github", "gmail"
+  error: AuthenticationError; // The error that triggered re-auth
+  toolName?: string; // The tool that was being called (if applicable)
+}
+```
+
+### Checking Authentication State
+
+```typescript
+// Check if a provider is authenticated
+const isAuthenticated = client.isProviderAuthenticated("github");
+console.log("GitHub authenticated:", isAuthenticated);
+
+// Get detailed authentication state
+const authState = client.getAuthState("github");
+if (authState) {
+  console.log("Authenticated:", authState.authenticated);
+  if (authState.lastError) {
+    console.log("Last error:", authState.lastError.message);
+  }
+}
+```
+
+### Manual Re-authentication
+
+You can manually trigger re-authentication for a provider:
+
+```typescript
+try {
+  const success = await client.reauthenticate("github");
+  if (success) {
+    console.log("Re-authentication successful");
+  } else {
+    console.log("Re-authentication failed");
+  }
+} catch (error) {
+  console.error("Re-authentication error:", error);
+}
+```
+
+### Complete Example
+
+```typescript
+import {
+  createMCPClient,
+  githubPlugin,
+  type ReauthContext,
+  isTokenExpiredError,
+} from "integrate-sdk";
+
+// Your OAuth flow function
+async function triggerOAuthFlow(provider: string): Promise<boolean> {
+  // 1. Show notification to user
+  showNotification(`Please re-authenticate with ${provider}`);
+
+  // 2. Trigger OAuth flow (e.g., open popup or redirect)
+  const authWindow = window.open(
+    `/auth/${provider}`,
+    "oauth",
+    "width=500,height=600"
+  );
+
+  // 3. Wait for OAuth completion
+  const result = await waitForOAuthCompletion(authWindow);
+
+  // 4. Return success/failure
+  return result.success;
+}
+
+// Create client with re-auth handler
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    }),
+  ],
+  onReauthRequired: async (context) => {
+    console.log(`Re-authentication required for ${context.provider}`);
+    return await triggerOAuthFlow(context.provider);
+  },
+  maxReauthRetries: 2,
+});
+
+// Connect and use
+await client.connect();
+
+// The SDK automatically handles token expiration
+try {
+  const result = await client.callTool("github_create_issue", {
+    repo: "owner/repo",
+    title: "Bug report",
+  });
+  console.log("Issue created:", result);
+} catch (error) {
+  if (isTokenExpiredError(error)) {
+    console.error("Token expired and re-auth failed");
+  } else {
+    console.error("Other error:", error);
+  }
+}
+```
+
+### Proactive Token Refresh
+
+You can proactively refresh tokens before they expire:
+
+```typescript
+// Check auth state periodically
+setInterval(async () => {
+  const authState = client.getAuthState("github");
+
+  // If there was a recent auth error, trigger re-auth
+  if (authState?.lastError) {
+    console.log("Proactively refreshing token...");
+    await client.reauthenticate("github");
+  }
+}, 60000); // Check every minute
+```
+
+### Retry Logic for Non-Auth Errors
+
+For other types of errors, you can implement custom retry logic:
 
 ```typescript
 async function callToolWithRetry(
@@ -178,6 +375,11 @@ async function callToolWithRetry(
     try {
       return await client.callTool(toolName, args);
     } catch (error) {
+      // Don't retry auth errors (handled by SDK)
+      if (isAuthError(error)) {
+        throw error;
+      }
+
       if (i === maxRetries - 1) throw error;
 
       console.log(`Retry ${i + 1}/${maxRetries}...`);

@@ -27,6 +27,16 @@ interface MCPClientConfig {
     name: string;
     version: string;
   };
+  onReauthRequired?: ReauthHandler; // Re-authentication handler (optional)
+  maxReauthRetries?: number; // Max re-auth attempts (default: 1)
+}
+
+type ReauthHandler = (context: ReauthContext) => Promise<boolean> | boolean;
+
+interface ReauthContext {
+  provider: string; // OAuth provider that needs re-authentication
+  error: AuthenticationError; // The error that triggered re-auth
+  toolName?: string; // Tool being called (if applicable)
 }
 ```
 
@@ -292,6 +302,91 @@ if (client.isInitialized()) {
 }
 ```
 
+### getAuthState()
+
+Gets authentication state for a specific provider.
+
+```typescript
+getAuthState(provider: string): { authenticated: boolean; lastError?: AuthenticationError } | undefined
+```
+
+**Parameters:**
+
+- `provider` - Provider identifier (e.g., 'github', 'gmail')
+
+**Returns:**
+
+- Authentication state object or `undefined` if provider not found
+
+**Example:**
+
+```typescript
+const authState = client.getAuthState("github");
+if (authState) {
+  console.log("Authenticated:", authState.authenticated);
+  if (authState.lastError) {
+    console.log("Last error:", authState.lastError.message);
+  }
+}
+```
+
+### isProviderAuthenticated()
+
+Checks if a specific provider is authenticated.
+
+```typescript
+isProviderAuthenticated(provider: string): boolean
+```
+
+**Parameters:**
+
+- `provider` - Provider identifier
+
+**Returns:**
+
+- `true` if authenticated, `false` otherwise
+
+**Example:**
+
+```typescript
+if (client.isProviderAuthenticated("github")) {
+  console.log("GitHub is authenticated");
+}
+```
+
+### reauthenticate()
+
+Manually triggers re-authentication for a provider.
+
+```typescript
+async reauthenticate(provider: string): Promise<boolean>
+```
+
+**Parameters:**
+
+- `provider` - Provider identifier
+
+**Returns:**
+
+- `true` if re-authentication succeeded, `false` otherwise
+
+**Throws:**
+
+- Error if provider not found or no re-auth handler configured
+
+**Example:**
+
+```typescript
+try {
+  const success = await client.reauthenticate("github");
+  if (success) {
+    console.log("Re-authentication successful");
+  }
+} catch (error) {
+  console.error("Re-authentication failed:", error);
+}
+```
+
 ## Type Definitions
 
 ### MCPTool
@@ -497,12 +592,173 @@ const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
 ## Error Types
 
-The SDK throws standard JavaScript `Error` objects with descriptive messages:
+The SDK provides specific error classes for different failure scenarios.
 
-- **Connection errors** - "Failed to connect to MCP server"
-- **Tool errors** - "Tool 'name' is not enabled" / "Tool 'name' is not available"
-- **Authentication errors** - "Authentication failed"
-- **Timeout errors** - "Request timed out"
+### IntegrateSDKError
+
+Base error class for all SDK errors.
+
+```typescript
+class IntegrateSDKError extends Error {
+  name: "IntegrateSDKError";
+}
+```
+
+### AuthenticationError
+
+Error thrown when authentication fails or tokens are invalid.
+
+```typescript
+class AuthenticationError extends IntegrateSDKError {
+  name: "AuthenticationError";
+  statusCode?: number; // HTTP status code (usually 401)
+  provider?: string; // OAuth provider name
+}
+```
+
+**Example:**
+
+```typescript
+import { isAuthError, AuthenticationError } from "integrate-sdk";
+
+try {
+  await client.callTool("github_create_issue", { ... });
+} catch (error) {
+  if (isAuthError(error)) {
+    console.error(`Auth failed for ${error.provider}: ${error.message}`);
+  }
+}
+```
+
+### TokenExpiredError
+
+Error thrown when OAuth tokens have expired.
+
+```typescript
+class TokenExpiredError extends AuthenticationError {
+  name: "TokenExpiredError";
+  provider?: string; // OAuth provider name
+}
+```
+
+**Example:**
+
+```typescript
+import { isTokenExpiredError } from "integrate-sdk";
+
+try {
+  await client.callTool("github_create_issue", { ... });
+} catch (error) {
+  if (isTokenExpiredError(error)) {
+    console.error(`Token expired for ${error.provider}`);
+    // Trigger re-authentication
+  }
+}
+```
+
+### AuthorizationError
+
+Error thrown when access is forbidden due to insufficient permissions.
+
+```typescript
+class AuthorizationError extends IntegrateSDKError {
+  name: "AuthorizationError";
+  statusCode?: number; // HTTP status code (usually 403)
+  requiredScopes?: string[]; // Missing OAuth scopes
+}
+```
+
+**Example:**
+
+```typescript
+import { isAuthorizationError } from "integrate-sdk";
+
+try {
+  await client.callTool("github_create_issue", { ... });
+} catch (error) {
+  if (isAuthorizationError(error)) {
+    console.error("Insufficient permissions");
+    if (error.requiredScopes) {
+      console.error("Required scopes:", error.requiredScopes);
+    }
+  }
+}
+```
+
+### ConnectionError
+
+Error thrown when a connection to the server fails.
+
+```typescript
+class ConnectionError extends IntegrateSDKError {
+  name: "ConnectionError";
+  statusCode?: number; // HTTP status code
+}
+```
+
+### ToolCallError
+
+Error thrown when a tool call fails.
+
+```typescript
+class ToolCallError extends IntegrateSDKError {
+  name: "ToolCallError";
+  toolName: string; // Name of the tool that failed
+  originalError?: unknown; // Original error from server
+}
+```
+
+### Error Helper Functions
+
+Type guard functions for error handling:
+
+```typescript
+// Check if error is any authentication error
+function isAuthError(error: unknown): error is AuthenticationError;
+
+// Check if error is specifically a token expired error
+function isTokenExpiredError(error: unknown): error is TokenExpiredError;
+
+// Check if error is an authorization error
+function isAuthorizationError(error: unknown): error is AuthorizationError;
+```
+
+**Example:**
+
+```typescript
+import {
+  isAuthError,
+  isTokenExpiredError,
+  isAuthorizationError,
+} from "integrate-sdk";
+
+try {
+  await client.callTool("github_create_issue", { ... });
+} catch (error) {
+  if (isTokenExpiredError(error)) {
+    // Handle token expiration
+  } else if (isAuthError(error)) {
+    // Handle other auth errors
+  } else if (isAuthorizationError(error)) {
+    // Handle permission errors
+  } else {
+    // Handle other errors
+  }
+}
+```
+
+### parseServerError()
+
+Utility function to parse server errors into appropriate error types.
+
+```typescript
+function parseServerError(
+  error: any,
+  context?: { toolName?: string; provider?: string }
+): IntegrateSDKError;
+```
+
+This function is used internally by the SDK but can be useful for custom error handling.
 
 ## Next Steps
 
