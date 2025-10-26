@@ -98,7 +98,10 @@ export class HttpSessionTransport {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`Request failed: ${response.statusText}`);
+        // Preserve HTTP status code for auth error detection
+        const error = new Error(`Request failed: ${response.statusText}`) as Error & { statusCode?: number };
+        error.statusCode = response.status;
+        throw error;
       }
 
       // Capture session ID from first response
@@ -116,14 +119,32 @@ export class HttpSessionTransport {
       const jsonResponse = (await response.json()) as JSONRPCResponse<T>;
 
       if ("error" in jsonResponse) {
-        throw new Error(
+        // Preserve the full error object for the client to parse
+        const error = new Error(
           `JSON-RPC Error ${jsonResponse.error.code}: ${jsonResponse.error.message}`
-        );
+        ) as Error & { code?: number; data?: unknown };
+        error.code = jsonResponse.error.code;
+        if (jsonResponse.error.data) {
+          error.data = jsonResponse.error.data;
+        }
+        // Attach the original JSON-RPC error for detailed parsing
+        (error as any).jsonrpcError = jsonResponse.error;
+        throw error;
       }
 
       return jsonResponse.result as T;
     } catch (error) {
-      throw error;
+      // If it's a fetch error (network, timeout, etc.), wrap it appropriately
+      if (error instanceof Error) {
+        if (error.name === "AbortError") {
+          const timeoutError = new Error("Request timeout") as Error & { code?: number };
+          timeoutError.code = -32000; // Custom timeout code
+          throw timeoutError;
+        }
+        // Re-throw errors with preserved information
+        throw error;
+      }
+      throw new Error(String(error));
     }
   }
 

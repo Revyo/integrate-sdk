@@ -8,7 +8,21 @@ export { MCPClient, createMCPClient } from "./client.js";
 export type { ToolInvocationOptions } from "./client.js";
 
 // Configuration
-export type { MCPClientConfig } from "./config/types.js";
+export type { MCPClientConfig, ReauthContext, ReauthHandler } from "./config/types.js";
+
+// Errors
+export {
+  IntegrateSDKError,
+  AuthenticationError,
+  AuthorizationError,
+  TokenExpiredError,
+  ConnectionError,
+  ToolCallError,
+  isAuthError,
+  isTokenExpiredError,
+  isAuthorizationError,
+  parseServerError,
+} from "./errors.js";
 
 // Plugin system
 export type {

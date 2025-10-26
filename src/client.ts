@@ -14,7 +14,12 @@ import type {
 } from "./protocol/messages.js";
 import { MCPMethod } from "./protocol/messages.js";
 import type { MCPPlugin, OAuthConfig } from "./plugins/types.js";
-import type { MCPClientConfig } from "./config/types.js";
+import type { MCPClientConfig, ReauthHandler } from "./config/types.js";
+import {
+  parseServerError,
+  isAuthError,
+  type AuthenticationError,
+} from "./errors.js";
 
 /**
  * MCP server URL
@@ -43,6 +48,9 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   private enabledToolNames: Set<string> = new Set();
   private initialized = false;
   private clientInfo: { name: string; version: string };
+  private onReauthRequired?: ReauthHandler;
+  private maxReauthRetries: number;
+  private authState: Map<string, { authenticated: boolean; lastError?: AuthenticationError }> = new Map();
 
   constructor(config: MCPClientConfig<TPlugins>) {
     this.transport = new HttpSessionTransport({
@@ -56,11 +64,18 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       name: "integrate-sdk",
       version: "0.1.0",
     };
+    this.onReauthRequired = config.onReauthRequired;
+    this.maxReauthRetries = config.maxReauthRetries ?? 1;
 
     // Collect all enabled tool names from plugins
     for (const plugin of this.plugins) {
       for (const toolName of plugin.tools) {
         this.enabledToolNames.add(toolName);
+      }
+      
+      // Initialize auth state for plugins with OAuth
+      if (plugin.oauth) {
+        this.authState.set(plugin.oauth.provider, { authenticated: true });
       }
     }
 
@@ -152,11 +167,22 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   }
 
   /**
-   * Call a tool by name
+   * Call a tool by name with automatic retry on authentication failure
    */
   async callTool(
     name: string,
     args?: Record<string, unknown>
+  ): Promise<MCPToolCallResponse> {
+    return await this.callToolWithRetry(name, args, 0);
+  }
+
+  /**
+   * Internal method to call a tool with retry logic
+   */
+  private async callToolWithRetry(
+    name: string,
+    args?: Record<string, unknown>,
+    retryCount = 0
   ): Promise<MCPToolCallResponse> {
     if (!this.initialized) {
       throw new Error("Client not initialized. Call connect() first.");
@@ -181,10 +207,64 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       arguments: args,
     };
 
-    return await this.transport.sendRequest<MCPToolCallResponse>(
-      MCPMethod.TOOLS_CALL,
-      params
-    );
+    try {
+      const response = await this.transport.sendRequest<MCPToolCallResponse>(
+        MCPMethod.TOOLS_CALL,
+        params
+      );
+      
+      // Mark provider as authenticated on success
+      const provider = this.getProviderForTool(name);
+      if (provider) {
+        this.authState.set(provider, { authenticated: true });
+      }
+      
+      return response;
+    } catch (error) {
+      // Parse the error to determine if it's an auth error
+      const provider = this.getProviderForTool(name);
+      const parsedError = parseServerError(error, { toolName: name, provider });
+
+      // Handle authentication errors with retry logic
+      if (isAuthError(parsedError) && retryCount < this.maxReauthRetries) {
+        // Update auth state
+        if (provider) {
+          this.authState.set(provider, {
+            authenticated: false,
+            lastError: parsedError,
+          });
+        }
+
+        // Trigger re-authentication if handler is provided
+        if (this.onReauthRequired && provider) {
+          const reauthSuccess = await this.onReauthRequired({
+            provider,
+            error: parsedError,
+            toolName: name,
+          });
+
+          if (reauthSuccess) {
+            // Retry the tool call after successful re-authentication
+            return await this.callToolWithRetry(name, args, retryCount + 1);
+          }
+        }
+      }
+
+      // If no handler or re-auth failed, throw the parsed error
+      throw parsedError;
+    }
+  }
+
+  /**
+   * Get the OAuth provider for a given tool
+   */
+  private getProviderForTool(toolName: string): string | undefined {
+    for (const plugin of this.plugins) {
+      if (plugin.tools.includes(toolName) && plugin.oauth) {
+        return plugin.oauth.provider;
+      }
+    }
+    return undefined;
   }
 
   /**
@@ -267,6 +347,52 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    */
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  /**
+   * Get authentication state for a specific provider
+   */
+  getAuthState(provider: string): { authenticated: boolean; lastError?: AuthenticationError } | undefined {
+    return this.authState.get(provider);
+  }
+
+  /**
+   * Check if a specific provider is authenticated
+   */
+  isProviderAuthenticated(provider: string): boolean {
+    return this.authState.get(provider)?.authenticated ?? false;
+  }
+
+  /**
+   * Manually trigger re-authentication for a specific provider
+   * Useful if you want to proactively refresh tokens
+   */
+  async reauthenticate(provider: string): Promise<boolean> {
+    const state = this.authState.get(provider);
+    if (!state) {
+      throw new Error(`Provider "${provider}" not found in configured plugins`);
+    }
+
+    if (!this.onReauthRequired) {
+      throw new Error("No re-authentication handler configured. Set onReauthRequired in client config.");
+    }
+
+    const lastError = state.lastError || new (await import("./errors.js")).AuthenticationError(
+      "Manual re-authentication requested",
+      undefined,
+      provider
+    );
+
+    const success = await this.onReauthRequired({
+      provider,
+      error: lastError,
+    });
+
+    if (success) {
+      this.authState.set(provider, { authenticated: true });
+    }
+
+    return success;
   }
 }
 
