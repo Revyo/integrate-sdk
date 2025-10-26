@@ -24,7 +24,6 @@ import { createMCPClient, githubPlugin, gmailPlugin } from 'integrate-sdk';
 
 // Create a client with plugins
 const client = createMCPClient({
-  serverUrl: 'http://localhost:3000/mcp',
   plugins: [
     githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -42,7 +41,7 @@ const client = createMCPClient({
 await client.connect();
 
 // Call tools
-const result = await client.callTool('github/createIssue', {
+const result = await client.callTool('github_create_issue', {
   repo: 'owner/repo',
   title: 'Bug report',
   body: 'Description of the bug',
@@ -62,7 +61,6 @@ await client.disconnect();
 import { createMCPClient, githubPlugin } from 'integrate-sdk';
 
 const client = createMCPClient({
-  serverUrl: 'http://localhost:3000/mcp',
   plugins: [
     githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -75,18 +73,19 @@ const client = createMCPClient({
 ```
 
 **Available Tools:**
-- `github/createIssue`
-- `github/listIssues`
-- `github/getIssue`
-- `github/updateIssue`
-- `github/closeIssue`
-- `github/createPullRequest`
-- `github/listPullRequests`
-- `github/getPullRequest`
-- `github/mergePullRequest`
-- `github/listRepositories`
-- `github/getRepository`
-- `github/createRepository`
+- `github_create_issue`
+- `github_list_issues`
+- `github_get_issue`
+- `github_update_issue`
+- `github_close_issue`
+- `github_create_pull_request`
+- `github_list_pull_requests`
+- `github_get_pull_request`
+- `github_merge_pull_request`
+- `github_list_repos`
+- `github_list_own_repos`
+- `github_get_repo`
+- `github_create_repo`
 - And more...
 
 ### Gmail Plugin
@@ -95,7 +94,6 @@ const client = createMCPClient({
 import { createMCPClient, gmailPlugin } from 'integrate-sdk';
 
 const client = createMCPClient({
-  serverUrl: 'http://localhost:3000/mcp',
   plugins: [
     gmailPlugin({
       clientId: process.env.GMAIL_CLIENT_ID!,
@@ -110,15 +108,15 @@ const client = createMCPClient({
 ```
 
 **Available Tools:**
-- `gmail/sendEmail`
-- `gmail/listEmails`
-- `gmail/getEmail`
-- `gmail/deleteEmail`
-- `gmail/searchEmails`
-- `gmail/markAsRead`
-- `gmail/markAsUnread`
-- `gmail/listLabels`
-- `gmail/createLabel`
+- `gmail_send_email`
+- `gmail_list_emails`
+- `gmail_get_email`
+- `gmail_delete_email`
+- `gmail_search_emails`
+- `gmail_mark_as_read`
+- `gmail_mark_as_unread`
+- `gmail_list_labels`
+- `gmail_create_label`
 - And more...
 
 ## Creating Custom Plugins
@@ -140,11 +138,10 @@ const slackPlugin = genericOAuthPlugin({
     'slack/getChannel',
     'slack/inviteUser',
   ],
-  redirectUri: 'http://localhost:3000/callback',
+  redirectUri: 'https://your-app.com/callback',
 });
 
 const client = createMCPClient({
-  serverUrl: 'http://localhost:3000/mcp',
   plugins: [slackPlugin],
 });
 ```
@@ -231,7 +228,7 @@ const allTools = client.getAvailableTools();
 console.log('All tools:', allTools.map(t => t.name));
 
 // Get a specific tool
-const tool = client.getTool('github/createIssue');
+const tool = client.getTool('github_create_issue');
 console.log('Tool schema:', tool?.inputSchema);
 ```
 
@@ -252,7 +249,7 @@ unsubscribe();
 ```typescript
 try {
   await client.connect();
-  const result = await client.callTool('github/createIssue', {
+  const result = await client.callTool('github_create_issue', {
     repo: 'owner/repo',
     title: 'Bug report',
   });
@@ -271,7 +268,6 @@ try {
 
 ```typescript
 const client = createMCPClient({
-  serverUrl: 'http://localhost:3000/mcp',
   plugins: [/* ... */],
   
   // Custom headers
@@ -298,7 +294,6 @@ const client = createMCPClient({
 Creates a new MCP client instance.
 
 **Parameters:**
-- `config.serverUrl` (string): URL of the MCP server
 - `config.plugins` (MCPPlugin[]): Array of plugins to enable
 - `config.headers` (object, optional): Custom HTTP headers
 - `config.timeout` (number, optional): Request timeout in milliseconds
@@ -383,7 +378,6 @@ import { createMCPClient, githubPlugin } from 'integrate-sdk';
 import type { MCPToolCallResponse } from 'integrate-sdk';
 
 const client = createMCPClient({
-  serverUrl: 'http://localhost:3000/mcp',
   plugins: [
     githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -394,7 +388,7 @@ const client = createMCPClient({
 
 // Full type inference and IntelliSense support
 await client.connect();
-const result: MCPToolCallResponse = await client.callTool('github/createIssue', {
+const result: MCPToolCallResponse = await client.callTool('github_create_issue', {
   repo: 'owner/repo',
   title: 'Bug report',
 });
@@ -554,7 +548,6 @@ describe("Integration Test", () => {
 
   test("connects and calls tool", async () => {
     const client = createMCPClient({
-      serverUrl: server.getUrl(),
       plugins: [/* ... */],
     });
 

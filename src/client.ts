@@ -17,6 +17,11 @@ import type { MCPPlugin, OAuthConfig } from "./plugins/types.js";
 import type { MCPClientConfig } from "./config/types.js";
 
 /**
+ * MCP server URL
+ */
+const MCP_SERVER_URL = "https://mcp.integrate.dev/api/v1/mcp";
+
+/**
  * Tool invocation options
  */
 export interface ToolInvocationOptions {
@@ -41,7 +46,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
 
   constructor(config: MCPClientConfig<TPlugins>) {
     this.transport = new HttpSessionTransport({
-      url: config.serverUrl,
+      url: MCP_SERVER_URL,
       headers: config.headers,
       timeout: config.timeout,
     });
@@ -268,10 +273,11 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
 /**
  * Create a new MCP Client instance
  * 
+ * Connects to the Integrate MCP server at https://mcp.integrate.dev/api/v1/mcp
+ * 
  * @example
  * ```typescript
  * const client = createMCPClient({
- *   serverUrl: 'http://localhost:3000/mcp',
  *   plugins: [
  *     githubPlugin({ clientId: '...', clientSecret: '...' }),
  *     gmailPlugin({ clientId: '...', clientSecret: '...' }),
@@ -279,7 +285,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
  * });
  * 
  * await client.connect();
- * const result = await client.callTool('github/createIssue', {
+ * const result = await client.callTool('github_create_issue', {
  *   repo: 'owner/repo',
  *   title: 'Bug report',
  * });

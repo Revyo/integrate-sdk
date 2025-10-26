@@ -50,9 +50,9 @@ describe("Plugin System", () => {
         clientSecret: "test-secret",
       });
 
-      expect(plugin.tools).toContain("github/createIssue");
-      expect(plugin.tools).toContain("github/listRepositories");
-      expect(plugin.tools).toContain("github/createPullRequest");
+      expect(plugin.tools).toContain("github_create_issue");
+      expect(plugin.tools).toContain("github_list_repos");
+      expect(plugin.tools).toContain("github_create_pull_request");
     });
   });
 
@@ -86,9 +86,9 @@ describe("Plugin System", () => {
         clientSecret: "test-secret",
       });
 
-      expect(plugin.tools).toContain("gmail/sendEmail");
-      expect(plugin.tools).toContain("gmail/listEmails");
-      expect(plugin.tools).toContain("gmail/searchEmails");
+      expect(plugin.tools).toContain("gmail_send_email");
+      expect(plugin.tools).toContain("gmail_list_emails");
+      expect(plugin.tools).toContain("gmail_search_emails");
     });
   });
 

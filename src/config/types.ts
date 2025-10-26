@@ -9,9 +9,6 @@ import type { MCPPlugin } from "../plugins/types.js";
  * Main client configuration
  */
 export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
-  /** URL of the MCP server */
-  serverUrl: string;
-  
   /** Array of plugins to enable */
   plugins: TPlugins;
   

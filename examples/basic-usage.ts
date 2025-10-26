@@ -1,6 +1,6 @@
 /**
  * Basic Usage Example
- * 
+ *
  * This example demonstrates how to create an MCP client with plugins
  * and interact with the server.
  */
@@ -9,39 +9,23 @@ import {
   createMCPClient,
   githubPlugin,
   gmailPlugin,
-  genericOAuthPlugin,
 } from "../src/index.js";
 
 async function main() {
   // Create a client with multiple plugins
   const client = createMCPClient({
-    serverUrl: "http://localhost:8080/api/v1/mcp",
     plugins: [
-      // GitHub plugin - using actual tool names from your server
-      genericOAuthPlugin({
-        id: "github",
-        provider: "github",
+      // GitHub plugin with OAuth configuration
+      githubPlugin({
         clientId: process.env.GITHUB_CLIENT_ID || "your-client-id",
         clientSecret: process.env.GITHUB_CLIENT_SECRET || "your-client-secret",
         scopes: ["repo", "user"],
-        tools: [
-          "github_get_repo",
-          "github_list_own_repos",
-          "github_list_repos",
-        ],
       }),
 
-      // Notion plugin - using actual tool names from your server
-      genericOAuthPlugin({
-        id: "notion",
-        provider: "notion",
-        clientId: process.env.NOTION_CLIENT_ID || "your-client-id",
-        clientSecret: process.env.NOTION_CLIENT_SECRET || "your-client-secret",
-        scopes: [],
-        tools: [
-          "notion_get_page",
-          "notion_search",
-        ],
+      // Gmail plugin with OAuth configuration
+      gmailPlugin({
+        clientId: process.env.GMAIL_CLIENT_ID || "your-client-id",
+        clientSecret: process.env.GMAIL_CLIENT_SECRET || "your-client-secret",
       }),
     ],
     
@@ -97,15 +81,17 @@ async function main() {
       console.error("Failed to list repos:", error);
     }
 
-    // Example: Search Notion
-    console.log("\n--- Notion Example ---");
+    // Example: Send an email with Gmail
+    console.log("\n--- Gmail Example ---");
     try {
-      const results = await client.callTool("notion_search", {
-        query: "meeting",
+      const result = await client.callTool("gmail_send_email", {
+        to: "example@example.com",
+        subject: "Test Email",
+        body: "This is a test email sent via MCP",
       });
-      console.log("Search results:", JSON.stringify(results, null, 2).substring(0, 500));
+      console.log("Email sent:", JSON.stringify(result, null, 2).substring(0, 500));
     } catch (error) {
-      console.error("Failed to search Notion:", error);
+      console.error("Failed to send email:", error);
     }
 
     // Listen for server notifications

@@ -10,7 +10,6 @@ async function debugConnection() {
 
   // Create a minimal client with just one simple plugin
   const client = createMCPClient({
-    serverUrl: "http://localhost:8080/api/v1/mcp",
     plugins: [
       createSimplePlugin({
         id: "test",
@@ -21,7 +20,7 @@ async function debugConnection() {
   });
 
   console.log("✓ Client created");
-  console.log("  Server URL:", "http://localhost:8080/api/v1/mcp");
+  console.log("  Server URL:", "https://mcp.integrate.dev/api/v1/mcp");
   console.log("  Timeout:", "10000ms");
   console.log();
 

@@ -24,22 +24,22 @@ export interface GmailPluginConfig {
  * These should match the tool names exposed by your MCP server
  */
 const GMAIL_TOOLS = [
-  "gmail/sendEmail",
-  "gmail/listEmails",
-  "gmail/getEmail",
-  "gmail/deleteEmail",
-  "gmail/searchEmails",
-  "gmail/markAsRead",
-  "gmail/markAsUnread",
-  "gmail/addLabel",
-  "gmail/removeLabel",
-  "gmail/listLabels",
-  "gmail/createLabel",
-  "gmail/getDraft",
-  "gmail/createDraft",
-  "gmail/updateDraft",
-  "gmail/deleteDraft",
-  "gmail/sendDraft",
+  "gmail_send_email",
+  "gmail_list_emails",
+  "gmail_get_email",
+  "gmail_delete_email",
+  "gmail_search_emails",
+  "gmail_mark_as_read",
+  "gmail_mark_as_unread",
+  "gmail_add_label",
+  "gmail_remove_label",
+  "gmail_list_labels",
+  "gmail_create_label",
+  "gmail_get_draft",
+  "gmail_create_draft",
+  "gmail_update_draft",
+  "gmail_delete_draft",
+  "gmail_send_draft",
 ] as const;
 
 /**
@@ -60,8 +60,8 @@ const GMAIL_TOOLS = [
  * });
  * ```
  */
-export function gmailPlugin(config: GmailPluginConfig): MCPPlugin<GmailPluginConfig> {
-  const oauth: OAuthConfig<GmailPluginConfig> = {
+export function gmailPlugin(config: GmailPluginConfig): MCPPlugin {
+  const oauth: OAuthConfig = {
     provider: "google",
     clientId: config.clientId,
     clientSecret: config.clientSecret,

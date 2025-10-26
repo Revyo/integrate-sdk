@@ -8,7 +8,7 @@ import type { MCPClient } from "../client.js";
 /**
  * OAuth Configuration for a plugin
  */
-export interface OAuthConfig<TConfig = Record<string, unknown>> {
+export interface OAuthConfig {
   /** OAuth provider identifier (e.g., 'github', 'google') */
   provider: string;
   /** OAuth client ID */
@@ -20,7 +20,7 @@ export interface OAuthConfig<TConfig = Record<string, unknown>> {
   /** Redirect URI for OAuth flow */
   redirectUri?: string;
   /** Provider-specific configuration */
-  config?: TConfig;
+  config?: unknown;
 }
 
 /**
@@ -28,7 +28,7 @@ export interface OAuthConfig<TConfig = Record<string, unknown>> {
  * 
  * Plugins enable specific tools and configure OAuth providers
  */
-export interface MCPPlugin<TConfig = Record<string, unknown>> {
+export interface MCPPlugin {
   /** Unique plugin identifier */
   id: string;
   
@@ -36,7 +36,7 @@ export interface MCPPlugin<TConfig = Record<string, unknown>> {
   tools: string[];
   
   /** OAuth configuration for this plugin */
-  oauth?: OAuthConfig<TConfig>;
+  oauth?: OAuthConfig;
   
   /** Called when the plugin is initialized with the client */
   onInit?: (client: MCPClient) => Promise<void> | void;

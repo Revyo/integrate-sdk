@@ -32,7 +32,7 @@ interface NotionPluginConfig {
   workspaceId: string;
 }
 
-function notionPlugin(config: NotionPluginConfig): MCPPlugin<NotionPluginConfig> {
+function notionPlugin(config: NotionPluginConfig): MCPPlugin {
   return {
     id: "notion",
     tools: [
@@ -129,7 +129,6 @@ function databasePlugin(config: DatabasePluginConfig): MCPPlugin {
 // Usage example
 async function main() {
   const client = createMCPClient({
-    serverUrl: "http://localhost:3000/api/v1/mcp",
     plugins: [
       weatherPlugin,
       notionPlugin({

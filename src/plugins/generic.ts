@@ -61,8 +61,8 @@ export interface GenericOAuthPluginConfig {
  */
 export function genericOAuthPlugin(
   config: GenericOAuthPluginConfig
-): MCPPlugin<GenericOAuthPluginConfig> {
-  const oauth: OAuthConfig<GenericOAuthPluginConfig> = {
+): MCPPlugin {
+  const oauth: OAuthConfig = {
     provider: config.provider,
     clientId: config.clientId,
     clientSecret: config.clientSecret,
