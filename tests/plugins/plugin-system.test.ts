@@ -109,9 +109,10 @@ describe("Plugin System", () => {
         clientSecret: "test-secret",
       });
 
-      expect(plugin.tools).toContain("gmail_send_email");
-      expect(plugin.tools).toContain("gmail_list_emails");
-      expect(plugin.tools).toContain("gmail_search_emails");
+      expect(plugin.tools).toContain("gmail_send_message");
+      expect(plugin.tools).toContain("gmail_list_messages");
+      expect(plugin.tools).toContain("gmail_search_messages");
+      expect(plugin.tools).toContain("gmail_get_message");
     });
 
     test("has lifecycle hooks defined", () => {

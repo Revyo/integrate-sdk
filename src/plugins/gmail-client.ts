@@ -64,9 +64,9 @@ export interface GmailDraft {
  */
 export interface GmailPluginClient {
   /**
-   * Send an email
+   * Send a message
    */
-  sendEmail(params: {
+  sendMessage(params: {
     to: string | string[];
     subject: string;
     body: string;
@@ -83,9 +83,9 @@ export interface GmailPluginClient {
   }): Promise<MCPToolCallResponse>;
 
   /**
-   * List emails in the mailbox
+   * List messages in the mailbox
    */
-  listEmails(params?: {
+  listMessages(params?: {
     maxResults?: number;
     pageToken?: string;
     q?: string;
@@ -94,127 +94,21 @@ export interface GmailPluginClient {
   }): Promise<MCPToolCallResponse>;
 
   /**
-   * Get a specific email by ID
+   * Get a specific message by ID
    */
-  getEmail(params: {
+  getMessage(params: {
     id: string;
     format?: "minimal" | "full" | "raw" | "metadata";
   }): Promise<MCPToolCallResponse>;
 
   /**
-   * Delete an email
+   * Search messages with query
    */
-  deleteEmail(params: {
-    id: string;
-  }): Promise<MCPToolCallResponse>;
-
-  /**
-   * Search emails with query
-   */
-  searchEmails(params: {
+  searchMessages(params: {
     query: string;
     maxResults?: number;
     pageToken?: string;
     includeSpamTrash?: boolean;
-  }): Promise<MCPToolCallResponse>;
-
-  /**
-   * Mark an email as read
-   */
-  markAsRead(params: {
-    id: string;
-  }): Promise<MCPToolCallResponse>;
-
-  /**
-   * Mark an email as unread
-   */
-  markAsUnread(params: {
-    id: string;
-  }): Promise<MCPToolCallResponse>;
-
-  /**
-   * Add label(s) to an email
-   */
-  addLabel(params: {
-    id: string;
-    labelIds: string[];
-  }): Promise<MCPToolCallResponse>;
-
-  /**
-   * Remove label(s) from an email
-   */
-  removeLabel(params: {
-    id: string;
-    labelIds: string[];
-  }): Promise<MCPToolCallResponse>;
-
-  /**
-   * List all labels
-   */
-  listLabels(params?: {
-    userId?: string;
-  }): Promise<MCPToolCallResponse>;
-
-  /**
-   * Create a new label
-   */
-  createLabel(params: {
-    name: string;
-    labelListVisibility?: "labelShow" | "labelShowIfUnread" | "labelHide";
-    messageListVisibility?: "show" | "hide";
-    backgroundColor?: string;
-    textColor?: string;
-  }): Promise<MCPToolCallResponse>;
-
-  /**
-   * Get a draft by ID
-   */
-  getDraft(params: {
-    id: string;
-    format?: "minimal" | "full" | "raw" | "metadata";
-  }): Promise<MCPToolCallResponse>;
-
-  /**
-   * Create a new draft
-   */
-  createDraft(params: {
-    to: string | string[];
-    subject: string;
-    body: string;
-    cc?: string | string[];
-    bcc?: string | string[];
-    from?: string;
-    replyTo?: string;
-    html?: boolean;
-  }): Promise<MCPToolCallResponse>;
-
-  /**
-   * Update an existing draft
-   */
-  updateDraft(params: {
-    id: string;
-    to: string | string[];
-    subject: string;
-    body: string;
-    cc?: string | string[];
-    bcc?: string | string[];
-    from?: string;
-    replyTo?: string;
-    html?: boolean;
-  }): Promise<MCPToolCallResponse>;
-
-  /**
-   * Delete a draft
-   */
-  deleteDraft(params: {
-    id: string;
-  }): Promise<MCPToolCallResponse>;
-
-  /**
-   * Send a draft
-   */
-  sendDraft(params: {
-    id: string;
   }): Promise<MCPToolCallResponse>;
 }
 

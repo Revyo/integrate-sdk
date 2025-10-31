@@ -92,6 +92,7 @@ export interface MCPToolCallResponse {
     [key: string]: unknown;
   }>;
   isError?: boolean;
+  structuredContent?: Record<string, unknown>;
   _meta?: Record<string, unknown>;
 }
 

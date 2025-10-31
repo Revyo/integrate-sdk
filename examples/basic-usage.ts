@@ -84,7 +84,7 @@ async function main() {
     // Example: Send an email with Gmail
     console.log("\n--- Gmail Example ---");
     try {
-      const result = await client.gmail.sendEmail({
+      const result = await client.gmail.sendMessage({
         to: "example@example.com",
         subject: "Test Email",
         body: "This is a test email sent via MCP",
