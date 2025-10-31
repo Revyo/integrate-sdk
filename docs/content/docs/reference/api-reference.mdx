@@ -97,17 +97,60 @@ async disconnect(): Promise<void>
 await client.disconnect();
 ```
 
-### callTool()
+### Typed Plugin Methods
 
-Invokes a tool on the MCP server.
+Built-in plugins (GitHub, Gmail) provide fully typed methods for calling tools.
+
+**GitHub Plugin Methods:**
 
 ```typescript
-async callTool(name: string, args?: Record<string, any>): Promise<MCPToolCallResponse>
+client.github.createIssue(params)
+client.github.listIssues(params)
+client.github.getRepo(params)
+client.github.createPullRequest(params)
+// ... and more
+```
+
+**Gmail Plugin Methods:**
+
+```typescript
+client.gmail.sendEmail(params)
+client.gmail.listEmails(params)
+client.gmail.searchEmails(params)
+client.gmail.createLabel(params)
+// ... and more
+```
+
+**Server Methods:**
+
+```typescript
+client.server.listToolsByIntegration(params)
+// ... other server-level tools
+```
+
+**Example:**
+
+```typescript
+// Fully typed with IntelliSense support
+const result = await client.github.createIssue({
+  owner: "owner",
+  repo: "repo",
+  title: "Bug report",
+  body: "Description",
+});
+```
+
+### _callToolByName()
+
+For integrations configured with `genericOAuthPlugin` or `createSimplePlugin`, use this internal method to call tools directly.
+
+```typescript
+async _callToolByName(name: string, args?: Record<string, any>): Promise<MCPToolCallResponse>
 ```
 
 **Parameters:**
 
-- `name` - Tool name (e.g., 'github_create_issue')
+- `name` - Full tool name (e.g., 'slack_send_message')
 - `args` - Tool arguments as key-value pairs (optional)
 
 **Returns:**
@@ -117,10 +160,9 @@ async callTool(name: string, args?: Record<string, any>): Promise<MCPToolCallRes
 **Example:**
 
 ```typescript
-const result = await client.callTool("github_create_issue", {
-  repo: "owner/repo",
-  title: "Bug report",
-  body: "Description",
+const result = await client._callToolByName("slack_send_message", {
+  channel: "#general",
+  text: "Hello!",
 });
 ```
 
@@ -622,7 +664,7 @@ class AuthenticationError extends IntegrateSDKError {
 import { isAuthError, AuthenticationError } from "integrate-sdk";
 
 try {
-  await client.callTool("github_create_issue", { ... });
+  await client.github.createIssue({ owner: "user", repo: "repo", title: "Bug" });
 } catch (error) {
   if (isAuthError(error)) {
     console.error(`Auth failed for ${error.provider}: ${error.message}`);
@@ -647,7 +689,7 @@ class TokenExpiredError extends AuthenticationError {
 import { isTokenExpiredError } from "integrate-sdk";
 
 try {
-  await client.callTool("github_create_issue", { ... });
+  await client.github.createIssue({ owner: "user", repo: "repo", title: "Bug" });
 } catch (error) {
   if (isTokenExpiredError(error)) {
     console.error(`Token expired for ${error.provider}`);
@@ -674,7 +716,7 @@ class AuthorizationError extends IntegrateSDKError {
 import { isAuthorizationError } from "integrate-sdk";
 
 try {
-  await client.callTool("github_create_issue", { ... });
+  await client.github.createIssue({ owner: "user", repo: "repo", title: "Bug" });
 } catch (error) {
   if (isAuthorizationError(error)) {
     console.error("Insufficient permissions");
@@ -733,7 +775,7 @@ import {
 } from "integrate-sdk";
 
 try {
-  await client.callTool("github_create_issue", { ... });
+  await client.github.createIssue({ owner: "user", repo: "repo", title: "Bug" });
 } catch (error) {
   if (isTokenExpiredError(error)) {
     // Handle token expiration

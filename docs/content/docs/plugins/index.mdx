@@ -23,9 +23,9 @@ The Integrate SDK comes with several built-in plugins for popular services. Each
     description="Send emails, manage labels, and search messages"
   />
   <Card
-    title="Custom Plugins"
+    title="Additional Integrations"
     href="/docs/plugins/custom-plugins"
-    description="Create your own plugins for any service"
+    description="Configure plugins for other server-supported integrations"
   />
 </Cards>
 
@@ -33,10 +33,12 @@ The Integrate SDK comes with several built-in plugins for popular services. Each
 
 Plugins are the core of the Integrate SDK's architecture. They:
 
-1. **Define OAuth configuration** - Client ID, secret, scopes, and redirect URI
-2. **Specify tools** - Which tools from the MCP server to enable
+1. **Configure OAuth** - Provide client credentials for authenticating with services
+2. **Enable tools** - Specify which server-provided tools to enable
 3. **Provide lifecycle hooks** - `onInit`, `onBeforeConnect`, `onAfterConnect`, `onDisconnect`
-4. **Type safety** - Full TypeScript support with IntelliSense
+4. **Type safety** - Full TypeScript support with IntelliSense (for built-in plugins)
+
+**Important**: Plugins configure access to existing server-side tools. They do not create new tool implementations. All tools must be provided by the Integrate MCP server.
 
 ## Using Multiple Plugins
 
@@ -76,4 +78,4 @@ All OAuth plugins share a common configuration structure:
 
 - Learn about the [GitHub Plugin](/docs/plugins/github)
 - Explore the [Gmail Plugin](/docs/plugins/gmail)
-- Create your own [Custom Plugins](/docs/plugins/custom-plugins)
+- Configure [Additional Integrations](/docs/plugins/custom-plugins)

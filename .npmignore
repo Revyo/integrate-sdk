@@ -3,11 +3,13 @@ src/
 docs/
 tests/
 examples/
+scripts/
 
 # Configuration
 tsconfig.json
 .github/
 .cursorignore
+vercel.json
 
 # Test files
 *.test.ts

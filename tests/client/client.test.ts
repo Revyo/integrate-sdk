@@ -183,13 +183,18 @@ describe("MCP Client", () => {
   });
 
   describe("Error Handling", () => {
-    test("callTool throws when not initialized", async () => {
+    test("plugin methods throw when not initialized", async () => {
       const client = createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [],
+        plugins: [
+          githubPlugin({
+            clientId: "test-id",
+            clientSecret: "test-secret",
+          }),
+        ],
       });
 
-      await expect(client.callTool("test/tool")).rejects.toThrow(
+      await expect(client.github.getRepo({ owner: "test", repo: "test" })).rejects.toThrow(
         "Client not initialized"
       );
     });

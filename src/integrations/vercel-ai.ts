@@ -43,7 +43,8 @@ export function convertMCPToolToVercelAI(
     description: mcpTool.description || `Execute ${mcpTool.name}`,
     parameters: convertMCPSchemaToParameters(mcpTool.inputSchema),
     execute: async (args: Record<string, unknown>) => {
-      const result = await client.callTool(mcpTool.name, args);
+      // Use internal method to call tools by name for integration purposes
+      const result = await client._callToolByName(mcpTool.name, args);
       return result;
     },
   };

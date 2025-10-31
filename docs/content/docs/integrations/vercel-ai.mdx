@@ -236,7 +236,7 @@ const githubTools = mcpClient
 When the AI model calls a tool:
 
 1. Vercel AI SDK invokes the tool handler
-2. The handler calls `mcpClient.callTool()`
+2. The handler calls the appropriate MCP client method (e.g., `mcpClient.github.createIssue()`)
 3. The request is sent to the MCP server
 4. Results are returned to the AI model
 5. The AI continues processing

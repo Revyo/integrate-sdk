@@ -106,14 +106,14 @@ describe("Integration - Error Handling", () => {
     const client = createMCPClient({
       serverUrl: "https://mcp.integrate.dev:8080/api/v1/mcp",
       plugins: [
-        createSimplePlugin({
-          id: "test",
-          tools: ["test/tool"],
+        githubPlugin({
+          clientId: "test-id",
+          clientSecret: "test-secret",
         }),
       ],
     });
 
-    await expect(client.callTool("test/tool")).rejects.toThrow(
+    await expect(client.github.getRepo({ owner: "test", repo: "test" })).rejects.toThrow(
       "Client not initialized"
     );
   });

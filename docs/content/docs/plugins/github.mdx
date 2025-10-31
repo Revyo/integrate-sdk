@@ -83,8 +83,9 @@ The plugin provides access to many more GitHub tools. Use `client.getEnabledTool
 ```typescript
 await client.connect();
 
-const result = await client.callTool("github_create_issue", {
-  repo: "username/repository",
+const result = await client.github.createIssue({
+  owner: "username",
+  repo: "repository",
   title: "Bug: App crashes on startup",
   body: "When I start the app, it immediately crashes with error XYZ",
   labels: ["bug", "priority:high"],
@@ -97,8 +98,9 @@ console.log("Issue created:", result);
 ### List Pull Requests
 
 ```typescript
-const result = await client.callTool("github_list_pull_requests", {
-  repo: "username/repository",
+const result = await client.github.listPullRequests({
+  owner: "username",
+  repo: "repository",
   state: "open",
   sort: "created",
   direction: "desc",
@@ -110,11 +112,11 @@ console.log("Open PRs:", result);
 ### Create a Repository
 
 ```typescript
-const result = await client.callTool("github_create_repo", {
+const result = await client.github.createRepo({
   name: "my-new-project",
   description: "A new project",
   private: false,
-  auto_init: true,
+  autoInit: true,
 });
 
 console.log("Repository created:", result);
@@ -123,11 +125,12 @@ console.log("Repository created:", result);
 ### Merge a Pull Request
 
 ```typescript
-const result = await client.callTool("github_merge_pull_request", {
-  repo: "username/repository",
-  pull_number: 42,
-  merge_method: "squash",
-  commit_title: "Feature: Add new functionality",
+const result = await client.github.mergePullRequest({
+  owner: "username",
+  repo: "repository",
+  pullNumber: 42,
+  mergeMethod: "squash",
+  commitTitle: "Feature: Add new functionality",
 });
 
 console.log("PR merged:", result);
@@ -148,8 +151,9 @@ The default scopes are `['repo', 'user']`. You may need additional scopes depend
 
 ```typescript
 try {
-  const result = await client.callTool("github_create_issue", {
-    repo: "username/repository",
+  const result = await client.github.createIssue({
+    owner: "username",
+    repo: "repository",
     title: "New issue",
   });
 } catch (error) {
@@ -166,5 +170,5 @@ try {
 ## Next Steps
 
 - Explore the [Gmail Plugin](/docs/plugins/gmail)
-- Learn about [Custom Plugins](/docs/plugins/custom-plugins)
+- Configure [Additional Integrations](/docs/plugins/custom-plugins)
 - See [Advanced Usage](/docs/guides/advanced-usage) for more examples

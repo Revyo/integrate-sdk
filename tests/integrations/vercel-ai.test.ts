@@ -209,7 +209,7 @@ describe("Vercel AI SDK Integration", () => {
   });
 
   describe("Tool execution", () => {
-    test("execute calls client.callTool with correct arguments", async () => {
+    test("execute calls client._callToolByName with correct arguments", async () => {
       const client = createMCPClient({
         plugins: [
           createSimplePlugin({
@@ -228,10 +228,10 @@ describe("Vercel AI SDK Integration", () => {
       (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
       (client as any).initialized = true;
 
-      // Mock callTool to track calls
+      // Mock _callToolByName to track calls
       let calledWith: any = null;
-      const originalCallTool = client.callTool.bind(client);
-      client.callTool = async (name: string, args?: Record<string, unknown>) => {
+      const originalCallToolByName = client._callToolByName.bind(client);
+      client._callToolByName = async (name: string, args?: Record<string, unknown>) => {
         calledWith = { name, args };
         return {
           content: [{ type: "text", text: "mocked response" }],
@@ -248,7 +248,7 @@ describe("Vercel AI SDK Integration", () => {
       expect(calledWith.args).toEqual(testArgs);
     });
 
-    test("execute returns result from callTool", async () => {
+    test("execute returns result from _callToolByName", async () => {
       const client = createMCPClient({
         plugins: [
           createSimplePlugin({
@@ -272,7 +272,7 @@ describe("Vercel AI SDK Integration", () => {
         isError: false,
       };
 
-      client.callTool = async () => mockResponse;
+      client._callToolByName = async () => mockResponse;
 
       const vercelTool = convertMCPToolToVercelAI(mockTool, client);
       const result = await vercelTool.execute({ input: "test" });

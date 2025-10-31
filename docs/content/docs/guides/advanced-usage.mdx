@@ -149,8 +149,9 @@ import {
 ```typescript
 try {
   await client.connect();
-  const result = await client.callTool("github_create_issue", {
-    repo: "owner/repo",
+  const result = await client.github.createIssue({
+    owner: "owner",
+    repo: "repo",
     title: "Bug report",
   });
 } catch (error) {
@@ -170,8 +171,9 @@ import {
 } from "integrate-sdk";
 
 try {
-  const result = await client.callTool("github_create_issue", {
-    repo: "owner/repo",
+  const result = await client.github.createIssue({
+    owner: "owner",
+    repo: "repo",
     title: "Bug report",
   });
 } catch (error) {
@@ -329,8 +331,9 @@ await client.connect();
 
 // The SDK automatically handles token expiration
 try {
-  const result = await client.callTool("github_create_issue", {
-    repo: "owner/repo",
+  const result = await client.github.createIssue({
+    owner: "owner",
+    repo: "repo",
     title: "Bug report",
   });
   console.log("Issue created:", result);
@@ -365,15 +368,13 @@ setInterval(async () => {
 For other types of errors, you can implement custom retry logic:
 
 ```typescript
-async function callToolWithRetry(
-  client: MCPClient,
-  toolName: string,
-  args: any,
+async function callWithRetry<T>(
+  fn: () => Promise<T>,
   maxRetries = 3
-) {
+): Promise<T> {
   for (let i = 0; i < maxRetries; i++) {
     try {
-      return await client.callTool(toolName, args);
+      return await fn();
     } catch (error) {
       // Don't retry auth errors (handled by SDK)
       if (isAuthError(error)) {
@@ -386,13 +387,17 @@ async function callToolWithRetry(
       await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
     }
   }
+  throw new Error("Unreachable");
 }
 
-// Usage
-const result = await callToolWithRetry(client, "github_create_issue", {
-  repo: "owner/repo",
-  title: "Bug report",
-});
+// Usage with typed methods
+const result = await callWithRetry(() =>
+  client.github.createIssue({
+    owner: "owner",
+    repo: "repo",
+    title: "Bug report",
+  })
+);
 ```
 
 ## Connection Management
@@ -416,8 +421,9 @@ async function ensureConnected(client: MCPClient) {
 
 // Usage
 await ensureConnected(client);
-const result = await client.callTool("github_list_issues", {
-  repo: "owner/repo",
+const result = await client.github.listIssues({
+  owner: "owner",
+  repo: "repo",
 });
 ```
 
@@ -471,9 +477,9 @@ Execute multiple tools in parallel:
 
 ```typescript
 const results = await Promise.all([
-  client.callTool("github_get_issue", { repo: "owner/repo", issue_number: 1 }),
-  client.callTool("github_get_issue", { repo: "owner/repo", issue_number: 2 }),
-  client.callTool("github_get_issue", { repo: "owner/repo", issue_number: 3 }),
+  client.github.getIssue({ owner: "owner", repo: "repo", issueNumber: 1 }),
+  client.github.getIssue({ owner: "owner", repo: "repo", issueNumber: 2 }),
+  client.github.getIssue({ owner: "owner", repo: "repo", issueNumber: 3 }),
 ]);
 
 console.log("Issues:", results);
@@ -534,8 +540,9 @@ interface Issue {
   state: string;
 }
 
-const result = await client.callTool("github_list_issues", {
-  repo: "owner/repo",
+const result = await client.github.listIssues({
+  owner: "owner",
+  repo: "repo",
   state: "open",
 });
 
@@ -591,40 +598,31 @@ const client = createMCPClient({
 Add comprehensive logging:
 
 ```typescript
-class LoggedMCPClient {
-  constructor(private client: MCPClient) {
-    // Log all messages
-    client.onMessage((message) => {
-      console.log("[MCP]", JSON.stringify(message));
-    });
-  }
-
-  async callTool(name: string, args: any) {
-    console.log(`[CALL] ${name}`, args);
-
-    try {
-      const result = await this.client.callTool(name, args);
-      console.log(`[SUCCESS] ${name}`, result);
-      return result;
-    } catch (error) {
-      console.error(`[ERROR] ${name}`, error);
-      throw error;
-    }
-  }
-}
-
-// Usage
+// Add logging by wrapping the client
 const client = createMCPClient({
-  plugins: [
-    /* ... */
-  ],
+  plugins: [githubPlugin({ /* ... */ })],
 });
+
+// Log all MCP protocol messages
+client.onMessage((message) => {
+  console.log("[MCP]", JSON.stringify(message));
+});
+
 await client.connect();
 
-const loggedClient = new LoggedMCPClient(client);
-await loggedClient.callTool("github_create_issue", {
-  /* ... */
-});
+// Log tool calls
+console.log("[CALL] github.createIssue");
+try {
+  const result = await client.github.createIssue({
+    owner: "owner",
+    repo: "repo",
+    title: "Bug report",
+  });
+  console.log("[SUCCESS]", result);
+} catch (error) {
+  console.error("[ERROR]", error);
+  throw error;
+}
 ```
 
 ## Next Steps

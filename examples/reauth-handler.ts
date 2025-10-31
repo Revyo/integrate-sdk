@@ -81,8 +81,8 @@ async function main() {
 
   // Example 1: Normal tool call (will succeed)
   try {
-    console.log("🔧 Calling tool: github_get_repo");
-    const result = await client.callTool("github_get_repo", {
+    console.log("🔧 Calling tool: github.getRepo");
+    const result = await client.github.getRepo({
       owner: "facebook",
       repo: "react",
     });

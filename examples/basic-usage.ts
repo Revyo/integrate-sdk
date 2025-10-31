@@ -63,7 +63,7 @@ async function main() {
     // Example: Get a GitHub repository
     console.log("\n--- GitHub Example ---");
     try {
-      const repo = await client.callTool("github_get_repo", {
+      const repo = await client.github.getRepo({
         owner: "facebook",
         repo: "react",
       });
@@ -75,7 +75,7 @@ async function main() {
     // Example: List your own GitHub repositories
     console.log("\n--- List Own Repos ---");
     try {
-      const repos = await client.callTool("github_list_own_repos", {});
+      const repos = await client.github.listOwnRepos({});
       console.log("Your repositories:", JSON.stringify(repos, null, 2).substring(0, 500));
     } catch (error) {
       console.error("Failed to list repos:", error);
@@ -84,7 +84,7 @@ async function main() {
     // Example: Send an email with Gmail
     console.log("\n--- Gmail Example ---");
     try {
-      const result = await client.callTool("gmail_send_email", {
+      const result = await client.gmail.sendEmail({
         to: "example@example.com",
         subject: "Test Email",
         body: "This is a test email sent via MCP",

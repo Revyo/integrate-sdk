@@ -39,16 +39,16 @@ export interface MCPPlugin {
   oauth?: OAuthConfig;
   
   /** Called when the plugin is initialized with the client */
-  onInit?: (client: MCPClient) => Promise<void> | void;
+  onInit?: (client: MCPClient<any>) => Promise<void> | void;
   
   /** Called before the client connects to the server */
-  onBeforeConnect?: (client: MCPClient) => Promise<void> | void;
+  onBeforeConnect?: (client: MCPClient<any>) => Promise<void> | void;
   
   /** Called after the client successfully connects */
-  onAfterConnect?: (client: MCPClient) => Promise<void> | void;
+  onAfterConnect?: (client: MCPClient<any>) => Promise<void> | void;
   
   /** Called when the client disconnects */
-  onDisconnect?: (client: MCPClient) => Promise<void> | void;
+  onDisconnect?: (client: MCPClient<any>) => Promise<void> | void;
 }
 
 /**

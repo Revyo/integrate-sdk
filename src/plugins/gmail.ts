@@ -95,3 +95,8 @@ export function gmailPlugin(config: GmailPluginConfig): MCPPlugin {
  */
 export type GmailTools = typeof GMAIL_TOOLS[number];
 
+/**
+ * Export Gmail client types
+ */
+export type { GmailPluginClient } from "./gmail-client.js";
+

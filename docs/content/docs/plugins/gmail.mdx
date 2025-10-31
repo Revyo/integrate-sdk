@@ -83,7 +83,7 @@ Use `client.getEnabledTools()` to see all available Gmail tools.
 ```typescript
 await client.connect();
 
-const result = await client.callTool("gmail_send_email", {
+const result = await client.gmail.sendEmail({
   to: "recipient@example.com",
   subject: "Hello from Integrate SDK",
   body: "This email was sent using the Integrate SDK!",
@@ -97,7 +97,7 @@ console.log("Email sent:", result);
 ### List Emails
 
 ```typescript
-const result = await client.callTool("gmail_list_emails", {
+const result = await client.gmail.listEmails({
   maxResults: 10,
   labelIds: ["INBOX"],
   includeSpamTrash: false,
@@ -109,7 +109,7 @@ console.log("Emails:", result);
 ### Search Emails
 
 ```typescript
-const result = await client.callTool("gmail_search_emails", {
+const result = await client.gmail.searchEmails({
   query: "from:sender@example.com subject:important",
   maxResults: 20,
 });
@@ -120,7 +120,7 @@ console.log("Search results:", result);
 ### Create a Label
 
 ```typescript
-const result = await client.callTool("gmail_create_label", {
+const result = await client.gmail.createLabel({
   name: "Projects/My Project",
   labelListVisibility: "labelShow",
   messageListVisibility: "show",
@@ -132,7 +132,7 @@ console.log("Label created:", result);
 ### Mark as Read
 
 ```typescript
-const result = await client.callTool("gmail_mark_as_read", {
+const result = await client.gmail.markAsRead({
   messageIds: ["message-id-1", "message-id-2"],
 });
 
@@ -170,7 +170,7 @@ Combine with operators:
 
 ```typescript
 try {
-  const result = await client.callTool("gmail_send_email", {
+  const result = await client.gmail.sendEmail({
     to: "recipient@example.com",
     subject: "Test",
     body: "Test email",
@@ -189,5 +189,5 @@ try {
 ## Next Steps
 
 - Learn about the [GitHub Plugin](/docs/plugins/github)
-- Create [Custom Plugins](/docs/plugins/custom-plugins)
+- Configure [Additional Integrations](/docs/plugins/custom-plugins)
 - See [Advanced Usage](/docs/guides/advanced-usage) for more examples

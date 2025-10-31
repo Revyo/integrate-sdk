@@ -1,6 +1,6 @@
 /**
  * Generic OAuth Plugin
- * Template for creating custom OAuth provider plugins
+ * Configure OAuth and enable tools for any integration supported by the server
  */
 
 import type { MCPPlugin, OAuthConfig } from "./types.js";
@@ -9,7 +9,7 @@ import type { MCPPlugin, OAuthConfig } from "./types.js";
  * Generic OAuth plugin configuration
  */
 export interface GenericOAuthPluginConfig {
-  /** Plugin unique identifier */
+  /** Plugin unique identifier (must match the integration ID on the server) */
   id: string;
   /** OAuth provider name */
   provider: string;
@@ -19,7 +19,7 @@ export interface GenericOAuthPluginConfig {
   clientSecret: string;
   /** OAuth scopes */
   scopes: string[];
-  /** Tool names to enable */
+  /** Tool names to enable from the server (must exist on the server) */
   tools: string[];
   /** OAuth redirect URI */
   redirectUri?: string;
@@ -36,10 +36,13 @@ export interface GenericOAuthPluginConfig {
 /**
  * Generic OAuth Plugin
  * 
- * Use this to create custom plugins for any OAuth provider
+ * Configure OAuth and enable tools for any integration supported by the Integrate MCP server.
+ * Note: This does NOT create new tools - it only configures access to existing server-side tools.
+ * All tools must be implemented on the server and exposed via the MCP protocol.
  * 
  * @example
  * ```typescript
+ * // Configure Slack integration (assuming server supports Slack tools)
  * const slackPlugin = genericOAuthPlugin({
  *   id: 'slack',
  *   provider: 'slack',
@@ -47,16 +50,18 @@ export interface GenericOAuthPluginConfig {
  *   clientSecret: process.env.SLACK_CLIENT_SECRET!,
  *   scopes: ['chat:write', 'channels:read'],
  *   tools: [
- *     'slack/sendMessage',
- *     'slack/listChannels',
- *     'slack/getChannel',
+ *     'slack_send_message',      // Must exist on server
+ *     'slack_list_channels',     // Must exist on server
  *   ],
  * });
  * 
  * const client = createMCPClient({
- *   serverUrl: 'http://localhost:3000/mcp',
  *   plugins: [slackPlugin],
  * });
+ * 
+ * await client.connect();
+ * // Call server tools using _callToolByName
+ * await client._callToolByName('slack_send_message', { channel: '#general', text: 'Hello' });
  * ```
  */
 export function genericOAuthPlugin(
@@ -84,13 +89,15 @@ export function genericOAuthPlugin(
 
 /**
  * Create a simple plugin without OAuth
- * Useful for plugins that just enable certain tools without authentication
+ * Enable server-provided tools that don't require authentication
+ * Note: Tools must exist on the server - this does not create new tools
  * 
  * @example
  * ```typescript
+ * // Enable server-provided math tools (if they exist on the server)
  * const mathPlugin = createSimplePlugin({
  *   id: 'math',
- *   tools: ['math/add', 'math/subtract', 'math/multiply', 'math/divide'],
+ *   tools: ['math_add', 'math_subtract', 'math_multiply', 'math_divide'],
  * });
  * ```
  */

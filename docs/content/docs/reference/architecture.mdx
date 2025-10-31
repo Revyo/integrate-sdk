@@ -203,14 +203,15 @@ interface MCPPlugin {
 ### Tool Call Flow
 
 ```
-1. Application calls client.callTool(name, args)
-2. Client validates tool is enabled
-3. Client creates JSON-RPC request
-4. Transport sends request to server
-5. Server executes tool (OAuth happens here)
-6. Server sends JSON-RPC response
-7. Transport receives response
-8. Client parses and returns result
+1. Application calls typed method (e.g., client.github.createIssue())
+2. Proxy converts method to tool name (e.g., github_create_issue)
+3. Client validates tool is enabled
+4. Client creates JSON-RPC request
+5. Transport sends request to server
+6. Server executes tool (OAuth happens here)
+7. Server sends JSON-RPC response
+8. Transport receives response
+9. Client parses and returns result
 ```
 
 ## Tool Filtering
@@ -301,7 +302,7 @@ The SDK uses a hierarchical error handling approach:
 
 ```typescript
 try {
-  await client.callTool("github_create_issue", args);
+  await client.github.createIssue({ owner: "user", repo: "repo", title: "Bug" });
 } catch (error) {
   // Error includes context about what failed
   console.error(error.message);
