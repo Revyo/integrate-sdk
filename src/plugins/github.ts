@@ -98,3 +98,8 @@ export function githubPlugin(config: GitHubPluginConfig): MCPPlugin {
  */
 export type GitHubTools = typeof GITHUB_TOOLS[number];
 
+/**
+ * Export GitHub client types
+ */
+export type { GitHubPluginClient } from "./github-client.js";
+

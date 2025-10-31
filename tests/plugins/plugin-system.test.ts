@@ -139,7 +139,7 @@ describe("Plugin System", () => {
   });
 
   describe("Generic OAuth Plugin", () => {
-    test("creates custom plugin", () => {
+    test("creates plugin for server-supported integration", () => {
       const plugin = genericOAuthPlugin({
         id: "slack",
         provider: "slack",
@@ -154,8 +154,8 @@ describe("Plugin System", () => {
       expect(plugin.tools).toEqual(["slack/sendMessage", "slack/listChannels"]);
     });
 
-    test("supports custom configuration", () => {
-      const customConfig = {
+    test("supports additional configuration", () => {
+      const additionalConfig = {
         customField: "value",
         apiUrl: "https://api.example.com",
       };
@@ -167,7 +167,7 @@ describe("Plugin System", () => {
         clientSecret: "secret",
         scopes: ["read"],
         tools: ["custom/tool"],
-        config: customConfig,
+        config: additionalConfig,
       });
 
       // The entire config is stored in the OAuth config
@@ -178,7 +178,7 @@ describe("Plugin System", () => {
         clientSecret: "secret",
         scopes: ["read"],
         tools: ["custom/tool"],
-        config: customConfig,
+        config: additionalConfig,
       });
     });
   });

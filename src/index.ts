@@ -34,10 +34,13 @@ export type {
 
 // Built-in plugins
 export { githubPlugin } from "./plugins/github.js";
-export type { GitHubPluginConfig, GitHubTools } from "./plugins/github.js";
+export type { GitHubPluginConfig, GitHubTools, GitHubPluginClient } from "./plugins/github.js";
 
 export { gmailPlugin } from "./plugins/gmail.js";
-export type { GmailPluginConfig, GmailTools } from "./plugins/gmail.js";
+export type { GmailPluginConfig, GmailTools, GmailPluginClient } from "./plugins/gmail.js";
+
+// Server client
+export type { ServerPluginClient } from "./plugins/server-client.js";
 
 export {
   genericOAuthPlugin,

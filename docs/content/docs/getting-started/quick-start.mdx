@@ -32,9 +32,10 @@ const client = createMCPClient({
 // Connect to the server
 await client.connect();
 
-// Call tools
-const result = await client.callTool("github_create_issue", {
-  repo: "owner/repo",
+// Call tools with typed methods
+const result = await client.github.createIssue({
+  owner: "owner",
+  repo: "repo",
   title: "Bug report",
   body: "Description of the bug",
 });
@@ -94,8 +95,10 @@ This establishes an HTTP streaming connection to `https://mcp.integrate.dev/api/
 ### 5. Call Tools
 
 ```typescript
-const result = await client.callTool("github_create_issue", {
-  repo: "owner/repo",
+// Use typed methods for built-in plugins
+const result = await client.github.createIssue({
+  owner: "owner",
+  repo: "repo",
   title: "Bug report",
   body: "Description of the bug",
 });
@@ -130,8 +133,9 @@ Wrap your code in try-catch blocks to handle errors:
 ```typescript
 try {
   await client.connect();
-  const result = await client.callTool("github_create_issue", {
-    repo: "owner/repo",
+  const result = await client.github.createIssue({
+    owner: "owner",
+    repo: "repo",
     title: "Bug report",
   });
   console.log("Success:", result);
@@ -145,5 +149,5 @@ try {
 ## Next Steps
 
 - Explore [Built-in Plugins](/docs/plugins) to see what integrations are available
-- Learn how to [Create Custom Plugins](/docs/plugins/custom-plugins)
+- Learn how to [Configure Additional Integrations](/docs/plugins/custom-plugins)
 - Integrate with [Vercel AI SDK](/docs/integrations/vercel-ai) to give AI models access to your tools

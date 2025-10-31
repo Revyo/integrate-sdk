@@ -20,6 +20,10 @@ import {
   isAuthError,
   type AuthenticationError,
 } from "./errors.js";
+import { methodToToolName } from "./utils/naming.js";
+import type { GitHubPluginClient } from "./plugins/github-client.js";
+import type { GmailPluginClient } from "./plugins/gmail-client.js";
+import type { ServerPluginClient } from "./plugins/server-client.js";
 
 /**
  * MCP server URL
@@ -37,6 +41,25 @@ export interface ToolInvocationOptions {
 }
 
 /**
+ * Extract all plugin IDs from a plugins array as a union
+ */
+type ExtractPluginId<T> = T extends { id: infer Id } ? Id : never;
+type PluginIds<TPlugins extends readonly MCPPlugin[]> = ExtractPluginId<TPlugins[number]>;
+
+/**
+ * Check if a specific plugin ID exists in the plugin array
+ */
+type HasPluginId<TPlugins extends readonly MCPPlugin[], Id extends string> = 
+  Id extends PluginIds<TPlugins> ? true : false;
+
+/**
+ * Plugin namespace type mapping - only includes properties for configured plugins
+ */
+type PluginNamespaces<TPlugins extends readonly MCPPlugin[]> = 
+  (HasPluginId<TPlugins, "github"> extends true ? { github: GitHubPluginClient } : {}) &
+  (HasPluginId<TPlugins, "gmail"> extends true ? { gmail: GmailPluginClient } : {});
+
+/**
  * MCP Client Class
  * 
  * Provides type-safe access to MCP server tools with plugin-based configuration
@@ -51,6 +74,17 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   private onReauthRequired?: ReauthHandler;
   private maxReauthRetries: number;
   private authState: Map<string, { authenticated: boolean; lastError?: AuthenticationError }> = new Map();
+
+  // Plugin namespaces - dynamically typed based on configured plugins
+  public readonly github!: PluginNamespaces<TPlugins> extends { github: GitHubPluginClient } 
+    ? GitHubPluginClient 
+    : never;
+  public readonly gmail!: PluginNamespaces<TPlugins> extends { gmail: GmailPluginClient } 
+    ? GmailPluginClient 
+    : never;
+  
+  // Server namespace - always available for server-level tools
+  public readonly server!: ServerPluginClient;
 
   constructor(config: MCPClientConfig<TPlugins>) {
     this.transport = new HttpSessionTransport({
@@ -79,8 +113,84 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       }
     }
 
+    // Initialize plugin namespaces with proxies
+    this.github = this.createPluginProxy("github") as any;
+    this.gmail = this.createPluginProxy("gmail") as any;
+    this.server = this.createServerProxy() as any;
+
     // Initialize plugins
     this.initializePlugins();
+  }
+
+  /**
+   * Create a proxy for a plugin namespace that intercepts method calls
+   * and routes them to the appropriate tool
+   */
+  private createPluginProxy(pluginId: string): any {
+    return new Proxy({}, {
+      get: (_target, methodName: string) => {
+        // Return a function that calls the tool
+        return async (args?: Record<string, unknown>) => {
+          const toolName = methodToToolName(methodName, pluginId);
+          return await this.callToolWithRetry(toolName, args, 0);
+        };
+      },
+    });
+  }
+
+  /**
+   * Create a proxy for the server namespace that handles server-level tools
+   */
+  private createServerProxy(): any {
+    return new Proxy({}, {
+      get: (_target, methodName: string) => {
+        // Return a function that calls the server tool directly
+        return async (args?: Record<string, unknown>) => {
+          const toolName = methodToToolName(methodName, "");
+          // Remove leading underscore if present
+          const finalToolName = toolName.startsWith("_") ? toolName.substring(1) : toolName;
+          return await this.callServerToolInternal(finalToolName, args);
+        };
+      },
+    });
+  }
+
+  /**
+   * Internal implementation for calling server tools
+   */
+  private async callServerToolInternal(
+    name: string,
+    args?: Record<string, unknown>
+  ): Promise<MCPToolCallResponse> {
+    if (!this.initialized) {
+      throw new Error("Client not initialized. Call connect() first.");
+    }
+
+    if (!this.availableTools.has(name)) {
+      throw new Error(
+        `Tool "${name}" is not available on the server. Available tools: ${Array.from(
+          this.availableTools.keys()
+        ).join(", ")}`
+      );
+    }
+
+    const params: MCPToolCallParams = {
+      name,
+      arguments: args,
+    };
+
+    try {
+      const response = await this.transport.sendRequest<MCPToolCallResponse>(
+        MCPMethod.TOOLS_CALL,
+        params
+      );
+      
+      return response;
+    } catch (error) {
+      // For server tools, we don't have provider info, so just parse the error
+      const parsedError = parseServerError(error, { toolName: name });
+      throw parsedError;
+    }
   }
 
   /**
@@ -167,13 +277,62 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   }
 
   /**
-   * Call a tool by name with automatic retry on authentication failure
+   * Internal method for integrations to call tools by name
+   * Used by integrations like Vercel AI that need to map from tool names
+   * @internal
    */
-  async callTool(
+  async _callToolByName(
     name: string,
     args?: Record<string, unknown>
   ): Promise<MCPToolCallResponse> {
     return await this.callToolWithRetry(name, args, 0);
+  }
+
+  /**
+   * Call any available tool on the server by name, bypassing plugin restrictions
+   * Useful for server-level tools like 'list_tools_by_integration' that don't belong to a specific plugin
+   * 
+   * @example
+   * ```typescript
+   * // Call a server-level tool
+   * const tools = await client.callServerTool('list_tools_by_integration', { 
+   *   integration: 'github' 
+   * });
+   * ```
+   */
+  async callServerTool(
+    name: string,
+    args?: Record<string, unknown>
+  ): Promise<MCPToolCallResponse> {
+    if (!this.initialized) {
+      throw new Error("Client not initialized. Call connect() first.");
+    }
+
+    if (!this.availableTools.has(name)) {
+      throw new Error(
+        `Tool "${name}" is not available on the server. Available tools: ${Array.from(
+          this.availableTools.keys()
+        ).join(", ")}`
+      );
+    }
+
+    const params: MCPToolCallParams = {
+      name,
+      arguments: args,
+    };
+
+    try {
+      const response = await this.transport.sendRequest<MCPToolCallResponse>(
+        MCPMethod.TOOLS_CALL,
+        params
+      );
+      
+      return response;
+    } catch (error) {
+      // For server tools, we don't have provider info, so just parse the error
+      const parsedError = parseServerError(error, { toolName: name });
+      throw parsedError;
+    }
   }
 
   /**

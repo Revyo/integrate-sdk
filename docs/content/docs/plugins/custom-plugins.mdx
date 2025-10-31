@@ -1,19 +1,22 @@
 ---
-title: Custom Plugins
-description: Create your own plugins for any service
+title: Additional Integrations
+description: Configure plugins for server-supported integrations
 ---
 
-# Creating Custom Plugins
+# Configuring Additional Integrations
 
-The Integrate SDK's plugin system is extensible, allowing you to create custom plugins for any service supported by the MCP server.
+The Integrate SDK can be configured to work with any integration supported by the Integrate MCP server. While GitHub and Gmail have pre-built typed client interfaces, you can configure OAuth and enable tools for other server-supported integrations.
+
+**Important**: Plugins configure OAuth credentials and enable server-provided tools. They do NOT create new tool implementations. All tools must exist on the Integrate MCP server.
 
 ## Using the Generic OAuth Plugin
 
-The easiest way to create a plugin is using the `genericOAuthPlugin` helper:
+To configure a plugin for any server-supported integration, use the `genericOAuthPlugin` helper:
 
 ```typescript
 import { createMCPClient, genericOAuthPlugin } from "integrate-sdk";
 
+// Configure Slack integration (assuming server supports Slack tools)
 const slackPlugin = genericOAuthPlugin({
   id: "slack",
   provider: "slack",
@@ -21,10 +24,10 @@ const slackPlugin = genericOAuthPlugin({
   clientSecret: process.env.SLACK_CLIENT_SECRET!,
   scopes: ["chat:write", "channels:read", "users:read"],
   tools: [
-    "slack_send_message",
-    "slack_list_channels",
-    "slack_get_channel",
-    "slack_invite_user",
+    "slack_send_message",    // Must exist on server
+    "slack_list_channels",   // Must exist on server
+    "slack_get_channel",     // Must exist on server
+    "slack_invite_user",     // Must exist on server
   ],
   redirectUri: "https://your-app.com/callback",
 });
@@ -32,27 +35,36 @@ const slackPlugin = genericOAuthPlugin({
 const client = createMCPClient({
   plugins: [slackPlugin],
 });
+
+await client.connect();
+
+// Call tools using _callToolByName
+await client._callToolByName("slack_send_message", {
+  channel: "#general",
+  text: "Hello from Integrate SDK!",
+});
 ```
 
 ## Generic OAuth Plugin Options
 
-| Option         | Type     | Required | Description                                   |
-| -------------- | -------- | -------- | --------------------------------------------- |
-| `id`           | string   | Yes      | Unique plugin identifier                      |
-| `provider`     | string   | Yes      | OAuth provider name (e.g., 'slack', 'notion') |
-| `clientId`     | string   | Yes      | OAuth client ID                               |
-| `clientSecret` | string   | Yes      | OAuth client secret                           |
-| `scopes`       | string[] | Yes      | OAuth scopes                                  |
-| `tools`        | string[] | Yes      | Tool names to enable                          |
-| `redirectUri`  | string   | No       | OAuth redirect URI                            |
+| Option         | Type     | Required | Description                                            |
+| -------------- | -------- | -------- | ------------------------------------------------------ |
+| `id`           | string   | Yes      | Plugin identifier (must match server integration ID)   |
+| `provider`     | string   | Yes      | OAuth provider name (e.g., 'slack', 'notion')          |
+| `clientId`     | string   | Yes      | OAuth client ID                                        |
+| `clientSecret` | string   | Yes      | OAuth client secret                                    |
+| `scopes`       | string[] | Yes      | OAuth scopes                                           |
+| `tools`        | string[] | Yes      | Tool names to enable (must exist on server)            |
+| `redirectUri`  | string   | No       | OAuth redirect URI                                     |
 
-## Creating a Simple Plugin (No OAuth)
+## Configuring Tools Without OAuth
 
-For tools that don't require OAuth, use `createSimplePlugin`:
+For server-provided tools that don't require OAuth authentication, use `createSimplePlugin`:
 
 ```typescript
 import { createSimplePlugin } from "integrate-sdk";
 
+// Enable server-provided math tools (if they exist on the server)
 const mathPlugin = createSimplePlugin({
   id: "math",
   tools: ["math_add", "math_subtract", "math_multiply", "math_divide"],
@@ -64,11 +76,16 @@ const mathPlugin = createSimplePlugin({
 const client = createMCPClient({
   plugins: [mathPlugin],
 });
+
+await client.connect();
+
+// Call tools using _callToolByName
+await client._callToolByName("math_add", { a: 5, b: 3 });
 ```
 
-## Creating a Custom Plugin from Scratch
+## Implementing the MCPPlugin Interface
 
-For more control, implement the `MCPPlugin` interface:
+For more control over plugin configuration and lifecycle hooks, implement the `MCPPlugin` interface directly:
 
 ```typescript
 import type { MCPPlugin } from "integrate-sdk";
@@ -106,7 +123,7 @@ export function notionPlugin(config: NotionPluginConfig): MCPPlugin {
     async onAfterConnect(client) {
       console.log("Notion plugin: connected successfully");
 
-      // You can call tools here if needed
+      // Verify tools are available
       const tools = client.getEnabledTools();
       console.log("Notion tools available:", tools.length);
     },
@@ -122,8 +139,8 @@ export function notionPlugin(config: NotionPluginConfig): MCPPlugin {
 
 ```typescript
 interface MCPPlugin {
-  id: string; // Unique identifier
-  tools: string[]; // Tool names to enable
+  id: string; // Plugin identifier (must match server integration)
+  tools: string[]; // Tool names to enable (must exist on server)
   oauth?: OAuthConfig; // OAuth configuration (optional)
   onInit?: PluginHook; // Called when plugin is created
   onBeforeConnect?: PluginHook; // Called before connecting
@@ -141,6 +158,8 @@ interface OAuthConfig {
 
 type PluginHook = (client: MCPClient) => Promise<void> | void;
 ```
+
+**Note**: Tools listed in the `tools` array must be implemented on the Integrate MCP server. Plugins only configure OAuth and enable access to existing server-side tools.
 
 ## Lifecycle Hooks
 
@@ -279,10 +298,10 @@ const client = createMCPClient({
 
 ## Discovering Available Tools
 
-Before creating a plugin, you might want to see what tools are available on the MCP server:
+Before configuring a plugin, check what tools are available on the Integrate MCP server:
 
 ```typescript
-// Create client without filters to see all tools
+// Create client and connect to discover available tools
 const client = createMCPClient({
   plugins: [],
 });
@@ -294,16 +313,42 @@ console.log("All available tools:");
 allTools.forEach((tool) => {
   console.log(`- ${tool.name}: ${tool.description}`);
 });
+
+// List tools by integration
+const githubTools = await client.server.listToolsByIntegration({
+  integration: "github",
+});
+console.log("GitHub tools:", githubTools);
+```
+
+## Calling Tools
+
+For integrations configured with `genericOAuthPlugin` or `createSimplePlugin`, use the `_callToolByName` method:
+
+```typescript
+// Call a tool by its full name
+const result = await client._callToolByName("slack_send_message", {
+  channel: "#general",
+  text: "Hello!",
+});
+```
+
+For built-in plugins like GitHub and Gmail, use the typed methods:
+
+```typescript
+// Built-in plugins have typed methods
+await client.github.createIssue({ owner: "user", repo: "repo", title: "Bug" });
+await client.gmail.sendEmail({ to: "user@example.com", subject: "Hello" });
 ```
 
 ## Best Practices
 
-1. **Use meaningful IDs** - Plugin IDs should be unique and descriptive
-2. **Provide sensible defaults** - Set default scopes for common use cases
-3. **Document required scopes** - Let users know what permissions are needed
-4. **Handle errors gracefully** - Use lifecycle hooks to validate configuration
-5. **List all tools** - Include all relevant tools in the `tools` array
-6. **Test thoroughly** - Verify tools work as expected
+1. **Verify tools exist** - Check that tools exist on the server before configuring them
+2. **Use meaningful IDs** - Plugin IDs should match the server's integration IDs
+3. **Provide sensible defaults** - Set default scopes for common use cases
+4. **Document required scopes** - Let users know what OAuth permissions are needed
+5. **Handle errors gracefully** - Use lifecycle hooks to validate configuration
+6. **Test with the server** - Verify tools work as expected with the actual MCP server
 
 ## Next Steps
 
