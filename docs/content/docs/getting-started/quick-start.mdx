@@ -27,10 +27,17 @@ const client = createMCPClient({
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
     }),
   ],
+  // OAuth flow configuration (browser only)
+  oauthFlow: {
+    mode: 'popup', // or 'redirect'
+  },
 });
 
-// Connect to the server
-await client.connect();
+// Check if user is authorized (browser only)
+if (!await client.isAuthorized('github')) {
+  // Initiate OAuth flow
+  await client.authorize('github');
+}
 
 // Call tools with typed methods
 const result = await client.github.createIssue({
@@ -41,10 +48,38 @@ const result = await client.github.createIssue({
 });
 
 console.log("Issue created:", result);
-
-// Disconnect when done
-await client.disconnect();
 ```
+
+## Client-Side vs Server-Side
+
+The SDK works in both browser and Node.js environments, but with different capabilities:
+
+### Browser Environment ✅
+- Full OAuth authorization UI (popup/redirect)
+- Make API calls to integrated services
+- Complete session management
+
+### Server Environment 🖥️
+- Make API calls with existing session token
+- No OAuth UI (throws error if attempted)
+- Perfect for backend API routes
+
+```typescript
+// Server-side usage (Node.js)
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  sessionToken: userSessionToken, // Use token from browser flow
+});
+
+// ✅ API calls work fine
+const repos = await client.github.listRepos({ username: 'octocat' });
+
+// ❌ OAuth UI throws error on server
+await client.authorize('github'); 
+// Error: can only be used in browser environments
+```
+
+💡 **Tip:** Handle OAuth authorization in the browser, then pass the session token to your backend for API calls.
 
 ## Step-by-Step Breakdown
 
@@ -148,6 +183,7 @@ try {
 
 ## Next Steps
 
+- Learn about [OAuth Authorization Flow](/docs/guides/oauth-flow) to handle user authentication
 - Explore [Built-in Plugins](/docs/plugins) to see what integrations are available
-- Learn how to [Configure Additional Integrations](/docs/plugins/custom-plugins)
+- Check out [Advanced Usage](/docs/guides/advanced-usage) for re-authentication, error handling, and more
 - Integrate with [Vercel AI SDK](/docs/integrations/vercel-ai) to give AI models access to your tools
