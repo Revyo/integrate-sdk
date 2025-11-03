@@ -29,7 +29,8 @@ This SDK is a **client library** that connects to the Integrate MCP server to ac
 - 🔌 **Plugin-Based Architecture** - Enable only the integrations you need
 - 🔒 **Type-Safe** - Full TypeScript support with IntelliSense
 - 🌊 **Real-time Communication** - HTTP streaming with NDJSON
-- 🔐 **OAuth Ready** - Configure OAuth credentials for each provider
+- 🔐 **Complete OAuth Flow** - Built-in OAuth 2.0 with PKCE (popup/redirect modes)
+- 🌍 **Universal** - Works in browser and Node.js environments
 - 🛠️ **Extensible** - Configure plugins for any server-supported integration
 - 📦 **Zero Dependencies** - Lightweight implementation
 
@@ -47,9 +48,19 @@ This SDK is a **client library** that connects to the Integrate MCP server to ac
     description="Get up and running in minutes"
   />
   <Card
+    title="OAuth Flow"
+    href="/docs/guides/oauth-flow"
+    description="Learn how to authorize users with OAuth 2.0"
+  />
+  <Card
     title="Built-in Plugins"
     href="/docs/plugins"
     description="Explore GitHub, Gmail, and other plugins"
+  />
+  <Card
+    title="Advanced Usage"
+    href="/docs/guides/advanced-usage"
+    description="Error handling, re-auth, and more"
   />
   <Card
     title="Vercel AI SDK"
@@ -61,11 +72,30 @@ This SDK is a **client library** that connects to the Integrate MCP server to ac
 ## How It Works
 
 1. **Client Configuration**: You configure the SDK with plugins for the integrations you want to use (GitHub, Gmail, etc.)
-2. **Connection**: The SDK connects to `https://mcp.integrate.dev/api/v1/mcp` using HTTP streaming (NDJSON)
-3. **Tool Discovery**: The SDK fetches available tools from the server and filters them based on your enabled plugins
-4. **OAuth Configuration**: Your OAuth credentials are stored in the client configuration (not sent to the server yet)
-5. **Tool Calls**: When you call a tool, the SDK sends a JSON-RPC request to the server
-6. **OAuth Flow**: The server uses your OAuth configuration to authenticate and execute the tool
+2. **User Authorization (Browser)**: Users authorize your app via OAuth 2.0 (popup or redirect flow)
+3. **Token Management**: Session tokens are managed and can be persisted across sessions
+4. **Connection**: The SDK connects to `https://mcp.integrate.dev/api/v1/mcp` using HTTP streaming (NDJSON)
+5. **Tool Discovery**: The SDK fetches available tools from the server and filters them based on your enabled plugins
+6. **Tool Calls**: When you call a tool, the SDK sends a JSON-RPC request with the session token
+7. **Server Execution**: The server executes the tool using the stored OAuth credentials
+
+## Browser & Server Support
+
+The SDK works in both environments with different capabilities:
+
+### 🌐 Browser (Client-Side)
+- ✅ Full OAuth authorization UI (popup/redirect)
+- ✅ Make API calls
+- ✅ Session token management
+- ✅ Complete user flow
+
+### 🖥️ Node.js (Server-Side)
+- ✅ Make API calls with existing token
+- ✅ Session token management
+- ❌ OAuth UI (throws error - use browser for authorization)
+- ✅ Perfect for backend API routes
+
+**Typical pattern:** Handle OAuth in browser, pass token to backend for API calls.
 
 ## Server Information
 
