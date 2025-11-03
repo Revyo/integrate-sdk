@@ -12,9 +12,9 @@ export interface OAuthConfig {
   /** OAuth provider identifier (e.g., 'github', 'google') */
   provider: string;
   /** OAuth client ID */
-  clientId: string;
+  clientId: string | undefined;
   /** OAuth client secret */
-  clientSecret: string;
+  clientSecret: string | undefined;
   /** Required OAuth scopes */
   scopes: string[];
   /** Redirect URI for OAuth flow */

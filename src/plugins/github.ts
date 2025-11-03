@@ -10,9 +10,9 @@ import type { MCPPlugin, OAuthConfig } from "./types.js";
  */
 export interface GitHubPluginConfig {
   /** GitHub OAuth client ID */
-  clientId: string;
+  clientId: string | undefined;
   /** GitHub OAuth client secret */
-  clientSecret: string;
+  clientSecret: string | undefined;
   /** Additional OAuth scopes (default: ['repo', 'user']) */
   scopes?: string[];
   /** OAuth redirect URI */

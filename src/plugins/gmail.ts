@@ -10,9 +10,9 @@ import type { MCPPlugin, OAuthConfig } from "./types.js";
  */
 export interface GmailPluginConfig {
   /** Google OAuth client ID */
-  clientId: string;
+  clientId: string | undefined;
   /** Google OAuth client secret */
-  clientSecret: string;
+  clientSecret: string | undefined;
   /** Additional OAuth scopes (default: Gmail API scopes) */
   scopes?: string[];
   /** OAuth redirect URI */

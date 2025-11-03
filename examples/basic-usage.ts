@@ -17,8 +17,8 @@ async function main() {
     plugins: [
       // GitHub plugin with OAuth configuration
       githubPlugin({
-        clientId: process.env.GITHUB_CLIENT_ID || "your-client-id",
-        clientSecret: process.env.GITHUB_CLIENT_SECRET || "your-client-secret",
+        clientId: process.env.GITHUB_CLIENT_ID,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET,
         scopes: ["repo", "user"],
       }),
 
