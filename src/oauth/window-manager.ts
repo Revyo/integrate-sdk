@@ -1,0 +1,288 @@
+/**
+ * OAuth Window Manager
+ * Handles OAuth authorization UI (popup windows and redirects)
+ */
+
+import type { PopupOptions, OAuthCallbackParams } from "./types.js";
+
+/**
+ * Check if we're in a browser environment
+ */
+function isBrowser(): boolean {
+  return typeof window !== 'undefined' && typeof window.document !== 'undefined';
+}
+
+/**
+ * OAuth Window Manager
+ * Manages popup windows and redirect flows for OAuth authorization
+ * 
+ * Note: This class should only be used in browser environments.
+ * Server-side usage will throw errors.
+ */
+export class OAuthWindowManager {
+  private popupWindow: Window | null = null;
+  private popupCheckInterval: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Open OAuth authorization in a popup window
+   * 
+   * @param url - The authorization URL to open
+   * @param options - Popup window dimensions
+   * @returns The opened popup window or null if blocked
+   * 
+   * @example
+   * ```typescript
+   * const manager = new OAuthWindowManager();
+   * const popup = manager.openPopup(authUrl, { width: 600, height: 700 });
+   * ```
+   */
+  openPopup(url: string, options?: PopupOptions): Window | null {
+    if (!isBrowser()) {
+      throw new Error('OAuthWindowManager.openPopup() can only be used in browser environments');
+    }
+    
+    const width = options?.width || 600;
+    const height = options?.height || 700;
+    
+    // Calculate center position
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    
+    const features = [
+      `width=${width}`,
+      `height=${height}`,
+      `left=${left}`,
+      `top=${top}`,
+      'toolbar=no',
+      'location=no',
+      'directories=no',
+      'status=no',
+      'menubar=no',
+      'scrollbars=yes',
+      'resizable=yes',
+      'copyhistory=no',
+    ].join(',');
+    
+    this.popupWindow = window.open(url, 'oauth_popup', features);
+    
+    if (!this.popupWindow) {
+      console.warn('Popup was blocked by the browser. Please allow popups for this site.');
+      return null;
+    }
+    
+    // Focus the popup
+    this.popupWindow.focus();
+    
+    return this.popupWindow;
+  }
+
+  /**
+   * Redirect current window to OAuth authorization URL
+   * 
+   * @param url - The authorization URL to redirect to
+   * 
+   * @example
+   * ```typescript
+   * const manager = new OAuthWindowManager();
+   * manager.openRedirect(authUrl);
+   * ```
+   */
+  openRedirect(url: string): void {
+    if (!isBrowser()) {
+      throw new Error('OAuthWindowManager.openRedirect() can only be used in browser environments');
+    }
+    
+    window.location.href = url;
+  }
+
+  /**
+   * Listen for OAuth callback
+   * For popup: listens for postMessage from callback page
+   * For redirect: parses URL parameters after redirect back
+   * 
+   * @param mode - The OAuth flow mode ('popup' or 'redirect')
+   * @param timeoutMs - Timeout in milliseconds (default: 5 minutes)
+   * @returns Promise resolving to callback parameters (code and state)
+   * 
+   * @example
+   * ```typescript
+   * // For popup flow
+   * const params = await manager.listenForCallback('popup');
+   * 
+   * // For redirect flow (after redirect back)
+   * const params = await manager.listenForCallback('redirect');
+   * ```
+   */
+  listenForCallback(
+    mode: 'popup' | 'redirect',
+    timeoutMs: number = 5 * 60 * 1000
+  ): Promise<OAuthCallbackParams> {
+    if (mode === 'popup') {
+      return this.listenForPopupCallback(timeoutMs);
+    } else {
+      return this.listenForRedirectCallback();
+    }
+  }
+
+  /**
+   * Listen for callback from popup window via postMessage
+   */
+  private listenForPopupCallback(timeoutMs: number): Promise<OAuthCallbackParams> {
+    if (!isBrowser()) {
+      return Promise.reject(new Error('OAuth popup callback can only be used in browser environments'));
+    }
+    
+    return new Promise((resolve, reject) => {
+      // Set timeout
+      const timeout = setTimeout(() => {
+        this.cleanup();
+        reject(new Error('OAuth authorization timed out'));
+      }, timeoutMs);
+
+      // Listen for postMessage from popup
+      const messageHandler = (event: MessageEvent) => {
+        // Validate origin (you may want to make this configurable)
+        // For now, we accept any origin since the callback page is on the user's domain
+        
+        if (event.data && event.data.type === 'oauth_callback') {
+          clearTimeout(timeout);
+          window.removeEventListener('message', messageHandler);
+          
+          const { code, state, error } = event.data;
+          
+          if (error) {
+            this.cleanup();
+            reject(new Error(`OAuth error: ${error}`));
+            return;
+          }
+          
+          if (!code || !state) {
+            this.cleanup();
+            reject(new Error('Invalid OAuth callback: missing code or state'));
+            return;
+          }
+          
+          this.cleanup();
+          resolve({ code, state });
+        }
+      };
+
+      window.addEventListener('message', messageHandler);
+
+      // Check if popup was closed
+      this.popupCheckInterval = setInterval(() => {
+        if (this.popupWindow?.closed) {
+          clearTimeout(timeout);
+          clearInterval(this.popupCheckInterval!);
+          window.removeEventListener('message', messageHandler);
+          this.cleanup();
+          reject(new Error('OAuth popup was closed by user'));
+        }
+      }, 500);
+    });
+  }
+
+  /**
+   * Parse callback parameters from current URL (for redirect flow)
+   */
+  private listenForRedirectCallback(): Promise<OAuthCallbackParams> {
+    if (!isBrowser()) {
+      return Promise.reject(new Error('OAuth redirect callback can only be used in browser environments'));
+    }
+    
+    return new Promise((resolve, reject) => {
+      const params = new URLSearchParams(window.location.search);
+      
+      const code = params.get('code');
+      const state = params.get('state');
+      const error = params.get('error');
+      const errorDescription = params.get('error_description');
+      
+      if (error) {
+        const errorMsg = errorDescription || error;
+        reject(new Error(`OAuth error: ${errorMsg}`));
+        return;
+      }
+      
+      if (!code || !state) {
+        reject(new Error('Invalid OAuth callback: missing code or state in URL'));
+        return;
+      }
+      
+      resolve({ code, state });
+    });
+  }
+
+  /**
+   * Clean up popup window and intervals
+   */
+  private cleanup(): void {
+    if (this.popupWindow && !this.popupWindow.closed) {
+      this.popupWindow.close();
+    }
+    this.popupWindow = null;
+    
+    if (this.popupCheckInterval) {
+      clearInterval(this.popupCheckInterval);
+      this.popupCheckInterval = null;
+    }
+  }
+
+  /**
+   * Close any open popup windows
+   * Call this when aborting the OAuth flow
+   */
+  close(): void {
+    this.cleanup();
+  }
+}
+
+/**
+ * Helper function to send callback data from callback page to opener window
+ * Call this in your OAuth callback page
+ * 
+ * @param params - The callback parameters from URL
+ * 
+ * @example
+ * ```typescript
+ * // In your callback page (e.g., /oauth/callback.html)
+ * import { sendCallbackToOpener } from '@integrate/sdk';
+ * 
+ * const params = new URLSearchParams(window.location.search);
+ * sendCallbackToOpener({
+ *   code: params.get('code'),
+ *   state: params.get('state'),
+ *   error: params.get('error')
+ * });
+ * ```
+ */
+export function sendCallbackToOpener(params: {
+  code: string | null;
+  state: string | null;
+  error?: string | null;
+}): void {
+  if (!isBrowser()) {
+    console.error('sendCallbackToOpener() can only be used in browser environments');
+    return;
+  }
+  
+  if (!window.opener) {
+    console.error('No opener window found. This function should only be called from a popup window.');
+    return;
+  }
+  
+  // Send message to opener
+  window.opener.postMessage(
+    {
+      type: 'oauth_callback',
+      code: params.code,
+      state: params.state,
+      error: params.error,
+    },
+    '*' // In production, you should specify the exact origin
+  );
+  
+  // Close the popup
+  window.close();
+}
+

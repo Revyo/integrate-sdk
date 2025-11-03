@@ -24,6 +24,8 @@ import { methodToToolName } from "./utils/naming.js";
 import type { GitHubPluginClient } from "./plugins/github-client.js";
 import type { GmailPluginClient } from "./plugins/gmail-client.js";
 import type { ServerPluginClient } from "./plugins/server-client.js";
+import { OAuthManager } from "./oauth/manager.js";
+import type { AuthStatus, OAuthCallbackParams } from "./oauth/types.js";
 
 /**
  * MCP server URL
@@ -91,6 +93,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   private authState: Map<string, { authenticated: boolean; lastError?: AuthenticationError }> = new Map();
   private connectionMode: 'lazy' | 'eager' | 'manual';
   private connecting: Promise<void> | null = null;
+  private oauthManager: OAuthManager;
 
   // Plugin namespaces - dynamically typed based on configured plugins
   public readonly github!: PluginNamespaces<TPlugins> extends { github: GitHubPluginClient } 
@@ -118,6 +121,18 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     this.onReauthRequired = config.onReauthRequired;
     this.maxReauthRetries = config.maxReauthRetries ?? 1;
     this.connectionMode = config.connectionMode ?? 'lazy';
+
+    // Initialize OAuth manager
+    this.oauthManager = new OAuthManager(
+      MCP_SERVER_URL,
+      config.oauthFlow
+    );
+
+    // If session token is provided, set it
+    if (config.sessionToken) {
+      this.oauthManager.setSessionToken(config.sessionToken);
+      this.transport.setHeader('X-Session-Token', config.sessionToken);
+    }
 
     // Collect all enabled tool names from plugins
     for (const plugin of this.plugins) {
@@ -571,6 +586,151 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    */
   isProviderAuthenticated(provider: string): boolean {
     return this.authState.get(provider)?.authenticated ?? false;
+  }
+
+  /**
+   * Check if a provider is authorized via OAuth
+   * Queries the MCP server to verify OAuth token validity
+   * 
+   * @param provider - Provider name (github, gmail, etc.)
+   * @returns Authorization status
+   * 
+   * @example
+   * ```typescript
+   * const isAuthorized = await client.isAuthorized('github');
+   * if (!isAuthorized) {
+   *   await client.authorize('github');
+   * }
+   * ```
+   */
+  async isAuthorized(provider: string): Promise<boolean> {
+    const status = await this.oauthManager.checkAuthStatus(provider);
+    return status.authorized;
+  }
+
+  /**
+   * Get list of all authorized providers
+   * Checks all configured OAuth providers and returns names of authorized ones
+   * 
+   * @returns Array of authorized provider names
+   * 
+   * @example
+   * ```typescript
+   * const authorized = await client.authorizedProviders();
+   * console.log('Authorized services:', authorized); // ['github', 'gmail']
+   * 
+   * // Check if specific service is in the list
+   * if (authorized.includes('github')) {
+   *   const repos = await client.github.listOwnRepos({});
+   * }
+   * ```
+   */
+  async authorizedProviders(): Promise<string[]> {
+    const authorized: string[] = [];
+    
+    // Check each plugin with OAuth config
+    for (const plugin of this.plugins) {
+      if (plugin.oauth) {
+        const status = await this.oauthManager.checkAuthStatus(plugin.oauth.provider);
+        if (status.authorized) {
+          authorized.push(plugin.oauth.provider);
+        }
+      }
+    }
+    
+    return authorized;
+  }
+
+  /**
+   * Get detailed authorization status for a provider
+   * 
+   * @param provider - Provider name
+   * @returns Full authorization status including scopes and expiration
+   */
+  async getAuthorizationStatus(provider: string): Promise<AuthStatus> {
+    return await this.oauthManager.checkAuthStatus(provider);
+  }
+
+  /**
+   * Initiate OAuth authorization flow for a provider
+   * Opens authorization URL in popup or redirects based on configuration
+   * 
+   * @param provider - Provider name (github, gmail, etc.)
+   * 
+   * @example
+   * ```typescript
+   * // Popup flow
+   * await client.authorize('github');
+   * 
+   * // Redirect flow
+   * await client.authorize('github'); // User is redirected away
+   * ```
+   */
+  async authorize(provider: string): Promise<void> {
+    const plugin = this.plugins.find(p => p.oauth?.provider === provider);
+    
+    if (!plugin?.oauth) {
+      throw new Error(`No OAuth configuration found for provider: ${provider}`);
+    }
+
+    await this.oauthManager.initiateFlow(provider, plugin.oauth);
+
+    // Update auth state
+    this.authState.set(provider, { authenticated: true });
+  }
+
+  /**
+   * Handle OAuth callback after user authorization
+   * Call this from your OAuth callback page with code and state from URL
+   * 
+   * @param params - Callback parameters containing code and state
+   * 
+   * @example
+   * ```typescript
+   * // In your callback route (e.g., /oauth/callback)
+   * const params = new URLSearchParams(window.location.search);
+   * await client.handleOAuthCallback({
+   *   code: params.get('code')!,
+   *   state: params.get('state')!
+   * });
+   * 
+   * // Now you can use the client
+   * const repos = await client.github.listOwnRepos({});
+   * ```
+   */
+  async handleOAuthCallback(params: OAuthCallbackParams): Promise<void> {
+    const sessionToken = await this.oauthManager.handleCallback(params.code, params.state);
+    
+    // Set session token in transport
+    this.transport.setHeader('X-Session-Token', sessionToken);
+
+    // Update auth states for all OAuth providers
+    for (const plugin of this.plugins) {
+      if (plugin.oauth) {
+        this.authState.set(plugin.oauth.provider, { authenticated: true });
+      }
+    }
+  }
+
+  /**
+   * Get the current session token
+   * Useful for storing and restoring sessions
+   * 
+   * @returns Session token or undefined if not authorized
+   */
+  getSessionToken(): string | undefined {
+    return this.oauthManager.getSessionToken();
+  }
+
+  /**
+   * Set session token manually
+   * Use this if you have an existing session token
+   * 
+   * @param token - Session token
+   */
+  setSessionToken(token: string): void {
+    this.oauthManager.setSessionToken(token);
+    this.transport.setHeader('X-Session-Token', token);
   }
 
   /**

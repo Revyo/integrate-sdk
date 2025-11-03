@@ -286,5 +286,37 @@ export class HttpSessionTransport {
   getSessionId(): string | undefined {
     return this.sessionId;
   }
+
+  /**
+   * Set a custom header for all requests
+   * Used for session tokens and other auth headers
+   * 
+   * @param key - Header name
+   * @param value - Header value
+   * 
+   * @example
+   * ```typescript
+   * transport.setHeader('X-Session-Token', 'abc123');
+   * ```
+   */
+  setHeader(key: string, value: string): void {
+    this.headers[key] = value;
+  }
+
+  /**
+   * Remove a custom header
+   * 
+   * @param key - Header name to remove
+   */
+  removeHeader(key: string): void {
+    delete this.headers[key];
+  }
+
+  /**
+   * Get all current headers
+   */
+  getHeaders(): Record<string, string> {
+    return { ...this.headers };
+  }
 }
 

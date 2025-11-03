@@ -100,6 +100,48 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * @default true
    */
   autoCleanup?: boolean;
+
+  /**
+   * OAuth flow configuration
+   * Controls how OAuth authorization is handled (popup vs redirect)
+   * 
+   * @example
+   * ```typescript
+   * const client = createMCPClient({
+   *   plugins: [githubPlugin({ ... })],
+   *   oauthFlow: {
+   *     mode: 'popup',
+   *     popupOptions: { width: 600, height: 700 }
+   *   }
+   * });
+   * ```
+   */
+  oauthFlow?: {
+    /** How to display OAuth authorization (default: 'redirect') */
+    mode?: 'popup' | 'redirect';
+    /** Popup window dimensions (only for popup mode) */
+    popupOptions?: {
+      width?: number;
+      height?: number;
+    };
+    /** Custom callback handler for receiving auth code */
+    onAuthCallback?: (provider: string, code: string, state: string) => Promise<void>;
+  };
+
+  /**
+   * Session token for authenticated requests
+   * Set automatically after OAuth flow completes
+   * Can be provided manually if you manage tokens externally
+   * 
+   * @example
+   * ```typescript
+   * const client = createMCPClient({
+   *   plugins: [githubPlugin({ ... })],
+   *   sessionToken: 'existing-session-token'
+   * });
+   * ```
+   */
+  sessionToken?: string;
 }
 
 /**

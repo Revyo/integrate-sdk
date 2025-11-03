@@ -7,6 +7,20 @@
 export { MCPClient, createMCPClient, clearClientCache } from "./client.js";
 export type { ToolInvocationOptions } from "./client.js";
 
+// OAuth utilities
+export { OAuthManager } from "./oauth/manager.js";
+export { OAuthWindowManager, sendCallbackToOpener } from "./oauth/window-manager.js";
+export { generateCodeVerifier, generateCodeChallenge, generateState } from "./oauth/pkce.js";
+export type {
+  OAuthFlowConfig,
+  PopupOptions,
+  AuthStatus,
+  PendingAuth,
+  AuthorizationUrlResponse,
+  OAuthCallbackResponse,
+  OAuthCallbackParams,
+} from "./oauth/types.js";
+
 // Configuration
 export type { MCPClientConfig, ReauthContext, ReauthHandler } from "./config/types.js";
 

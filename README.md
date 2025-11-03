@@ -98,6 +98,187 @@ await client.server.listToolsByIntegration({ integration: "github" });
 await client._callToolByName("slack_send_message", { channel: "#general", text: "Hello" });
 ```
 
+## OAuth Authorization
+
+The SDK implements OAuth 2.0 Authorization Code Flow with PKCE for secure third-party service authorization. Users must authorize your application to access their GitHub, Gmail, or other accounts.
+
+### How It Works
+
+1. **Your App**: Creates client with OAuth configuration
+2. **SDK**: Initiates OAuth flow (popup or redirect)
+3. **User**: Authorizes permissions on provider's website
+4. **Provider**: Redirects back with authorization code
+5. **Your Server**: Exchanges code for tokens and stores them
+6. **SDK**: Includes session token in all API requests
+7. **Your Server**: Uses stored OAuth tokens for API calls
+
+### Quick Start
+
+```typescript
+import { createMCPClient, githubPlugin } from "integrate-sdk";
+
+// Create client with OAuth flow configuration
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ["repo", "user"],
+      redirectUri: "http://localhost:3000/oauth/callback",
+    }),
+  ],
+  oauthFlow: {
+    mode: 'popup', // or 'redirect'
+    popupOptions: { width: 600, height: 700 },
+  },
+});
+
+// Check if authorized
+const isAuthorized = await client.isAuthorized('github');
+
+if (!isAuthorized) {
+  // Initiate OAuth flow - opens popup or redirects
+  await client.authorize('github');
+}
+
+// Now you can use GitHub tools
+const repos = await client.github.listOwnRepos({});
+```
+
+### Popup Flow (Recommended for SPAs)
+
+Best for single-page applications - authorization happens in a popup without leaving your app.
+
+```typescript
+const client = createMCPClient({
+  plugins: [githubPlugin({ ... })],
+  oauthFlow: { mode: 'popup' },
+});
+
+// This opens a popup for authorization
+await client.authorize('github');
+
+// After user approves, continues automatically
+const repos = await client.github.listOwnRepos({});
+```
+
+**Callback Page**: Create `/oauth/callback.html`:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>OAuth Callback</title>
+  <script type="module">
+    import { sendCallbackToOpener } from 'integrate-sdk';
+    
+    const params = new URLSearchParams(window.location.search);
+    sendCallbackToOpener({
+      code: params.get('code'),
+      state: params.get('state'),
+      error: params.get('error')
+    });
+  </script>
+</head>
+<body>
+  <p>Authorization successful! Closing...</p>
+</body>
+</html>
+```
+
+### Redirect Flow (Traditional Web Apps)
+
+Best for traditional server-rendered applications.
+
+```typescript
+// Main page
+const client = createMCPClient({
+  plugins: [githubPlugin({ ... })],
+  oauthFlow: { mode: 'redirect' },
+});
+
+if (!await client.isAuthorized('github')) {
+  await client.authorize('github'); // Redirects to GitHub
+}
+
+// Callback page (e.g., /oauth/callback)
+const params = new URLSearchParams(window.location.search);
+await client.handleOAuthCallback({
+  code: params.get('code')!,
+  state: params.get('state')!
+});
+
+// Save session token for future use
+const sessionToken = client.getSessionToken();
+localStorage.setItem('session_token', sessionToken);
+
+// Redirect back to main app
+```
+
+### Session Token Management
+
+Store and restore sessions to avoid re-authorization:
+
+```typescript
+// Restore previous session
+const client = createMCPClient({
+  plugins: [githubPlugin({ ... })],
+  sessionToken: localStorage.getItem('session_token'),
+});
+
+// Check if session is still valid
+if (!await client.isAuthorized('github')) {
+  await client.authorize('github');
+}
+
+// Store token after new authorization
+const token = client.getSessionToken();
+localStorage.setItem('session_token', token);
+```
+
+### Multiple Providers
+
+Authorize multiple services independently:
+
+```typescript
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({ ... }),
+    gmailPlugin({ ... }),
+  ],
+  oauthFlow: { mode: 'popup' },
+});
+
+// Get list of all authorized providers
+const authorized = await client.authorizedProviders();
+console.log('Authorized:', authorized); // ['github', 'gmail']
+
+// Or check and authorize each provider individually
+if (!await client.isAuthorized('github')) {
+  await client.authorize('github');
+}
+
+if (!await client.isAuthorized('gmail')) {
+  await client.authorize('gmail');
+}
+
+// Use both services
+const repos = await client.github.listOwnRepos({});
+const messages = await client.gmail.listMessages({});
+```
+
+### Server Requirements
+
+Your MCP server must implement these OAuth endpoints:
+
+**GET `/oauth/authorize`** - Returns authorization URL
+**POST `/oauth/callback`** - Exchanges code for tokens, returns session token
+**GET `/oauth/status`** - Checks authorization status
+
+All tool endpoints must accept `X-Session-Token` header and use stored OAuth tokens for API calls.
+
+[→ View complete OAuth flow implementation guide](/docs/guides/oauth-flow.md)
+
 ## Built-in Plugins
 
 ### GitHub Plugin
