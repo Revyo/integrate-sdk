@@ -72,6 +72,34 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * Set to 0 to disable automatic retries
    */
   maxReauthRetries?: number;
+
+  /**
+   * Connection behavior
+   * 
+   * - 'lazy' (default): Automatically connects on first method call
+   * - 'eager': Connects immediately when createMCPClient is called
+   * - 'manual': Requires manual connect() call (original behavior)
+   * 
+   * @default 'lazy'
+   */
+  connectionMode?: 'lazy' | 'eager' | 'manual';
+
+  /**
+   * Whether to use singleton pattern and reuse client instances
+   * 
+   * - true (default): Reuses client with same configuration
+   * - false: Always creates a new instance
+   * 
+   * @default true
+   */
+  singleton?: boolean;
+
+  /**
+   * Automatically cleanup (disconnect) on process exit
+   * 
+   * @default true
+   */
+  autoCleanup?: boolean;
 }
 
 /**

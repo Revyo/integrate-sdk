@@ -18,6 +18,7 @@ describe("Client Methods", () => {
             clientSecret: "test-secret",
           }),
         ],
+        singleton: false,  // Ensure fresh instance for testing
       });
 
       const tools = client.getAvailableTools();

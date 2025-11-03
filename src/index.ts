@@ -4,7 +4,7 @@
  */
 
 // Core client
-export { MCPClient, createMCPClient } from "./client.js";
+export { MCPClient, createMCPClient, clearClientCache } from "./client.js";
 export type { ToolInvocationOptions } from "./client.js";
 
 // Configuration

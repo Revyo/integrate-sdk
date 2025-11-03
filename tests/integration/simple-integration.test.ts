@@ -102,19 +102,20 @@ describe("Integration - Client Configuration", () => {
 });
 
 describe("Integration - Error Handling", () => {
-  test("throws error when calling tool before initialization", async () => {
+  test("throws error when calling tool before initialization with manual mode", async () => {
     const client = createMCPClient({
-      serverUrl: "https://mcp.integrate.dev:8080/api/v1/mcp",
       plugins: [
         githubPlugin({
           clientId: "test-id",
           clientSecret: "test-secret",
         }),
       ],
+      connectionMode: 'manual',  // Use manual mode to test initialization requirement
+      singleton: false,
     });
 
     await expect(client.github.getRepo({ owner: "test", repo: "test" })).rejects.toThrow(
-      "Client not initialized"
+      "Client not connected"
     );
   });
 

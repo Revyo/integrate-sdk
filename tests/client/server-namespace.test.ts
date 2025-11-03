@@ -22,7 +22,7 @@ describe("Server Namespace", () => {
     expect(typeof client.server.listToolsByIntegration).toBe("function");
   });
 
-  test("server methods throw when not initialized", async () => {
+  test("server methods throw when not initialized with manual mode", async () => {
     const client = createMCPClient({
       plugins: [
         githubPlugin({
@@ -30,14 +30,16 @@ describe("Server Namespace", () => {
           clientSecret: "test-secret",
         }),
       ],
+      connectionMode: 'manual',  // Use manual mode to test initialization requirement
+      singleton: false,
     });
 
     await expect(
       client.server.listToolsByIntegration({ integration: "github" })
-    ).rejects.toThrow("Client not initialized");
+    ).rejects.toThrow("Client not connected");
   });
 
-  test("callServerTool method exists and throws when not initialized", async () => {
+  test("callServerTool method exists and throws when not initialized with manual mode", async () => {
     const client = createMCPClient({
       plugins: [
         githubPlugin({
@@ -45,6 +47,8 @@ describe("Server Namespace", () => {
           clientSecret: "test-secret",
         }),
       ],
+      connectionMode: 'manual',  // Use manual mode to test initialization requirement
+      singleton: false,
     });
 
     await expect(

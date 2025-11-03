@@ -183,19 +183,20 @@ describe("MCP Client", () => {
   });
 
   describe("Error Handling", () => {
-    test("plugin methods throw when not initialized", async () => {
+    test("plugin methods throw when not initialized with manual mode", async () => {
       const client = createMCPClient({
-        serverUrl: "http://localhost:3000/mcp",
         plugins: [
           githubPlugin({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
         ],
+        connectionMode: 'manual',  // Use manual mode to test initialization requirement
+        singleton: false,
       });
 
       await expect(client.github.getRepo({ owner: "test", repo: "test" })).rejects.toThrow(
-        "Client not initialized"
+        "Client not connected"
       );
     });
   });

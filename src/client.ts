@@ -31,6 +31,21 @@ import type { ServerPluginClient } from "./plugins/server-client.js";
 const MCP_SERVER_URL = "https://mcp.integrate.dev/api/v1/mcp";
 
 /**
+ * Client instance cache for singleton pattern
+ */
+const clientCache = new Map<string, MCPClient<any>>();
+
+/**
+ * Set of clients to cleanup on exit
+ */
+const cleanupClients = new Set<MCPClient<any>>();
+
+/**
+ * Whether cleanup handlers have been registered
+ */
+let cleanupHandlersRegistered = false;
+
+/**
  * Tool invocation options
  */
 export interface ToolInvocationOptions {
@@ -74,6 +89,8 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   private onReauthRequired?: ReauthHandler;
   private maxReauthRetries: number;
   private authState: Map<string, { authenticated: boolean; lastError?: AuthenticationError }> = new Map();
+  private connectionMode: 'lazy' | 'eager' | 'manual';
+  private connecting: Promise<void> | null = null;
 
   // Plugin namespaces - dynamically typed based on configured plugins
   public readonly github!: PluginNamespaces<TPlugins> extends { github: GitHubPluginClient } 
@@ -100,6 +117,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     };
     this.onReauthRequired = config.onReauthRequired;
     this.maxReauthRetries = config.maxReauthRetries ?? 1;
+    this.connectionMode = config.connectionMode ?? 'lazy';
 
     // Collect all enabled tool names from plugins
     for (const plugin of this.plugins) {
@@ -123,6 +141,35 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   }
 
   /**
+   * Ensure the client is connected (for lazy connection mode)
+   */
+  private async ensureConnected(): Promise<void> {
+    // If already connected, return immediately
+    if (this.initialized && this.transport.isConnected()) {
+      return;
+    }
+
+    // If already connecting, wait for it to complete
+    if (this.connecting) {
+      return this.connecting;
+    }
+
+    // If manual mode, throw error
+    if (this.connectionMode === 'manual' && !this.initialized) {
+      throw new Error("Client not connected. Call connect() first when using manual connection mode.");
+    }
+
+    // Start connection
+    this.connecting = this.connect();
+    
+    try {
+      await this.connecting;
+    } finally {
+      this.connecting = null;
+    }
+  }
+
+  /**
    * Create a proxy for a plugin namespace that intercepts method calls
    * and routes them to the appropriate tool
    */
@@ -131,6 +178,8 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       get: (_target, methodName: string) => {
         // Return a function that calls the tool
         return async (args?: Record<string, unknown>) => {
+          // Ensure connected before calling tool
+          await this.ensureConnected();
           const toolName = methodToToolName(methodName, pluginId);
           return await this.callToolWithRetry(toolName, args, 0);
         };
@@ -146,6 +195,8 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       get: (_target, methodName: string) => {
         // Return a function that calls the server tool directly
         return async (args?: Record<string, unknown>) => {
+          // Ensure connected before calling tool
+          await this.ensureConnected();
           const toolName = methodToToolName(methodName, "");
           // Remove leading underscore if present
           const finalToolName = toolName.startsWith("_") ? toolName.substring(1) : toolName;
@@ -556,29 +607,186 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
 }
 
 /**
+ * Register cleanup handlers for graceful shutdown
+ */
+function registerCleanupHandlers() {
+  if (cleanupHandlersRegistered) return;
+  cleanupHandlersRegistered = true;
+
+  const cleanup = async () => {
+    const clients = Array.from(cleanupClients);
+    cleanupClients.clear();
+    
+    await Promise.all(
+      clients.map(async (client) => {
+        try {
+          if (client.isConnected()) {
+            await client.disconnect();
+          }
+        } catch (error) {
+          console.error('Error disconnecting client:', error);
+        }
+      })
+    );
+  };
+
+  if (typeof process !== 'undefined') {
+    process.on('SIGINT', async () => {
+      await cleanup();
+      process.exit(0);
+    });
+
+    process.on('SIGTERM', async () => {
+      await cleanup();
+      process.exit(0);
+    });
+
+    process.on('beforeExit', async () => {
+      await cleanup();
+    });
+  }
+}
+
+/**
+ * Generate a cache key for a client configuration
+ */
+function generateCacheKey<TPlugins extends readonly MCPPlugin[]>(
+  config: MCPClientConfig<TPlugins>
+): string {
+  // Create a stable key based on configuration
+  const parts = [
+    config.clientInfo?.name || 'integrate-sdk',
+    config.clientInfo?.version || '0.1.0',
+    JSON.stringify(config.plugins.map(p => ({ id: p.id, tools: p.tools }))),
+    JSON.stringify(config.headers || {}),
+    config.timeout?.toString() || '30000',
+  ];
+  return parts.join('|');
+}
+
+/**
  * Create a new MCP Client instance
  * 
- * Connects to the Integrate MCP server at https://mcp.integrate.dev/api/v1/mcp
+ * By default, uses singleton pattern and lazy connection:
+ * - Returns cached instance if one exists with same configuration
+ * - Automatically connects on first method call
+ * - Automatically cleans up on process exit
  * 
  * @example
  * ```typescript
+ * // Lazy connection (default) - connects automatically on first use
  * const client = createMCPClient({
  *   plugins: [
  *     githubPlugin({ clientId: '...', clientSecret: '...' }),
- *     gmailPlugin({ clientId: '...', clientSecret: '...' }),
  *   ],
  * });
  * 
- * await client.connect();
- * const result = await client.callTool('github_create_issue', {
- *   repo: 'owner/repo',
- *   title: 'Bug report',
+ * // No need to call connect()!
+ * const repos = await client.github.listOwnRepos({});
+ * 
+ * // No need to call disconnect()! (auto-cleanup on exit)
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * // Manual connection mode (original behavior)
+ * const client = createMCPClient({
+ *   plugins: [githubPlugin({ ... })],
+ *   connectionMode: 'manual',
+ *   singleton: false,
  * });
+ * 
+ * await client.connect();
+ * const repos = await client.github.listOwnRepos({});
+ * await client.disconnect();
  * ```
  */
 export function createMCPClient<TPlugins extends readonly MCPPlugin[]>(
   config: MCPClientConfig<TPlugins>
 ): MCPClient<TPlugins> {
-  return new MCPClient(config);
+  const useSingleton = config.singleton ?? true;
+  const connectionMode = config.connectionMode ?? 'lazy';
+  const autoCleanup = config.autoCleanup ?? true;
+
+  // Check cache for existing instance
+  if (useSingleton) {
+    const cacheKey = generateCacheKey(config);
+    const existing = clientCache.get(cacheKey);
+    
+    if (existing && existing.isConnected()) {
+      return existing as MCPClient<TPlugins>;
+    }
+    
+    // Remove stale entry if exists
+    if (existing) {
+      clientCache.delete(cacheKey);
+      cleanupClients.delete(existing);
+    }
+
+    // Create new instance
+    const client = new MCPClient(config);
+    clientCache.set(cacheKey, client);
+    
+    if (autoCleanup) {
+      cleanupClients.add(client);
+      registerCleanupHandlers();
+    }
+
+    // Eager connection if requested
+    if (connectionMode === 'eager') {
+      // Connect asynchronously, don't block
+      client.connect().catch((error) => {
+        console.error('Failed to connect client:', error);
+      });
+    }
+
+    return client;
+  } else {
+    // Non-singleton: create fresh instance
+    const client = new MCPClient(config);
+    
+    if (autoCleanup) {
+      cleanupClients.add(client);
+      registerCleanupHandlers();
+    }
+
+    // Eager connection if requested
+    if (connectionMode === 'eager') {
+      client.connect().catch((error) => {
+        console.error('Failed to connect client:', error);
+      });
+    }
+
+    return client;
+  }
+}
+
+/**
+ * Clear the client cache and disconnect all cached clients
+ * Useful for testing or when you need to force recreation of clients
+ * 
+ * @example
+ * ```typescript
+ * // In test teardown
+ * afterAll(async () => {
+ *   await clearClientCache();
+ * });
+ * ```
+ */
+export async function clearClientCache(): Promise<void> {
+  const clients = Array.from(clientCache.values());
+  clientCache.clear();
+  
+  await Promise.all(
+    clients.map(async (client) => {
+      try {
+        if (client.isConnected()) {
+          await client.disconnect();
+        }
+      } catch (error) {
+        console.error('Error disconnecting client during cache clear:', error);
+      }
+    })
+  );
 }
 

@@ -88,6 +88,7 @@ describe("Re-authentication Flow", () => {
           reauthCalled = true;
           return true;
         },
+        singleton: false,  // Ensure fresh instance for testing
       });
 
       expect(client).toBeDefined();
@@ -213,6 +214,7 @@ describe("Re-authentication Flow", () => {
           reauthProvider = context.provider;
           return true;
         },
+        singleton: false,  // Ensure fresh instance for testing
       });
 
       const success = await client.reauthenticate("github");
@@ -234,6 +236,7 @@ describe("Re-authentication Flow", () => {
         onReauthRequired: async () => {
           return false;
         },
+        singleton: false,  // Ensure fresh instance for testing
       });
 
       const success = await client.reauthenticate("github");
