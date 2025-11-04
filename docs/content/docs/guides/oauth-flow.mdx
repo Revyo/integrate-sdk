@@ -73,17 +73,14 @@ if (!await client.isAuthorized('github')) {
   await client.authorize('github');
 }
 
-// After redirect back to your callback page
-// Handle the OAuth callback
-const params = new URLSearchParams(window.location.search);
-await client.handleOAuthCallback({
-  code: params.get('code')!,
-  state: params.get('state')!,
-});
-
-// Save the session token for future use
-const sessionToken = client.getSessionToken();
-localStorage.setItem('sessionToken', sessionToken);
+// After redirect back from OAuth callback route
+// The SDK automatically picks up the callback params from sessionStorage
+// Just check if authorization is complete:
+if (await client.isAuthorized('github')) {
+  // Save the session token for future use
+  const sessionToken = client.getSessionToken();
+  localStorage.setItem('sessionToken', sessionToken);
+}
 ```
 
 ## Client-Side vs Server-Side
@@ -298,10 +295,32 @@ await client.authorize('github');
 
 ### Handle OAuth Callback
 
-For redirect mode, you need to handle the callback after redirect:
+The Integrate SDK provides a pre-built callback handler that you can use:
 
 ```typescript
-// callback.tsx (your OAuth callback page)
+// app/oauth/callback/route.ts
+import { createNextOAuthCallbackHandler } from 'integrate-sdk';
+
+export const GET = createNextOAuthCallbackHandler({
+  redirectUrl: '/dashboard', // Where to redirect after OAuth completes
+});
+```
+
+This automatically handles:
+- Extracting OAuth parameters from the URL
+- Sending them to the opener window (popup mode)
+- Storing them in sessionStorage (redirect mode) for the SDK to pick up
+- Redirecting to your configured URL
+- Displaying errors if OAuth fails
+
+**Alternative: Manual Callback Handling**
+
+If you need custom logic, you can still handle the callback manually:
+
+```typescript
+// app/oauth/callback/page.tsx
+'use client';
+
 import { useEffect } from 'react';
 import { client } from '@/lib/integrate';
 

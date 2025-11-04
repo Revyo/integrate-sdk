@@ -17,7 +17,7 @@ The Integrate SDK uses OAuth API routes to securely handle authorization without
 3. **MCP Server** → Returns authorization URL or session token
 4. **Your API Route** → Returns response to browser
 
-## Quick Setup (2 Steps!)
+## Quick Setup (3 Steps!)
 
 ### Next.js App Router
 
@@ -35,7 +35,7 @@ GMAIL_CLIENT_ID=your_gmail_client_id
 GMAIL_CLIENT_SECRET=your_gmail_client_secret
 ```
 
-#### 2. Create ONE Route File
+#### 2. Create OAuth API Route
 
 Create `app/api/integrate/oauth/[action]/route.ts`:
 
@@ -59,12 +59,38 @@ const handler = createNextOAuthHandler({
 export const { POST, GET } = handler.createRoutes();
 ```
 
-**That's it!** The SDK automatically handles:
+This automatically handles:
 - `POST /api/integrate/oauth/authorize` - Get authorization URL
 - `POST /api/integrate/oauth/callback` - Exchange code for token
 - `GET /api/integrate/oauth/status` - Check authorization status
 
-#### 3. Use SDK in Client Components
+#### 3. Create OAuth Callback Route
+
+Create `app/oauth/callback/route.ts`:
+
+```typescript
+import { createNextOAuthCallbackHandler } from 'integrate-sdk';
+
+export const GET = createNextOAuthCallbackHandler({
+  redirectUrl: '/dashboard', // Optional: Where to redirect after OAuth (default: '/')
+});
+```
+
+This route handles the OAuth redirect from the provider and:
+- Extracts the authorization code and state from the URL
+- Sends them to the opener window (popup mode) or stores in sessionStorage (redirect mode)
+- Redirects to your configured URL
+- Displays errors if OAuth fails
+
+**That's it!** No need to manually handle OAuth callbacks or write error handling code.
+
+**Important**: Make sure to configure your OAuth provider's redirect URL to point to this callback route:
+- **Development**: `http://localhost:3000/oauth/callback`
+- **Production**: `https://yourapp.com/oauth/callback`
+
+Add this URL in your OAuth provider's settings (e.g., GitHub OAuth App settings, Google Cloud Console).
+
+#### 4. Use SDK in Client Components
 
 ```typescript
 'use client';
@@ -370,6 +396,45 @@ const { POST, GET } = handler.createRoutes();
 - `POST /api/integrate/oauth/authorize` - Get authorization URL
 - `POST /api/integrate/oauth/callback` - Exchange code for token
 - `GET /api/integrate/oauth/status` - Check authorization status
+
+### createNextOAuthCallbackHandler()
+
+Creates a pre-built OAuth callback route handler that processes OAuth redirects from providers.
+
+```typescript
+function createNextOAuthCallbackHandler(config?: OAuthCallbackHandlerConfig): {
+  GET: (req: NextRequest) => Promise<NextResponse>
+}
+```
+
+**OAuthCallbackHandlerConfig**:
+```typescript
+interface OAuthCallbackHandlerConfig {
+  /** URL to redirect to after successful OAuth (default: '/') */
+  redirectUrl?: string;
+  /** URL to redirect to on OAuth error (default: '/auth-error') */
+  errorRedirectUrl?: string;
+}
+```
+
+**Example**:
+```typescript
+// app/oauth/callback/route.ts
+import { createNextOAuthCallbackHandler } from 'integrate-sdk';
+
+export const GET = createNextOAuthCallbackHandler({
+  redirectUrl: '/dashboard',
+  errorRedirectUrl: '/auth-failed',
+});
+```
+
+**What it does**:
+- Handles OAuth redirects from providers (GitHub, Gmail, etc.)
+- Extracts authorization code and state from URL parameters
+- For popup mode: Sends data to opener window via `postMessage`
+- For redirect mode: Stores data in sessionStorage and redirects
+- Handles errors and redirects to error page
+- Displays a loading UI while processing
 
 ## Next Steps
 

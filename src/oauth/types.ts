@@ -89,3 +89,13 @@ export interface OAuthCallbackParams {
   state: string;
 }
 
+/**
+ * Configuration for OAuth callback route handler
+ */
+export interface OAuthCallbackHandlerConfig {
+  /** URL to redirect to after successful OAuth (default: '/') */
+  redirectUrl?: string;
+  /** URL to redirect to on OAuth error (default: '/auth-error') */
+  errorRedirectUrl?: string;
+}
+

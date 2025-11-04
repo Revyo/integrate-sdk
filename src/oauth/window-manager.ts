@@ -22,6 +22,7 @@ function isBrowser(): boolean {
 export class OAuthWindowManager {
   private popupWindow: Window | null = null;
   private popupCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private popupCheckTimeout: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Open OAuth authorization in a popup window
@@ -146,6 +147,13 @@ export class OAuthWindowManager {
         
         if (event.data && event.data.type === 'oauth_callback') {
           clearTimeout(timeout);
+          
+          // Clear the grace period timeout if message arrives early
+          if (this.popupCheckTimeout) {
+            clearTimeout(this.popupCheckTimeout);
+            this.popupCheckTimeout = null;
+          }
+          
           window.removeEventListener('message', messageHandler);
           
           const { code, state, error } = event.data;
@@ -170,20 +178,24 @@ export class OAuthWindowManager {
       window.addEventListener('message', messageHandler);
 
       // Check if popup was closed
-      this.popupCheckInterval = setInterval(() => {
-        if (this.popupWindow?.closed) {
-          clearTimeout(timeout);
-          clearInterval(this.popupCheckInterval!);
-          window.removeEventListener('message', messageHandler);
-          this.cleanup();
-          reject(new Error('OAuth popup was closed by user'));
-        }
-      }, 500);
+      // Add a grace period (2s) before checking to avoid false positives during OAuth redirect/navigation
+      this.popupCheckTimeout = setTimeout(() => {
+        this.popupCheckTimeout = null; // Clear the timeout reference after it fires
+        this.popupCheckInterval = setInterval(() => {
+          if (this.popupWindow?.closed) {
+            clearTimeout(timeout);
+            clearInterval(this.popupCheckInterval!);
+            window.removeEventListener('message', messageHandler);
+            this.cleanup();
+            reject(new Error('OAuth popup was closed by user'));
+          }
+        }, 500);
+      }, 2000);
     });
   }
 
   /**
-   * Parse callback parameters from current URL (for redirect flow)
+   * Parse callback parameters from current URL or sessionStorage (for redirect flow)
    */
   private listenForRedirectCallback(): Promise<OAuthCallbackParams> {
     if (!isBrowser()) {
@@ -191,12 +203,29 @@ export class OAuthWindowManager {
     }
     
     return new Promise((resolve, reject) => {
+      // First, try to get params from URL (legacy/direct callback)
       const params = new URLSearchParams(window.location.search);
       
-      const code = params.get('code');
-      const state = params.get('state');
-      const error = params.get('error');
-      const errorDescription = params.get('error_description');
+      let code = params.get('code');
+      let state = params.get('state');
+      let error = params.get('error');
+      let errorDescription = params.get('error_description');
+      
+      // If not in URL, check sessionStorage (from callback handler)
+      if (!code && !error) {
+        try {
+          const stored = sessionStorage.getItem('oauth_callback_params');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            code = parsed.code;
+            state = parsed.state;
+            // Clear after reading
+            sessionStorage.removeItem('oauth_callback_params');
+          }
+        } catch (e) {
+          console.error('Failed to parse OAuth callback params from sessionStorage:', e);
+        }
+      }
       
       if (error) {
         const errorMsg = errorDescription || error;
@@ -225,6 +254,11 @@ export class OAuthWindowManager {
     if (this.popupCheckInterval) {
       clearInterval(this.popupCheckInterval);
       this.popupCheckInterval = null;
+    }
+    
+    if (this.popupCheckTimeout) {
+      clearTimeout(this.popupCheckTimeout);
+      this.popupCheckTimeout = null;
     }
   }
 

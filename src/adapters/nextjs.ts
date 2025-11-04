@@ -269,9 +269,11 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
          */
         async POST(
           req: NextRequest,
-          context: { params: { action: string } }
+          context: { params: { action: string } | Promise<{ action: string }> }
         ): Promise<NextResponse> {
-          const action = context.params.action;
+          // Handle both Next.js 14 (sync params) and Next.js 15+ (async params)
+          const params = context.params instanceof Promise ? await context.params : context.params;
+          const action = params.action;
 
           if (action === 'authorize') {
             return handlers.authorize(req);
@@ -292,9 +294,11 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
          */
         async GET(
           req: NextRequest,
-          context: { params: { action: string } }
+          context: { params: { action: string } | Promise<{ action: string }> }
         ): Promise<NextResponse> {
-          const action = context.params.action;
+          // Handle both Next.js 14 (sync params) and Next.js 15+ (async params)
+          const params = context.params instanceof Promise ? await context.params : context.params;
+          const action = params.action;
 
           if (action === 'status') {
             return handlers.status(req);
