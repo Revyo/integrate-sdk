@@ -1,0 +1,509 @@
+---
+title: OAuth Authorization Flow
+description: Complete guide to OAuth authentication with the Integrate SDK
+---
+
+# OAuth Authorization Flow
+
+The Integrate SDK provides a complete OAuth 2.0 Authorization Code Flow with PKCE for securely authenticating users with third-party services like GitHub and Gmail.
+
+## Overview
+
+The SDK handles the entire OAuth flow for you:
+
+1. **Initiate Authorization** - Opens OAuth provider's authorization page
+2. **User Grants Permissions** - User authorizes your app
+3. **Handle Callback** - SDK receives authorization code
+4. **Exchange for Token** - Server exchanges code for session token
+5. **Store Token** - Token is stored for subsequent API calls
+
+## Quick Start
+
+### Browser-Side Authorization (Popup Mode)
+
+```typescript
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    }),
+  ],
+  oauthFlow: {
+    mode: 'popup', // Opens authorization in a popup window
+    popupOptions: {
+      width: 600,
+      height: 700,
+    },
+  },
+});
+
+// Check if user is already authorized
+const isAuthorized = await client.isAuthorized('github');
+
+if (!isAuthorized) {
+  // Initiate OAuth flow - opens popup window
+  await client.authorize('github');
+}
+
+// Now you can make API calls
+const repos = await client.github.listRepos({ username: 'octocat' });
+```
+
+### Browser-Side Authorization (Redirect Mode)
+
+```typescript
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    }),
+  ],
+  oauthFlow: {
+    mode: 'redirect', // Redirects current window (default)
+  },
+});
+
+// On your main page
+if (!await client.isAuthorized('github')) {
+  // This will redirect to GitHub's OAuth page
+  await client.authorize('github');
+}
+
+// After redirect back to your callback page
+// Handle the OAuth callback
+const params = new URLSearchParams(window.location.search);
+await client.handleOAuthCallback({
+  code: params.get('code')!,
+  state: params.get('state')!,
+});
+
+// Save the session token for future use
+const sessionToken = client.getSessionToken();
+localStorage.setItem('sessionToken', sessionToken);
+```
+
+## Client-Side vs Server-Side
+
+### ✅ Client-Side (Browser) - Full Functionality
+
+The SDK provides full OAuth UI flows in browser environments:
+
+```typescript
+// Browser environment
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  oauthFlow: { mode: 'popup' },
+});
+
+// ✅ Full OAuth UI works
+await client.authorize('github');
+
+// ✅ Make API calls
+const repos = await client.github.listRepos({ username: 'octocat' });
+```
+
+### ⚠️ Server-Side (Node.js) - API Calls Only
+
+On the server, OAuth UI flows aren't available, but you can make API calls with an existing session token:
+
+```typescript
+// Node.js/Server environment
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  sessionToken: userSessionToken, // Use token from browser flow
+});
+
+// ✅ API calls work fine
+const repos = await client.github.listRepos({ username: 'octocat' });
+
+// ❌ OAuth UI flows will throw an error
+await client.authorize('github'); 
+// Error: OAuthWindowManager can only be used in browser environments
+```
+
+## Full-Stack Pattern
+
+### 1. Frontend (Browser) - Handle Authorization
+
+```typescript
+// src/lib/integrate.ts
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+export const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID,
+      clientSecret: process.env.NEXT_PUBLIC_GITHUB_CLIENT_SECRET,
+    }),
+  ],
+  oauthFlow: {
+    mode: 'popup',
+    popupOptions: { width: 600, height: 700 },
+  },
+});
+
+// Authorization component
+export async function authorizeGitHub() {
+  try {
+    await client.authorize('github');
+    
+    // Get session token
+    const sessionToken = client.getSessionToken();
+    
+    // Send to your backend to store
+    await fetch('/api/auth/save-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'github', sessionToken }),
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Authorization failed:', error);
+    return false;
+  }
+}
+```
+
+### 2. Backend API Route - Store Token
+
+```typescript
+// pages/api/auth/save-token.ts
+import { NextApiRequest, NextApiResponse } from 'next';
+import { db } from '@/lib/db';
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { provider, sessionToken } = req.body;
+  const userId = req.session.userId; // Your session management
+
+  // Store in database
+  await db.userTokens.upsert({
+    where: { userId_provider: { userId, provider } },
+    update: { sessionToken, updatedAt: new Date() },
+    create: { userId, provider, sessionToken },
+  });
+
+  res.status(200).json({ success: true });
+}
+```
+
+### 3. Backend - Use Token for API Calls
+
+```typescript
+// pages/api/github/repos.ts
+import { NextApiRequest, NextApiResponse } from 'next';
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { db } from '@/lib/db';
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  const userId = req.session.userId;
+  
+  // Get user's stored token
+  const userToken = await db.userTokens.findUnique({
+    where: { userId_provider: { userId, provider: 'github' } },
+  });
+
+  if (!userToken) {
+    return res.status(401).json({ error: 'Not authorized' });
+  }
+
+  // Create client with stored token
+  const client = createMCPClient({
+    plugins: [
+      githubPlugin({
+        clientId: process.env.GITHUB_CLIENT_ID,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      }),
+    ],
+    sessionToken: userToken.sessionToken,
+  });
+
+  try {
+    // Make API call on behalf of user
+    const repos = await client.github.listRepos({
+      username: req.query.username as string,
+    });
+    
+    res.status(200).json(repos);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+```
+
+## Authorization Methods
+
+### Check Authorization Status
+
+```typescript
+// Check if a provider is authorized
+const isAuthorized = await client.isAuthorized('github');
+
+if (isAuthorized) {
+  console.log('User has authorized GitHub');
+} else {
+  console.log('User needs to authorize GitHub');
+}
+
+// Get detailed authorization status
+const status = await client.getAuthorizationStatus('github');
+console.log('Status:', status);
+// {
+//   provider: 'github',
+//   authorized: true,
+//   scopes: ['repo', 'user'],
+//   expiresAt: '2024-12-31T23:59:59Z'
+// }
+
+// Get all authorized providers
+const authorizedProviders = await client.authorizedProviders();
+console.log('Authorized:', authorizedProviders); // ['github']
+```
+
+### Initiate Authorization
+
+```typescript
+// Popup mode
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  oauthFlow: { mode: 'popup' },
+});
+
+// Opens popup window for OAuth
+await client.authorize('github');
+
+// Redirect mode
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  oauthFlow: { mode: 'redirect' },
+});
+
+// Redirects current window to OAuth provider
+await client.authorize('github');
+```
+
+### Handle OAuth Callback
+
+For redirect mode, you need to handle the callback after redirect:
+
+```typescript
+// callback.tsx (your OAuth callback page)
+import { useEffect } from 'react';
+import { client } from '@/lib/integrate';
+
+export default function OAuthCallback() {
+  useEffect(() => {
+    const handleCallback = async () => {
+      const params = new URLSearchParams(window.location.search);
+      
+      try {
+        await client.handleOAuthCallback({
+          code: params.get('code')!,
+          state: params.get('state')!,
+        });
+        
+        // Get and save session token
+        const sessionToken = client.getSessionToken();
+        localStorage.setItem('sessionToken', sessionToken);
+        
+        // Redirect to main app
+        window.location.href = '/dashboard';
+      } catch (error) {
+        console.error('OAuth callback failed:', error);
+        window.location.href = '/auth-error';
+      }
+    };
+    
+    handleCallback();
+  }, []);
+  
+  return <div>Completing authorization...</div>;
+}
+```
+
+## Session Token Management
+
+### Store and Restore Sessions
+
+```typescript
+// Save session token for persistence
+const sessionToken = client.getSessionToken();
+localStorage.setItem('integrate_token', sessionToken);
+
+// Restore session on page load
+const savedToken = localStorage.getItem('integrate_token');
+if (savedToken) {
+  client.setSessionToken(savedToken);
+}
+
+// Now you can make API calls without re-authorizing
+const repos = await client.github.listRepos({ username: 'octocat' });
+```
+
+### Initialize Client with Existing Token
+
+```typescript
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  sessionToken: 'existing-token-from-storage',
+});
+
+// Skip authorization, directly make API calls
+const repos = await client.github.listRepos({ username: 'octocat' });
+```
+
+## Multiple Providers
+
+```typescript
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET,
+    }),
+  ],
+  oauthFlow: {
+    mode: 'popup',
+  },
+});
+
+// Authorize GitHub
+if (!await client.isAuthorized('github')) {
+  await client.authorize('github');
+}
+
+// Authorize Gmail
+if (!await client.isAuthorized('gmail')) {
+  await client.authorize('gmail');
+}
+
+// Now use both
+const repos = await client.github.listRepos({ username: 'octocat' });
+const emails = await client.gmail.listEmails({ maxResults: 10 });
+```
+
+## Custom OAuth Callback Handler
+
+```typescript
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  oauthFlow: {
+    mode: 'popup',
+    onAuthCallback: async (provider, code, state) => {
+      // Custom processing of OAuth callback
+      console.log(`OAuth callback for ${provider}`);
+      console.log('Code:', code);
+      console.log('State:', state);
+      
+      // You can add analytics, logging, etc.
+      await analytics.track('oauth_completed', { provider });
+    },
+  },
+});
+```
+
+## Error Handling
+
+```typescript
+try {
+  await client.authorize('github');
+} catch (error) {
+  if (error.message.includes('popup was blocked')) {
+    console.error('Please allow popups for this site');
+    // Show user instructions to enable popups
+  } else if (error.message.includes('closed by user')) {
+    console.error('Authorization cancelled by user');
+  } else if (error.message.includes('timed out')) {
+    console.error('Authorization timed out');
+  } else {
+    console.error('Authorization failed:', error);
+  }
+}
+```
+
+## Security Best Practices
+
+### 1. Never Expose Client Secret in Browser
+
+```typescript
+// ❌ BAD - Client secret exposed in browser
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: 'public-id',
+      clientSecret: 'secret-key-123', // Exposed!
+    }),
+  ],
+});
+```
+
+```typescript
+// ✅ GOOD - Use environment variables
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID,
+      clientSecret: process.env.NEXT_PUBLIC_GITHUB_CLIENT_SECRET,
+    }),
+  ],
+});
+```
+
+### 2. Store Tokens Securely
+
+```typescript
+// ✅ GOOD - Store in httpOnly cookie (server-side)
+// Set in your API route:
+res.setHeader('Set-Cookie', `session_token=${sessionToken}; HttpOnly; Secure; SameSite=Strict`);
+
+// ✅ ACCEPTABLE - localStorage for client-only apps
+localStorage.setItem('integrate_token', sessionToken);
+
+// ❌ BAD - Storing in global variables or unencrypted storage
+window.sessionToken = sessionToken; // Exposed!
+```
+
+### 3. Validate OAuth State Parameter
+
+The SDK automatically generates and validates the state parameter to prevent CSRF attacks. The state is checked in `handleOAuthCallback()`.
+
+### 4. Use HTTPS in Production
+
+Always use HTTPS for OAuth redirects in production:
+
+```typescript
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      redirectUri: 'https://yourapp.com/oauth/callback', // HTTPS!
+    }),
+  ],
+});
+```
+
+## Next Steps
+
+- Learn about [Re-authentication & Token Refresh](/docs/guides/advanced-usage#re-authentication--token-refresh)
+- Explore [Error Handling](/docs/guides/advanced-usage#error-handling)
+- Check out complete examples in the [repository](https://github.com/Revyo/integrate-sdk/tree/main/examples)
+
