@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Type-safe TypeScript SDK for MCP Client with plugin-based OAuth provider configuration",
   "type": "module",
   "main": "./dist/index.js",
@@ -18,13 +18,23 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server.js",
+      "types": "./dist/server.d.ts"
+    },
+    "./oauth": {
+      "import": "./dist/oauth.js",
+      "types": "./dist/oauth.d.ts"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "server.ts",
+    "oauth.ts"
   ],
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target node --format esm && bun run build:types",
+    "build": "bun build src/index.ts src/server.ts oauth.ts --outdir dist --target node --format esm && bun run build:types",
     "build:types": "tsc --emitDeclarationOnly --declaration --declarationMap",
     "dev": "bun --watch src/index.ts",
     "type-check": "tsc --noEmit",

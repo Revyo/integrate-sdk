@@ -12,8 +12,9 @@ A type-safe TypeScript SDK for connecting to the Integrate MCP (Model Context Pr
 - 🔌 **Plugin-Based Architecture** - Enable only the integrations you need
 - 🔒 **Fully Typed API** - Type-safe methods with autocomplete (e.g., `client.github.createIssue()`)
 - 💡 **IntelliSense Support** - Full TypeScript support with parameter hints
-- 🌊 **Real-time Communication** - HTTP streaming with NDJSON
-- 🔐 **OAuth Ready** - Configure OAuth credentials for each provider
+- ⚡ **Automatic Connection Management** - Lazy connection, auto-cleanup, singleton pattern
+- 🔐 **Complete OAuth Flow** - Built-in OAuth 2.0 with PKCE (popup/redirect modes)
+- 🌍 **Universal** - Works in browser and Node.js environments
 - 🛠️ **Extensible** - Configure plugins for any server-supported integration
 - 📦 **Zero Dependencies** - Lightweight implementation
 
@@ -27,43 +28,134 @@ bun add integrate-sdk
 
 ## Quick Start
 
-```typescript
-import { createMCPClient, githubPlugin } from "integrate-sdk";
+### Server-Side Setup
 
-// Create a client with plugins
+First, create your server configuration with OAuth secrets:
+
+```typescript
+// lib/integrate-server.ts (server-side only!)
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient, handlers } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET,
+      scopes: ['gmail.readonly'],
+    }),
+  ],
+});
+```
+
+Create OAuth route (handles authorization automatically):
+
+```typescript
+// app/api/integrate/oauth/[action]/route.ts
+export * from 'integrate-sdk/oauth';
+```
+
+Use the server client in API routes or server components:
+
+```typescript
+// app/api/repos/route.ts
+import { serverClient } from '@/lib/integrate-server';
+
+export async function GET() {
+  // Automatically connects on first call - no manual setup needed!
+  const repos = await serverClient.github.listOwnRepos({ per_page: 10 });
+  return Response.json({ repos });
+}
+```
+
+### Client-Side Setup
+
+Use in your client components (no secrets needed):
+
+```typescript
+'use client';
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
 const client = createMCPClient({
   plugins: [
     githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ["repo", "user"],
+      scopes: ['repo', 'user'],
+      // No clientId or clientSecret needed!
+    }),
+  ],
+  oauthFlow: { mode: 'popup' },
+});
+
+// Authorize user (opens popup)
+await client.authorize('github');
+
+// Use the client - automatically connects!
+const result = await client.github.createIssue({
+  owner: 'owner',
+  repo: 'repo',
+  title: 'Bug report',
+  body: 'Description of the bug',
+});
+
+console.log('Issue created:', result);
+```
+
+**That's it!** The SDK automatically:
+- ✅ Connects on first method call (no manual `connect()` needed)
+- ✅ Cleans up on exit (no manual `disconnect()` needed)
+- ✅ Manages OAuth tokens securely through your API routes
+- ✅ Provides full type safety with autocomplete
+
+### Connection Management
+
+The SDK automatically manages connections for you - no manual `connect()` or `disconnect()` calls needed!
+
+**Features:**
+- **Lazy Connection**: Automatically connects on first method call
+- **Auto-Cleanup**: Cleans up on process exit
+- **Singleton Pattern**: Reuses connections efficiently (configurable)
+
+```typescript
+// ✅ Default behavior - automatic connection
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ['repo', 'user'],
     }),
   ],
 });
 
-// Connect to the server
-await client.connect();
+// Use immediately - no connect() needed!
+await client.authorize('github');
+await client.github.listRepos({ username: 'octocat' });
 
-// Call GitHub methods with full type safety
-const result = await client.github.createIssue({
-  owner: "owner",
-  repo: "repo",
-  title: "Bug report",
-  body: "Description of the bug",
+// ✅ Want manual control? Use manual mode
+const manualClient = createMCPClient({
+  plugins: [githubPlugin({ scopes: ['repo'] })],
+  connectionMode: 'manual',
+  singleton: false,
 });
 
-console.log("Issue created:", result);
-
-// Call server-level tools with typed methods
-const tools = await client.server.listToolsByIntegration({
-  integration: "github",
-});
-
-// Disconnect when done
-await client.disconnect();
+await manualClient.connect();
+await manualClient.authorize('github');
+await manualClient.github.listRepos({ username: 'octocat' });
+await manualClient.disconnect();
 ```
 
 **Need help?** Check out the [complete documentation](https://integrate.dev) for detailed guides, examples, and API reference.
+
+## Browser & Server Support
+
+The SDK works in both environments:
+
+- **Browser**: Use `createMCPClient()` from `'integrate-sdk'` - handles OAuth UI (popup/redirect)
+- **Server**: Use `createMCPServer()` from `'integrate-sdk/server'` - includes OAuth secrets for API routes
+
+See [Quick Start](#quick-start) above for complete examples.
 
 ## Why Use Integrate SDK?
 
@@ -100,267 +192,80 @@ await client._callToolByName("slack_send_message", { channel: "#general", text: 
 
 ## OAuth Authorization
 
-The SDK implements OAuth 2.0 Authorization Code Flow with PKCE for secure third-party service authorization. Users must authorize your application to access their GitHub, Gmail, or other accounts.
+The SDK implements OAuth 2.0 Authorization Code Flow with PKCE for secure authorization.
 
-### How It Works
+**Key Features:**
+- ✅ Popup or redirect flow modes
+- ✅ Session token management
+- ✅ Multiple provider support
+- ✅ PKCE security
 
-1. **Your App**: Creates client with OAuth configuration
-2. **SDK**: Initiates OAuth flow (popup or redirect)
-3. **User**: Authorizes permissions on provider's website
-4. **Provider**: Redirects back with authorization code
-5. **Your Server**: Exchanges code for tokens and stores them
-6. **SDK**: Includes session token in all API requests
-7. **Your Server**: Uses stored OAuth tokens for API calls
-
-### Quick Start
-
+**Basic Usage:**
 ```typescript
-import { createMCPClient, githubPlugin } from "integrate-sdk";
-
-// Create client with OAuth flow configuration
-const client = createMCPClient({
-  plugins: [
-    githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ["repo", "user"],
-      redirectUri: "http://localhost:3000/oauth/callback",
-    }),
-  ],
-  oauthFlow: {
-    mode: 'popup', // or 'redirect'
-    popupOptions: { width: 600, height: 700 },
-  },
-});
-
-// Check if authorized
-const isAuthorized = await client.isAuthorized('github');
-
-if (!isAuthorized) {
-  // Initiate OAuth flow - opens popup or redirects
-  await client.authorize('github');
+// Check authorization
+if (!await client.isAuthorized('github')) {
+  await client.authorize('github'); // Opens popup or redirects
 }
 
-// Now you can use GitHub tools
+// Use authorized client
 const repos = await client.github.listOwnRepos({});
 ```
 
-### Popup Flow (Recommended for SPAs)
+For complete OAuth setup including:
+- Popup vs redirect flows
+- Session token management
+- Multiple providers
+- Callback page setup
 
-Best for single-page applications - authorization happens in a popup without leaving your app.
-
-```typescript
-const client = createMCPClient({
-  plugins: [githubPlugin({ ... })],
-  oauthFlow: { mode: 'popup' },
-});
-
-// This opens a popup for authorization
-await client.authorize('github');
-
-// After user approves, continues automatically
-const repos = await client.github.listOwnRepos({});
-```
-
-**Callback Page**: Create `/oauth/callback.html`:
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <title>OAuth Callback</title>
-  <script type="module">
-    import { sendCallbackToOpener } from 'integrate-sdk';
-    
-    const params = new URLSearchParams(window.location.search);
-    sendCallbackToOpener({
-      code: params.get('code'),
-      state: params.get('state'),
-      error: params.get('error')
-    });
-  </script>
-</head>
-<body>
-  <p>Authorization successful! Closing...</p>
-</body>
-</html>
-```
-
-### Redirect Flow (Traditional Web Apps)
-
-Best for traditional server-rendered applications.
-
-```typescript
-// Main page
-const client = createMCPClient({
-  plugins: [githubPlugin({ ... })],
-  oauthFlow: { mode: 'redirect' },
-});
-
-if (!await client.isAuthorized('github')) {
-  await client.authorize('github'); // Redirects to GitHub
-}
-
-// Callback page (e.g., /oauth/callback)
-const params = new URLSearchParams(window.location.search);
-await client.handleOAuthCallback({
-  code: params.get('code')!,
-  state: params.get('state')!
-});
-
-// Save session token for future use
-const sessionToken = client.getSessionToken();
-localStorage.setItem('session_token', sessionToken);
-
-// Redirect back to main app
-```
-
-### Session Token Management
-
-Store and restore sessions to avoid re-authorization:
-
-```typescript
-// Restore previous session
-const client = createMCPClient({
-  plugins: [githubPlugin({ ... })],
-  sessionToken: localStorage.getItem('session_token'),
-});
-
-// Check if session is still valid
-if (!await client.isAuthorized('github')) {
-  await client.authorize('github');
-}
-
-// Store token after new authorization
-const token = client.getSessionToken();
-localStorage.setItem('session_token', token);
-```
-
-### Multiple Providers
-
-Authorize multiple services independently:
-
-```typescript
-const client = createMCPClient({
-  plugins: [
-    githubPlugin({ ... }),
-    gmailPlugin({ ... }),
-  ],
-  oauthFlow: { mode: 'popup' },
-});
-
-// Get list of all authorized providers
-const authorized = await client.authorizedProviders();
-console.log('Authorized:', authorized); // ['github', 'gmail']
-
-// Or check and authorize each provider individually
-if (!await client.isAuthorized('github')) {
-  await client.authorize('github');
-}
-
-if (!await client.isAuthorized('gmail')) {
-  await client.authorize('gmail');
-}
-
-// Use both services
-const repos = await client.github.listOwnRepos({});
-const messages = await client.gmail.listMessages({});
-```
-
-### Server Requirements
-
-Your MCP server must implement these OAuth endpoints:
-
-**GET `/oauth/authorize`** - Returns authorization URL
-**POST `/oauth/callback`** - Exchanges code for tokens, returns session token
-**GET `/oauth/status`** - Checks authorization status
-
-All tool endpoints must accept `X-Session-Token` header and use stored OAuth tokens for API calls.
-
-[→ View complete OAuth flow implementation guide](/docs/guides/oauth-flow.md)
+See the [`/examples`](/examples) directory or [OAuth documentation](https://integrate.dev/docs/guides/oauth-flow).
 
 ## Built-in Plugins
 
 ### GitHub Plugin
 
-Access GitHub repositories, issues, pull requests, and more.
+Access GitHub repositories, issues, pull requests, and more with type-safe methods.
 
 ```typescript
-const client = createMCPClient({
-  plugins: [
-    githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ["repo", "user"],
-    }),
-  ],
-});
-
-await client.connect();
-
-// Use typed methods
-await client.github.getRepo({ owner: "facebook", repo: "react" });
-await client.github.createIssue({ owner: "user", repo: "repo", title: "Bug" });
-await client.github.listPullRequests({ owner: "user", repo: "repo", state: "open" });
+// Available methods
+await client.github.getRepo({ owner: 'facebook', repo: 'react' });
+await client.github.createIssue({ owner: 'user', repo: 'repo', title: 'Bug' });
+await client.github.listPullRequests({ owner: 'user', repo: 'repo', state: 'open' });
+await client.github.listOwnRepos({});
 ```
 
-[→ View GitHub plugin documentation](https://integrate.dev/docs/plugins/github)
+[→ GitHub plugin documentation](https://integrate.dev/docs/plugins/github)
 
 ### Gmail Plugin
 
-Send emails, manage labels, and search messages.
+Send emails, manage labels, and search messages with type-safe methods.
 
 ```typescript
-const client = createMCPClient({
-  plugins: [
-    gmailPlugin({
-      clientId: process.env.GMAIL_CLIENT_ID!,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-    }),
-  ],
-});
-
-await client.connect();
-
-// Use typed methods
-await client.gmail.sendEmail({ to: "user@example.com", subject: "Hello", body: "Hi!" });
-await client.gmail.listEmails({ maxResults: 10, q: "is:unread" });
-await client.gmail.searchEmails({ query: "from:notifications@github.com" });
+// Available methods
+await client.gmail.sendEmail({ to: 'user@example.com', subject: 'Hello', body: 'Hi!' });
+await client.gmail.listEmails({ maxResults: 10, q: 'is:unread' });
+await client.gmail.searchEmails({ query: 'from:notifications@github.com' });
 ```
 
-[→ View Gmail plugin documentation](https://integrate.dev/docs/plugins/gmail)
+[→ Gmail plugin documentation](https://integrate.dev/docs/plugins/gmail)
 
-### Configure Additional Integrations
+### Additional Integrations
 
-The server may support additional integrations beyond GitHub and Gmail. You can configure OAuth and enable these tools using `genericOAuthPlugin`:
+Use `genericOAuthPlugin` to configure any server-supported integration:
 
 ```typescript
-import { genericOAuthPlugin } from "integrate-sdk";
+import { genericOAuthPlugin } from 'integrate-sdk/server';
 
-// Configure a plugin for any server-supported integration
 const slackPlugin = genericOAuthPlugin({
-  id: "slack",
-  provider: "slack",
-  clientId: process.env.SLACK_CLIENT_ID!,
-  clientSecret: process.env.SLACK_CLIENT_SECRET!,
-  scopes: ["chat:write", "channels:read"],
-  tools: ["slack_send_message", "slack_list_channels"], // Must exist on server
-});
-
-const client = createMCPClient({
-  plugins: [slackPlugin],
-});
-
-await client.connect();
-
-// Use _callToolByName to call the tools
-await client._callToolByName("slack_send_message", { 
-  channel: "#general", 
-  text: "Hello!" 
+  id: 'slack',
+  provider: 'slack',
+  clientId: process.env.SLACK_CLIENT_ID,
+  clientSecret: process.env.SLACK_CLIENT_SECRET,
+  scopes: ['chat:write', 'channels:read'],
+  tools: ['slack_send_message', 'slack_list_channels'],
 });
 ```
 
-**Note**: Plugins configure access to server-provided tools - they don't create new tools. All tool implementations must exist on the Integrate MCP server.
+See [`/examples`](/examples) for complete setup patterns.
 
 ## Vercel AI SDK Integration
 
@@ -390,6 +295,7 @@ const result = await generateText({
 For detailed guides, API reference, and examples, visit the [complete documentation](https://integrate.dev):
 
 - **[Getting Started](https://integrate.dev/docs/getting-started/installation)** - Installation and quick start
+- **[OAuth Flow](https://integrate.dev/docs/guides/oauth-flow)** - OAuth 2.0 authorization guide
 - **[Plugins](https://integrate.dev/docs/plugins)** - Built-in plugins and configuration
 - **[Vercel AI SDK](https://integrate.dev/docs/integrations/vercel-ai)** - AI model integration
 - **[Advanced Usage](https://integrate.dev/docs/guides/advanced-usage)** - Error handling, retries, and more

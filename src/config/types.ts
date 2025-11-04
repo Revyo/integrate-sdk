@@ -142,6 +142,27 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * ```
    */
   sessionToken?: string;
+
+  /**
+   * Base URL for OAuth API routes
+   * These routes should be mounted in your application to handle OAuth securely
+   * 
+   * The SDK will call:
+   * - POST {oauthApiBase}/authorize - Get authorization URL
+   * - POST {oauthApiBase}/callback - Exchange code for token
+   * - GET {oauthApiBase}/status - Check authorization status
+   * 
+   * @default '/api/integrate/oauth'
+   * 
+   * @example
+   * ```typescript
+   * const client = createMCPClient({
+   *   plugins: [githubPlugin({ ... })],
+   *   oauthApiBase: '/api/integrate/oauth'
+   * });
+   * ```
+   */
+  oauthApiBase?: string;
 }
 
 /**

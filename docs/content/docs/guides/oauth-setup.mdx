@@ -1,0 +1,378 @@
+---
+title: OAuth API Route Setup
+description: Set up secure OAuth routes for Next.js and TanStack Start
+---
+
+# OAuth API Route Setup
+
+The Integrate SDK uses OAuth API routes to securely handle authorization without exposing your OAuth secrets in the browser. This guide shows you how to set up these routes in your application.
+
+## Why API Routes?
+
+**Security**: OAuth client secrets must never be exposed in the browser. By routing OAuth requests through your server, credentials stay secure in environment variables.
+
+**Flow**:
+1. **Browser SDK** → Calls your API route
+2. **Your API Route** → Adds OAuth secrets from env vars → Forwards to MCP server
+3. **MCP Server** → Returns authorization URL or session token
+4. **Your API Route** → Returns response to browser
+
+## Quick Setup (2 Steps!)
+
+### Next.js App Router
+
+#### 1. Set Environment Variables
+
+Create `.env.local`:
+
+```bash
+# GitHub OAuth (get from https://github.com/settings/developers)
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+
+# Gmail OAuth (get from https://console.cloud.google.com)
+GMAIL_CLIENT_ID=your_gmail_client_id
+GMAIL_CLIENT_SECRET=your_gmail_client_secret
+```
+
+#### 2. Create ONE Route File
+
+Create `app/api/integrate/oauth/[action]/route.ts`:
+
+```typescript
+import { createNextOAuthHandler } from 'integrate-sdk';
+
+const handler = createNextOAuthHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+    gmail: {
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+    },
+  },
+});
+
+// This single line handles ALL OAuth actions (authorize, callback, status)
+export const { POST, GET } = handler.createRoutes();
+```
+
+**That's it!** The SDK automatically handles:
+- `POST /api/integrate/oauth/authorize` - Get authorization URL
+- `POST /api/integrate/oauth/callback` - Exchange code for token
+- `GET /api/integrate/oauth/status` - Check authorization status
+
+#### 3. Use SDK in Client Components
+
+```typescript
+'use client';
+
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { useState } from 'react';
+
+export default function GitHubIntegration() {
+  const [client] = useState(() =>
+    createMCPClient({
+      plugins: [
+        githubPlugin({
+          scopes: ['repo', 'user'],
+        }),
+      ],
+      oauthFlow: { mode: 'popup' },
+      // API routes are at /api/integrate/oauth by default
+    })
+  );
+
+  const handleAuthorize = async () => {
+    try {
+      await client.authorize('github');
+      console.log('Authorized!');
+    } catch (error) {
+      console.error('Authorization failed:', error);
+    }
+  };
+
+  const handleGetRepos = async () => {
+    const repos = await client.github.listRepos({ username: 'octocat' });
+    console.log('Repos:', repos);
+  };
+
+  return (
+    <div>
+      <button onClick={handleAuthorize}>Authorize GitHub</button>
+      <button onClick={handleGetRepos}>Get Repos</button>
+    </div>
+  );
+}
+```
+
+### TanStack Start
+
+#### 1. Set Environment Variables
+
+Create `.env`:
+
+```bash
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+GMAIL_CLIENT_ID=your_gmail_client_id
+GMAIL_CLIENT_SECRET=your_gmail_client_secret
+```
+
+#### 2. Create OAuth Route
+
+**`app/routes/api/integrate/oauth/[action].ts`**:
+```typescript
+import { createTanStackOAuthHandler } from 'integrate-sdk';
+
+const handler = createTanStackOAuthHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+    gmail: {
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+    },
+  },
+});
+
+export const POST = handler.authorize; // Handles authorize and callback
+export const GET = handler.status;     // Handles status
+```
+
+## Configuration Options
+
+### Custom OAuth Base URL
+
+If your routes are mounted at a different path:
+
+```typescript
+const client = createMCPClient({
+  plugins: [githubPlugin({ scopes: ['repo'] })],
+  oauthApiBase: '/api/my-custom-path/oauth', // Custom path
+});
+```
+
+The SDK will call:
+- `POST /api/my-custom-path/oauth/authorize`
+- `POST /api/my-custom-path/oauth/callback`
+- `GET /api/my-custom-path/oauth/status`
+
+### Multiple Providers
+
+Add as many providers as you need:
+
+```typescript
+const handler = createNextOAuthHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+    gmail: {
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+    },
+    slack: {
+      clientId: process.env.SLACK_CLIENT_ID!,
+      clientSecret: process.env.SLACK_CLIENT_SECRET!,
+    },
+    notion: {
+      clientId: process.env.NOTION_CLIENT_ID!,
+      clientSecret: process.env.NOTION_CLIENT_SECRET!,
+    },
+  },
+});
+
+export const { POST, GET } = handler.createRoutes();
+```
+
+### Custom Redirect URI
+
+Override redirect URI per provider:
+
+```typescript
+const handler = createNextOAuthHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      redirectUri: 'https://yourapp.com/custom/callback',
+    },
+  },
+});
+
+export const { POST, GET } = handler.createRoutes();
+```
+
+## Advanced: Separate Route Files
+
+If you prefer separate routes for each action, you can use the individual handlers:
+
+**`app/api/integrate/oauth/authorize/route.ts`**:
+```typescript
+import { createNextOAuthHandler } from 'integrate-sdk';
+
+const handler = createNextOAuthHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+  },
+});
+
+export const POST = handler.authorize;
+```
+
+**`app/api/integrate/oauth/callback/route.ts`**:
+```typescript
+import { createNextOAuthHandler } from 'integrate-sdk';
+
+const handler = createNextOAuthHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+  },
+});
+
+export const POST = handler.callback;
+```
+
+**`app/api/integrate/oauth/status/route.ts`**:
+```typescript
+import { createNextOAuthHandler } from 'integrate-sdk';
+
+const handler = createNextOAuthHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+  },
+});
+
+export const GET = handler.status;
+```
+
+## Security Best Practices
+
+### 1. Never Commit Secrets
+
+Add to `.gitignore`:
+```
+.env
+.env.local
+.env.*.local
+```
+
+### 2. Use HTTPS in Production
+
+Always use HTTPS for OAuth redirects:
+```typescript
+redirectUri: 'https://yourapp.com/oauth/callback', // ✅ HTTPS
+// NOT: 'http://yourapp.com/oauth/callback' // ❌ HTTP
+```
+
+### 3. Validate Environment Variables
+
+Add validation at startup:
+
+```typescript
+const requiredEnvVars = [
+  'GITHUB_CLIENT_ID',
+  'GITHUB_CLIENT_SECRET',
+];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    throw new Error(`Missing required environment variable: ${envVar}`);
+  }
+}
+```
+
+### 4. Use Different OAuth Apps for Dev/Prod
+
+Create separate OAuth applications for development and production environments.
+
+## Troubleshooting
+
+### "Provider not configured" Error
+
+**Cause**: The provider you're trying to authorize isn't in your OAuth handler configuration.
+
+**Solution**: Add the provider to your handler:
+```typescript
+providers: {
+  github: { // ✅ Provider configured
+    clientId: process.env.GITHUB_CLIENT_ID!,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+  },
+}
+```
+
+### "Failed to get authorization URL" Error
+
+**Cause**: OAuth credentials are missing or invalid.
+
+**Solution**: 
+1. Check environment variables are set
+2. Verify credentials in OAuth provider dashboard
+3. Restart dev server after changing `.env`
+
+### 404 on OAuth Routes
+
+**Cause**: Route file not in correct location.
+
+**Solution**: Verify file structure:
+```
+app/
+  api/
+    integrate/
+      oauth/
+        [action]/
+          route.ts     ← Single file handles everything!
+```
+
+## API Reference
+
+### OAuthHandlerConfig
+
+```typescript
+interface OAuthHandlerConfig {
+  /** OAuth configurations by provider */
+  providers: Record<string, {
+    clientId: string;
+    clientSecret: string;
+    redirectUri?: string;
+  }>;
+}
+```
+
+**Note**: The MCP server URL (`https://mcp.integrate.dev/api/v1/mcp`) is managed by Integrate and hardcoded in the SDK. You don't need to configure it.
+
+### createRoutes()
+
+Returns an object with POST and GET handlers for Next.js dynamic routes:
+
+```typescript
+const handler = createNextOAuthHandler(config);
+const { POST, GET } = handler.createRoutes();
+```
+
+**Routes handled**:
+- `POST /api/integrate/oauth/authorize` - Get authorization URL
+- `POST /api/integrate/oauth/callback` - Exchange code for token
+- `GET /api/integrate/oauth/status` - Check authorization status
+
+## Next Steps
+
+- Learn about [OAuth Flow](/docs/guides/oauth-flow) for complete authorization guide
+- View [Examples](https://github.com/Revyo/integrate-sdk/tree/main/examples) for complete working applications
+- [API Reference](/docs/reference/api-reference) for detailed SDK documentation

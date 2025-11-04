@@ -124,7 +124,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
 
     // Initialize OAuth manager
     this.oauthManager = new OAuthManager(
-      MCP_SERVER_URL,
+      config.oauthApiBase || '/api/integrate/oauth',
       config.oauthFlow
     );
 

@@ -23,13 +23,13 @@ export class OAuthManager {
   private sessionToken?: string;
   private windowManager: OAuthWindowManager;
   private flowConfig: OAuthFlowConfig;
-  private serverUrl: string;
+  private oauthApiBase: string;
 
   constructor(
-    serverUrl: string,
+    oauthApiBase: string,
     flowConfig?: Partial<OAuthFlowConfig>
   ) {
-    this.serverUrl = serverUrl;
+    this.oauthApiBase = oauthApiBase;
     this.windowManager = new OAuthWindowManager();
     this.flowConfig = {
       mode: flowConfig?.mode || 'redirect',
@@ -73,8 +73,8 @@ export class OAuthManager {
     };
     this.pendingAuths.set(state, pendingAuth);
 
-    // 3. Request authorization URL from MCP server
-    const authUrl = await this.getAuthorizationUrl(provider, config, state, codeChallenge);
+    // 3. Request authorization URL from user's API route
+    const authUrl = await this.getAuthorizationUrl(provider, config.scopes, state, codeChallenge, config.redirectUri);
 
     // 4. Open authorization URL (popup or redirect)
     if (this.flowConfig.mode === 'popup') {
@@ -133,7 +133,7 @@ export class OAuthManager {
       }
     }
 
-    // 2. Send to MCP server for token exchange
+    // 2. Send to user's API route for token exchange
     try {
       const response = await this.exchangeCodeForToken(
         pendingAuth.provider,
@@ -178,10 +178,9 @@ export class OAuthManager {
     }
 
     try {
-      const url = new URL('/oauth/status', this.serverUrl);
-      url.searchParams.set('provider', provider);
+      const url = `${this.oauthApiBase}/status?provider=${encodeURIComponent(provider)}`;
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'X-Session-Token': this.sessionToken,
@@ -228,28 +227,31 @@ export class OAuthManager {
   }
 
   /**
-   * Request authorization URL from MCP server
+   * Request authorization URL from user's API route
+   * The API route will add OAuth secrets and forward to MCP server
    */
   private async getAuthorizationUrl(
     provider: string,
-    config: OAuthConfig,
+    scopes: string[],
     state: string,
-    codeChallenge: string
+    codeChallenge: string,
+    redirectUri?: string
   ): Promise<string> {
-    const url = new URL('/oauth/authorize', this.serverUrl);
-    url.searchParams.set('provider', provider);
-    url.searchParams.set('client_id', config.clientId || '');
-    url.searchParams.set('scope', config.scopes.join(','));
-    url.searchParams.set('state', state);
-    url.searchParams.set('code_challenge', codeChallenge);
-    url.searchParams.set('code_challenge_method', 'S256');
-    
-    if (config.redirectUri) {
-      url.searchParams.set('redirect_uri', config.redirectUri);
-    }
+    const url = `${this.oauthApiBase}/authorize`;
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        scopes,
+        state,
+        codeChallenge,
+        codeChallengeMethod: 'S256',
+        redirectUri,
+      }),
     });
 
     if (!response.ok) {
@@ -262,7 +264,8 @@ export class OAuthManager {
   }
 
   /**
-   * Exchange authorization code for session token
+   * Exchange authorization code for session token via user's API route
+   * The API route will forward to MCP server
    */
   private async exchangeCodeForToken(
     provider: string,
@@ -270,9 +273,9 @@ export class OAuthManager {
     codeVerifier: string,
     state: string
   ): Promise<OAuthCallbackResponse> {
-    const url = new URL('/oauth/callback', this.serverUrl);
+    const url = `${this.oauthApiBase}/callback`;
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -280,7 +283,7 @@ export class OAuthManager {
       body: JSON.stringify({
         provider,
         code,
-        code_verifier: codeVerifier,
+        codeVerifier,
         state,
       }),
     });

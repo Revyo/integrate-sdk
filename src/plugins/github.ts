@@ -7,12 +7,15 @@ import type { MCPPlugin, OAuthConfig } from "./types.js";
 
 /**
  * GitHub plugin configuration
+ * 
+ * SERVER-SIDE: Include clientId and clientSecret when using createMCPServer()
+ * CLIENT-SIDE: Omit clientId and clientSecret when using createMCPClient()
  */
 export interface GitHubPluginConfig {
-  /** GitHub OAuth client ID */
-  clientId: string | undefined;
-  /** GitHub OAuth client secret */
-  clientSecret: string | undefined;
+  /** GitHub OAuth client ID (required on server, omit on client) */
+  clientId?: string;
+  /** GitHub OAuth client secret (required on server, omit on client) */
+  clientSecret?: string;
   /** Additional OAuth scopes (default: ['repo', 'user']) */
   scopes?: string[];
   /** OAuth redirect URI */
@@ -51,14 +54,28 @@ const GITHUB_TOOLS = [
  * 
  * Enables GitHub integration with OAuth authentication
  * 
- * @example
+ * @example Server-side (with secrets):
  * ```typescript
- * const client = createMCPClient({
- *   serverUrl: 'http://localhost:3000/mcp',
+ * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * 
+ * export const { client } = createMCPServer({
  *   plugins: [
  *     githubPlugin({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
  *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+ *       scopes: ['repo', 'user', 'read:org'],
+ *     }),
+ *   ],
+ * });
+ * ```
+ * 
+ * @example Client-side (without secrets):
+ * ```typescript
+ * import { createMCPClient, githubPlugin } from 'integrate-sdk';
+ * 
+ * const client = createMCPClient({
+ *   plugins: [
+ *     githubPlugin({
  *       scopes: ['repo', 'user', 'read:org'],
  *     }),
  *   ],

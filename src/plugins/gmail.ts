@@ -7,12 +7,15 @@ import type { MCPPlugin, OAuthConfig } from "./types.js";
 
 /**
  * Gmail plugin configuration
+ * 
+ * SERVER-SIDE: Include clientId and clientSecret when using createMCPServer()
+ * CLIENT-SIDE: Omit clientId and clientSecret when using createMCPClient()
  */
 export interface GmailPluginConfig {
-  /** Google OAuth client ID */
-  clientId: string | undefined;
-  /** Google OAuth client secret */
-  clientSecret: string | undefined;
+  /** Google OAuth client ID (required on server, omit on client) */
+  clientId?: string;
+  /** Google OAuth client secret (required on server, omit on client) */
+  clientSecret?: string;
   /** Additional OAuth scopes (default: Gmail API scopes) */
   scopes?: string[];
   /** OAuth redirect URI */
@@ -35,14 +38,29 @@ const GMAIL_TOOLS = [
  * 
  * Enables Gmail integration with OAuth authentication
  * 
- * @example
+ * @example Server-side (with secrets):
  * ```typescript
- * const client = createMCPClient({
- *   serverUrl: 'http://localhost:3000/mcp',
+ * import { createMCPServer, gmailPlugin } from 'integrate-sdk/server';
+ * 
+ * export const { client } = createMCPServer({
  *   plugins: [
  *     gmailPlugin({
  *       clientId: process.env.GMAIL_CLIENT_ID!,
  *       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+ *       scopes: ['gmail.send', 'gmail.readonly'],
+ *     }),
+ *   ],
+ * });
+ * ```
+ * 
+ * @example Client-side (without secrets):
+ * ```typescript
+ * import { createMCPClient, gmailPlugin } from 'integrate-sdk';
+ * 
+ * const client = createMCPClient({
+ *   plugins: [
+ *     gmailPlugin({
+ *       scopes: ['gmail.send', 'gmail.readonly'],
  *     }),
  *   ],
  * });

@@ -7,18 +7,35 @@ import type { MCPClient } from "../client.js";
 
 /**
  * OAuth Configuration for a plugin
+ * 
+ * CLIENT-SIDE: You no longer need to provide clientId/clientSecret in the browser.
+ * These should be kept server-side in your OAuth API routes for security.
+ * 
+ * SERVER-SIDE: OAuth credentials are provided via API route configuration
+ * using createNextOAuthHandler() or createTanStackOAuthHandler().
  */
 export interface OAuthConfig {
   /** OAuth provider identifier (e.g., 'github', 'google') */
   provider: string;
-  /** OAuth client ID */
-  clientId: string | undefined;
-  /** OAuth client secret */
-  clientSecret: string | undefined;
+  
+  /** 
+   * OAuth client ID (optional - only needed for legacy direct MCP server calls)
+   * @deprecated Keep client ID server-side in OAuth API route configuration
+   */
+  clientId?: string | undefined;
+  
+  /** 
+   * OAuth client secret (optional - only needed for legacy direct MCP server calls)
+   * @deprecated Keep client secret server-side in OAuth API route configuration
+   */
+  clientSecret?: string | undefined;
+  
   /** Required OAuth scopes */
   scopes: string[];
+  
   /** Redirect URI for OAuth flow */
   redirectUri?: string;
+  
   /** Provider-specific configuration */
   config?: unknown;
 }

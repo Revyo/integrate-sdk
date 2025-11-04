@@ -21,6 +21,19 @@ export type {
   OAuthCallbackParams,
 } from "./oauth/types.js";
 
+// OAuth route adapters
+export { OAuthHandler } from "./adapters/base-handler.js";
+export type {
+  OAuthHandlerConfig,
+  AuthorizeRequest,
+  AuthorizeResponse,
+  CallbackRequest,
+  CallbackResponse,
+  StatusResponse,
+} from "./adapters/base-handler.js";
+export { createNextOAuthHandler } from "./adapters/nextjs.js";
+export { createTanStackOAuthHandler } from "./adapters/tanstack-start.js";
+
 // Configuration
 export type { MCPClientConfig, ReauthContext, ReauthHandler } from "./config/types.js";
 
