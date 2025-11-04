@@ -6,7 +6,6 @@
 import { MCPClient } from './client.js';
 import type { MCPClientConfig } from './config/types.js';
 import type { MCPPlugin } from './plugins/types.js';
-import { setGlobalOAuthConfig } from './adapters/auto-routes.js';
 
 /**
  * Create MCP Server instance with OAuth secrets
@@ -19,7 +18,7 @@ import { setGlobalOAuthConfig } from './adapters/auto-routes.js';
  * // lib/integrate-server.ts (server-side only!)
  * import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
  * 
- * export const { client: serverClient, handlers } = createMCPServer({
+ * export const { client: serverClient, POST, GET } = createMCPServer({
  *   plugins: [
  *     githubPlugin({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -38,7 +37,7 @@ import { setGlobalOAuthConfig } from './adapters/auto-routes.js';
  * Then in your route file:
  * ```typescript
  * // app/api/integrate/oauth/[action]/route.ts
- * export * from 'integrate-sdk/oauth';
+ * export { POST, GET } from '@/lib/integrate-server';
  * ```
  */
 export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
@@ -79,23 +78,32 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
     }
   }
 
-  // Set global OAuth config for auto-routes
-  if (Object.keys(providers).length > 0) {
-    setGlobalOAuthConfig({ providers });
-  }
-
   // Create the client instance
   const client = new MCPClient(config);
+
+  // Create route handlers with the provider configuration
+  const { POST, GET } = createOAuthRouteHandlers({ providers });
 
   return {
     /** Server-side MCP client instance */
     client,
     
-    /** OAuth route handlers (use by importing 'integrate-sdk/oauth' in your route file) */
-    handlers: {
-      info: 'To use OAuth handlers, create a route file and add: export * from \'integrate-sdk/oauth\'',
-    },
+    /** OAuth POST handler - export this from your route file */
+    POST,
+    
+    /** OAuth GET handler - export this from your route file */
+    GET,
   };
+}
+
+/**
+ * Create OAuth route handlers for Next.js App Router
+ * Internal function used by createMCPServer
+ */
+function createOAuthRouteHandlers(config: { providers: Record<string, any> }) {
+  const { createNextOAuthHandler } = require('./adapters/nextjs.js');
+  const handler = createNextOAuthHandler(config);
+  return handler.createRoutes();
 }
 
 // Re-export plugin types for convenience
