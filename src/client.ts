@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * MCP Client
  * Main client class that orchestrates transport, protocol, and plugins
