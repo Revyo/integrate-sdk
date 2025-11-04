@@ -39,7 +39,12 @@
     "types": ["bun-types"],
     "resolveJsonModule": true
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*",
+    "index.ts",
+    "server.ts",
+    "oauth.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }
 
