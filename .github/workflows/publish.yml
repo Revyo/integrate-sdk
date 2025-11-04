@@ -26,15 +26,28 @@ jobs:
         id: package
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
+      - name: Get previous version
+        id: previous
+        run: |
+          git checkout HEAD^ -- package.json
+          echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          git checkout HEAD -- package.json
+
       - name: Check if version changed
         id: check
         run: |
-          if git diff HEAD^ HEAD -- package.json | grep -q '"version"'; then
+          CURRENT_VERSION="${{ steps.package.outputs.version }}"
+          PREVIOUS_VERSION="${{ steps.previous.outputs.version }}"
+          
+          echo "Current version: $CURRENT_VERSION"
+          echo "Previous version: $PREVIOUS_VERSION"
+          
+          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Version changed to ${{ steps.package.outputs.version }}"
+            echo "✅ Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "Version not changed, skipping publish"
+            echo "❌ Version not changed, skipping publish"
           fi
 
   publish:
