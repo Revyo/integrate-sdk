@@ -19,7 +19,6 @@ export type {
   AuthorizationUrlResponse,
   OAuthCallbackResponse,
   OAuthCallbackParams,
-  OAuthCallbackHandlerConfig,
 } from "./oauth/types.js";
 
 // OAuth route adapters
@@ -33,6 +32,8 @@ export type {
   StatusResponse,
 } from "./adapters/base-handler.js";
 export { createNextOAuthHandler } from "./adapters/nextjs.js";
+export { createOAuthRedirectHandler } from "./adapters/nextjs-oauth-redirect.js";
+export type { OAuthRedirectConfig } from "./adapters/nextjs-oauth-redirect.js";
 export { createTanStackOAuthHandler } from "./adapters/tanstack-start.js";
 
 // Configuration

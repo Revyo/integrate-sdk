@@ -195,7 +195,7 @@ export class OAuthWindowManager {
   }
 
   /**
-   * Parse callback parameters from current URL or sessionStorage (for redirect flow)
+   * Parse callback parameters from current URL, hash, or sessionStorage (for redirect flow)
    */
   private listenForRedirectCallback(): Promise<OAuthCallbackParams> {
     if (!isBrowser()) {
@@ -203,7 +203,7 @@ export class OAuthWindowManager {
     }
     
     return new Promise((resolve, reject) => {
-      // First, try to get params from URL (legacy/direct callback)
+      // First, try to get params from URL query (legacy/direct callback)
       const params = new URLSearchParams(window.location.search);
       
       let code = params.get('code');
@@ -211,7 +211,27 @@ export class OAuthWindowManager {
       let error = params.get('error');
       let errorDescription = params.get('error_description');
       
-      // If not in URL, check sessionStorage (from callback handler)
+      // If not in URL, check hash (from redirect handler)
+      if (!code && !error && window.location.hash) {
+        try {
+          const hash = window.location.hash.substring(1);
+          const hashParams = new URLSearchParams(hash);
+          const oauthCallback = hashParams.get('oauth_callback');
+          
+          if (oauthCallback) {
+            const parsed = JSON.parse(decodeURIComponent(oauthCallback));
+            code = parsed.code;
+            state = parsed.state;
+            
+            // Clean up hash
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        } catch (e) {
+          console.error('Failed to parse OAuth callback params from hash:', e);
+        }
+      }
+      
+      // If not in URL or hash, check sessionStorage (from callback page)
       if (!code && !error) {
         try {
           const stored = sessionStorage.getItem('oauth_callback_params');

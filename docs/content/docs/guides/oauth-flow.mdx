@@ -295,65 +295,18 @@ await client.authorize('github');
 
 ### Handle OAuth Callback
 
-The Integrate SDK provides a pre-built callback page component that you can use:
-
-```tsx
-// app/oauth/callback/page.tsx
-import { OAuthCallbackPage } from 'integrate-sdk/oauth-callback';
-
-export default function CallbackPage() {
-  return <OAuthCallbackPage redirectUrl="/dashboard" />;
-}
-```
-
-This automatically handles:
-- Extracting OAuth parameters from the URL
-- Sending them to the opener window (popup mode)
-- Storing them in sessionStorage (redirect mode) for the SDK to pick up
-- Redirecting to your configured URL
-- Displaying a beautiful loading UI
-- Handling errors gracefully
-
-**Alternative: Manual Callback Handling**
-
-If you need custom logic, you can still handle the callback manually:
+For redirect mode, create a simple redirect handler:
 
 ```typescript
-// app/oauth/callback/page.tsx
-'use client';
+// app/oauth/callback/route.ts
+import { createOAuthRedirectHandler } from 'integrate-sdk';
 
-import { useEffect } from 'react';
-import { client } from '@/lib/integrate';
-
-export default function OAuthCallback() {
-  useEffect(() => {
-    const handleCallback = async () => {
-      const params = new URLSearchParams(window.location.search);
-      
-      try {
-        await client.handleOAuthCallback({
-          code: params.get('code')!,
-          state: params.get('state')!,
-        });
-        
-        // Get and save session token
-        const sessionToken = client.getSessionToken();
-        localStorage.setItem('sessionToken', sessionToken);
-        
-        // Redirect to main app
-        window.location.href = '/dashboard';
-      } catch (error) {
-        console.error('OAuth callback failed:', error);
-        window.location.href = '/auth-error';
-      }
-    };
-    
-    handleCallback();
-  }, []);
-  
-  return <div>Completing authorization...</div>;
-}
+export const GET = createOAuthRedirectHandler({
+  redirectUrl: '/dashboard', // Where to redirect after OAuth
+});
 ```
+
+The SDK automatically picks up the OAuth callback data and completes the flow.
 
 ## Session Token Management
 

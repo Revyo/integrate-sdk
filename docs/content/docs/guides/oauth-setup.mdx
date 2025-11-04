@@ -64,26 +64,23 @@ This automatically handles:
 - `POST /api/integrate/oauth/callback` - Exchange code for token
 - `GET /api/integrate/oauth/status` - Check authorization status
 
-#### 3. Create OAuth Callback Page
+#### 3. Create OAuth Redirect Handler
 
-Create `app/oauth/callback/page.tsx`:
+Create `app/oauth/callback/route.ts`:
 
-```tsx
-import { OAuthCallbackPage } from 'integrate-sdk/oauth-callback';
+```typescript
+import { createOAuthRedirectHandler } from 'integrate-sdk';
 
-export default function CallbackPage() {
-  return <OAuthCallbackPage redirectUrl="/dashboard" />;
-}
+export const GET = createOAuthRedirectHandler({
+  redirectUrl: '/dashboard', // Where to redirect after OAuth
+});
 ```
 
-This page component handles the OAuth redirect from the provider and:
-- Extracts the authorization code and state from the URL
-- Sends them to the opener window (popup mode) or stores in sessionStorage (redirect mode)
-- Redirects to your configured URL
-- Displays a beautiful loading UI with spinner
-- Handles errors gracefully
-
-**That's it!** No need to manually handle OAuth callbacks or write error handling code.
+**That's it!** This handler automatically:
+- Extracts OAuth parameters (code, state, error) from the URL
+- Handles errors and redirects to error page
+- Redirects to your configured URL with OAuth data
+- Works with both popup and redirect OAuth modes
 
 **Important**: Make sure to configure your OAuth provider's redirect URL to point to this callback route:
 - **Development**: `http://localhost:3000/oauth/callback`
@@ -398,17 +395,17 @@ const { POST, GET } = handler.createRoutes();
 - `POST /api/integrate/oauth/callback` - Exchange code for token
 - `GET /api/integrate/oauth/status` - Check authorization status
 
-### OAuthCallbackPage Component
+### createOAuthRedirectHandler()
 
-A pre-built React component that handles OAuth redirects from providers.
+Creates a redirect handler that processes OAuth callbacks and forwards to your app.
 
 ```typescript
-function OAuthCallbackPage(config?: OAuthCallbackHandlerConfig): JSX.Element
+function createOAuthRedirectHandler(config?: OAuthRedirectConfig): (req: NextRequest) => Promise<NextResponse>
 ```
 
-**OAuthCallbackHandlerConfig**:
+**OAuthRedirectConfig**:
 ```typescript
-interface OAuthCallbackHandlerConfig {
+interface OAuthRedirectConfig {
   /** URL to redirect to after successful OAuth (default: '/') */
   redirectUrl?: string;
   /** URL to redirect to on OAuth error (default: '/auth-error') */
@@ -417,37 +414,29 @@ interface OAuthCallbackHandlerConfig {
 ```
 
 **Example**:
-```tsx
-// app/oauth/callback/page.tsx
-import { OAuthCallbackPage } from 'integrate-sdk/oauth-callback';
+```typescript
+// app/oauth/callback/route.ts
+import { createOAuthRedirectHandler } from 'integrate-sdk';
 
-export default function CallbackPage() {
-  return (
-    <OAuthCallbackPage
-      redirectUrl="/dashboard"
-      errorRedirectUrl="/auth-failed"
-    />
-  );
-}
-```
-
-**Alternative: Using createOAuthCallbackPage**:
-```tsx
-// app/oauth/callback/page.tsx
-import { createOAuthCallbackPage } from 'integrate-sdk/oauth-callback';
-
-export default createOAuthCallbackPage({
+export const GET = createOAuthRedirectHandler({
   redirectUrl: '/dashboard',
+  errorRedirectUrl: '/auth-failed',
 });
 ```
 
 **What it does**:
-- Handles OAuth redirects from providers (GitHub, Gmail, etc.)
-- Extracts authorization code and state from URL parameters
-- For popup mode: Sends data to opener window via `postMessage`
-- For redirect mode: Stores data in sessionStorage and redirects
-- Handles errors and redirects to error page
-- Displays a beautiful gradient loading UI with animated spinner
+- Receives OAuth callback from provider (code, state, error)
+- Validates parameters
+- Redirects to your configured URL with OAuth data in hash fragment
+- SDK automatically picks up the data and completes the flow
+- Handles errors gracefully
+
+**How it works**:
+1. OAuth provider → `GET /oauth/callback?code=...&state=...`
+2. Handler extracts parameters
+3. Redirects to `/dashboard#oauth_callback={"code":"...","state":"..."}`
+4. SDK detects hash, processes OAuth, cleans up URL
+5. User sees your app at `/dashboard` with OAuth complete
 
 ## Next Steps
 
