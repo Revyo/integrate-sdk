@@ -295,15 +295,15 @@ await client.authorize('github');
 
 ### Handle OAuth Callback
 
-The Integrate SDK provides a pre-built callback handler that you can use:
+The Integrate SDK provides a pre-built callback page component that you can use:
 
-```typescript
-// app/oauth/callback/route.ts
-import { createNextOAuthCallbackHandler } from 'integrate-sdk';
+```tsx
+// app/oauth/callback/page.tsx
+import { OAuthCallbackPage } from 'integrate-sdk';
 
-export const GET = createNextOAuthCallbackHandler({
-  redirectUrl: '/dashboard', // Where to redirect after OAuth completes
-});
+export default function CallbackPage() {
+  return <OAuthCallbackPage redirectUrl="/dashboard" />;
+}
 ```
 
 This automatically handles:
@@ -311,7 +311,8 @@ This automatically handles:
 - Sending them to the opener window (popup mode)
 - Storing them in sessionStorage (redirect mode) for the SDK to pick up
 - Redirecting to your configured URL
-- Displaying errors if OAuth fails
+- Displaying a beautiful loading UI
+- Handling errors gracefully
 
 **Alternative: Manual Callback Handling**
 

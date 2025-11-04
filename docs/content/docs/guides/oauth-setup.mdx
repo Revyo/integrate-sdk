@@ -64,23 +64,24 @@ This automatically handles:
 - `POST /api/integrate/oauth/callback` - Exchange code for token
 - `GET /api/integrate/oauth/status` - Check authorization status
 
-#### 3. Create OAuth Callback Route
+#### 3. Create OAuth Callback Page
 
-Create `app/oauth/callback/route.ts`:
+Create `app/oauth/callback/page.tsx`:
 
-```typescript
-import { createNextOAuthCallbackHandler } from 'integrate-sdk';
+```tsx
+import { OAuthCallbackPage } from 'integrate-sdk';
 
-export const GET = createNextOAuthCallbackHandler({
-  redirectUrl: '/dashboard', // Optional: Where to redirect after OAuth (default: '/')
-});
+export default function CallbackPage() {
+  return <OAuthCallbackPage redirectUrl="/dashboard" />;
+}
 ```
 
-This route handles the OAuth redirect from the provider and:
+This page component handles the OAuth redirect from the provider and:
 - Extracts the authorization code and state from the URL
 - Sends them to the opener window (popup mode) or stores in sessionStorage (redirect mode)
 - Redirects to your configured URL
-- Displays errors if OAuth fails
+- Displays a beautiful loading UI with spinner
+- Handles errors gracefully
 
 **That's it!** No need to manually handle OAuth callbacks or write error handling code.
 
@@ -397,14 +398,12 @@ const { POST, GET } = handler.createRoutes();
 - `POST /api/integrate/oauth/callback` - Exchange code for token
 - `GET /api/integrate/oauth/status` - Check authorization status
 
-### createNextOAuthCallbackHandler()
+### OAuthCallbackPage Component
 
-Creates a pre-built OAuth callback route handler that processes OAuth redirects from providers.
+A pre-built React component that handles OAuth redirects from providers.
 
 ```typescript
-function createNextOAuthCallbackHandler(config?: OAuthCallbackHandlerConfig): {
-  GET: (req: NextRequest) => Promise<NextResponse>
-}
+function OAuthCallbackPage(config?: OAuthCallbackHandlerConfig): JSX.Element
 ```
 
 **OAuthCallbackHandlerConfig**:
@@ -418,13 +417,27 @@ interface OAuthCallbackHandlerConfig {
 ```
 
 **Example**:
-```typescript
-// app/oauth/callback/route.ts
-import { createNextOAuthCallbackHandler } from 'integrate-sdk';
+```tsx
+// app/oauth/callback/page.tsx
+import { OAuthCallbackPage } from 'integrate-sdk';
 
-export const GET = createNextOAuthCallbackHandler({
+export default function CallbackPage() {
+  return (
+    <OAuthCallbackPage
+      redirectUrl="/dashboard"
+      errorRedirectUrl="/auth-failed"
+    />
+  );
+}
+```
+
+**Alternative: Using createOAuthCallbackPage**:
+```tsx
+// app/oauth/callback/page.tsx
+import { createOAuthCallbackPage } from 'integrate-sdk';
+
+export default createOAuthCallbackPage({
   redirectUrl: '/dashboard',
-  errorRedirectUrl: '/auth-failed',
 });
 ```
 
@@ -434,7 +447,7 @@ export const GET = createNextOAuthCallbackHandler({
 - For popup mode: Sends data to opener window via `postMessage`
 - For redirect mode: Stores data in sessionStorage and redirects
 - Handles errors and redirects to error page
-- Displays a loading UI while processing
+- Displays a beautiful gradient loading UI with animated spinner
 
 ## Next Steps
 

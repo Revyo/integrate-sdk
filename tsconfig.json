@@ -5,6 +5,7 @@
     "lib": ["ES2022", "DOM"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
     
     // Emit
     "declaration": true,
