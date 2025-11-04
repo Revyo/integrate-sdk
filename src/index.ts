@@ -19,6 +19,11 @@ export type {
   AuthorizationUrlResponse,
   OAuthCallbackResponse,
   OAuthCallbackParams,
+  OAuthEventType,
+  OAuthEventHandler,
+  AuthStartedEvent,
+  AuthCompleteEvent,
+  AuthErrorEvent,
 } from "./oauth/types.js";
 
 // OAuth route adapters

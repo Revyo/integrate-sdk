@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * MCP Client
  * Main client class that orchestrates transport, protocol, and plugins
@@ -25,7 +27,56 @@ import type { GitHubPluginClient } from "./plugins/github-client.js";
 import type { GmailPluginClient } from "./plugins/gmail-client.js";
 import type { ServerPluginClient } from "./plugins/server-client.js";
 import { OAuthManager } from "./oauth/manager.js";
-import type { AuthStatus, OAuthCallbackParams } from "./oauth/types.js";
+import type { 
+  AuthStatus, 
+  OAuthCallbackParams,
+  OAuthEventHandler,
+  AuthStartedEvent,
+  AuthCompleteEvent,
+  AuthErrorEvent,
+} from "./oauth/types.js";
+
+/**
+ * Simple EventEmitter implementation for OAuth events
+ */
+class SimpleEventEmitter {
+  private handlers: Map<string, Set<OAuthEventHandler>> = new Map();
+
+  on(event: string, handler: OAuthEventHandler): void {
+    if (!this.handlers.has(event)) {
+      this.handlers.set(event, new Set());
+    }
+    this.handlers.get(event)!.add(handler);
+  }
+
+  off(event: string, handler: OAuthEventHandler): void {
+    const handlers = this.handlers.get(event);
+    if (handlers) {
+      handlers.delete(handler);
+    }
+  }
+
+  emit(event: string, payload: any): void {
+    const handlers = this.handlers.get(event);
+    if (handlers) {
+      handlers.forEach(handler => {
+        try {
+          handler(payload);
+        } catch (error) {
+          console.error(`Error in event handler for ${event}:`, error);
+        }
+      });
+    }
+  }
+
+  removeAllListeners(event?: string): void {
+    if (event) {
+      this.handlers.delete(event);
+    } else {
+      this.handlers.clear();
+    }
+  }
+}
 
 /**
  * MCP server URL
@@ -94,6 +145,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   private connectionMode: 'lazy' | 'eager' | 'manual';
   private connecting: Promise<void> | null = null;
   private oauthManager: OAuthManager;
+  private eventEmitter: SimpleEventEmitter = new SimpleEventEmitter();
 
   // Plugin namespaces - dynamically typed based on configured plugins
   public readonly github!: PluginNamespaces<TPlugins> extends { github: GitHubPluginClient } 
@@ -128,10 +180,21 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       config.oauthFlow
     );
 
-    // If session token is provided, set it
-    if (config.sessionToken) {
-      this.oauthManager.setSessionToken(config.sessionToken);
-      this.transport.setHeader('X-Session-Token', config.sessionToken);
+    // Determine which session token to use: config > sessionStorage > none
+    let sessionToken = config.sessionToken;
+    
+    // If no token provided in config, try to load from sessionStorage
+    if (!sessionToken) {
+      const storedToken = this.loadSessionToken();
+      if (storedToken) {
+        sessionToken = storedToken;
+      }
+    }
+
+    // If we have a session token (from config or storage), set it
+    if (sessionToken) {
+      this.oauthManager.setSessionToken(sessionToken);
+      this.transport.setHeader('X-Session-Token', sessionToken);
     }
 
     // Collect all enabled tool names from plugins
@@ -546,6 +609,85 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   }
 
   /**
+   * Add event listener for OAuth events
+   * 
+   * @param event - Event type to listen for
+   * @param handler - Handler function to call when event is emitted
+   * 
+   * @example
+   * ```typescript
+   * client.on('auth:complete', ({ provider, sessionToken }) => {
+   *   console.log(`${provider} authorized!`);
+   * });
+   * ```
+   */
+  on(event: 'auth:started', handler: OAuthEventHandler<AuthStartedEvent>): void;
+  on(event: 'auth:complete', handler: OAuthEventHandler<AuthCompleteEvent>): void;
+  on(event: 'auth:error', handler: OAuthEventHandler<AuthErrorEvent>): void;
+  on(event: string, handler: OAuthEventHandler): void {
+    this.eventEmitter.on(event, handler);
+  }
+
+  /**
+   * Remove event listener for OAuth events
+   * 
+   * @param event - Event type to stop listening for
+   * @param handler - Handler function to remove
+   */
+  off(event: 'auth:started', handler: OAuthEventHandler<AuthStartedEvent>): void;
+  off(event: 'auth:complete', handler: OAuthEventHandler<AuthCompleteEvent>): void;
+  off(event: 'auth:error', handler: OAuthEventHandler<AuthErrorEvent>): void;
+  off(event: string, handler: OAuthEventHandler): void {
+    this.eventEmitter.off(event, handler);
+  }
+
+  /**
+   * Save session token to sessionStorage
+   * 
+   * @param token - Session token to save
+   */
+  private saveSessionToken(token: string): void {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        window.sessionStorage.setItem('integrate_session_token', token);
+      } catch (error) {
+        console.error('Failed to save session token to sessionStorage:', error);
+      }
+    }
+  }
+
+  /**
+   * Load session token from sessionStorage
+   * 
+   * @returns Session token or undefined if not found
+   */
+  private loadSessionToken(): string | undefined {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        return window.sessionStorage.getItem('integrate_session_token') || undefined;
+      } catch (error) {
+        console.error('Failed to load session token from sessionStorage:', error);
+        return undefined;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Clear session token from sessionStorage
+   */
+  clearSessionToken(): void {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        window.sessionStorage.removeItem('integrate_session_token');
+      } catch (error) {
+        console.error('Failed to clear session token from sessionStorage:', error);
+      }
+    }
+    this.oauthManager.clearSessionToken();
+  }
+
+  /**
    * Disconnect from the server
    */
   async disconnect(): Promise<void> {
@@ -670,13 +812,34 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     const plugin = this.plugins.find(p => p.oauth?.provider === provider);
     
     if (!plugin?.oauth) {
-      throw new Error(`No OAuth configuration found for provider: ${provider}`);
+      const error = new Error(`No OAuth configuration found for provider: ${provider}`);
+      this.eventEmitter.emit('auth:error', { provider, error });
+      throw error;
     }
 
-    await this.oauthManager.initiateFlow(provider, plugin.oauth);
+    // Emit auth:started event
+    this.eventEmitter.emit('auth:started', { provider });
 
-    // Update auth state
-    this.authState.set(provider, { authenticated: true });
+    try {
+      await this.oauthManager.initiateFlow(provider, plugin.oauth);
+
+      // Get the session token after authorization
+      const sessionToken = this.oauthManager.getSessionToken();
+      
+      if (sessionToken) {
+        // Save token to sessionStorage
+        this.saveSessionToken(sessionToken);
+        
+        // Emit auth:complete event
+        this.eventEmitter.emit('auth:complete', { provider, sessionToken });
+      }
+
+      // Update auth state
+      this.authState.set(provider, { authenticated: true });
+    } catch (error) {
+      this.eventEmitter.emit('auth:error', { provider, error: error as Error });
+      throw error;
+    }
   }
 
   /**
@@ -699,16 +862,33 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    * ```
    */
   async handleOAuthCallback(params: OAuthCallbackParams): Promise<void> {
-    const sessionToken = await this.oauthManager.handleCallback(params.code, params.state);
-    
-    // Set session token in transport
-    this.transport.setHeader('X-Session-Token', sessionToken);
+    try {
+      const sessionToken = await this.oauthManager.handleCallback(params.code, params.state);
+      
+      // Save token to sessionStorage
+      this.saveSessionToken(sessionToken);
+      
+      // Set session token in transport
+      this.transport.setHeader('X-Session-Token', sessionToken);
 
-    // Update auth states for all OAuth providers
-    for (const plugin of this.plugins) {
-      if (plugin.oauth) {
-        this.authState.set(plugin.oauth.provider, { authenticated: true });
+      // Update auth states for all OAuth providers and emit events
+      for (const plugin of this.plugins) {
+        if (plugin.oauth) {
+          this.authState.set(plugin.oauth.provider, { authenticated: true });
+          // Emit auth:complete event for the provider
+          this.eventEmitter.emit('auth:complete', { 
+            provider: plugin.oauth.provider, 
+            sessionToken 
+          });
+        }
       }
+    } catch (error) {
+      // Emit error event (we don't know which provider, so use generic)
+      this.eventEmitter.emit('auth:error', { 
+        provider: 'unknown', 
+        error: error as Error 
+      });
+      throw error;
     }
   }
 
@@ -900,6 +1080,11 @@ export function createMCPClient<TPlugins extends readonly MCPPlugin[]>(
       });
     }
 
+    // Automatically handle OAuth callback if enabled
+    if (config.autoHandleOAuthCallback !== false) {
+      processOAuthCallbackFromHash(client);
+    }
+
     return client;
   } else {
     // Non-singleton: create fresh instance
@@ -917,7 +1102,52 @@ export function createMCPClient<TPlugins extends readonly MCPPlugin[]>(
       });
     }
 
+    // Automatically handle OAuth callback if enabled
+    if (config.autoHandleOAuthCallback !== false) {
+      processOAuthCallbackFromHash(client);
+    }
+
     return client;
+  }
+}
+
+/**
+ * Process OAuth callback from URL hash fragment
+ * Automatically detects and processes #oauth_callback={...} in the URL
+ */
+function processOAuthCallbackFromHash(client: MCPClient<any>): void {
+  // Only run in browser environment
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    const hash = window.location.hash;
+    
+    // Check if hash contains oauth_callback parameter
+    if (hash && hash.includes('oauth_callback=')) {
+      // Parse the hash
+      const hashParams = new URLSearchParams(hash.substring(1));
+      const oauthCallbackData = hashParams.get('oauth_callback');
+      
+      if (oauthCallbackData) {
+        // Decode and parse the callback data
+        const callbackParams = JSON.parse(decodeURIComponent(oauthCallbackData));
+        
+        // Validate that we have code and state
+        if (callbackParams.code && callbackParams.state) {
+          // Process the callback asynchronously
+          client.handleOAuthCallback(callbackParams).catch((error) => {
+            console.error('Failed to process OAuth callback:', error);
+          });
+          
+          // Clean up URL hash
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to process OAuth callback from hash:', error);
   }
 }
 

@@ -163,6 +163,22 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * ```
    */
   oauthApiBase?: string;
+
+  /**
+   * Automatically detect and handle OAuth callbacks from URL hash fragments
+   * When true, the SDK will automatically process #oauth_callback={...} in the URL
+   * 
+   * @default true
+   * 
+   * @example
+   * ```typescript
+   * const client = createMCPClient({
+   *   plugins: [githubPlugin({ ... })],
+   *   autoHandleOAuthCallback: false // Disable automatic callback handling
+   * });
+   * ```
+   */
+  autoHandleOAuthCallback?: boolean;
 }
 
 /**

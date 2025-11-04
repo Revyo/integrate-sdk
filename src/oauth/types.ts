@@ -89,3 +89,41 @@ export interface OAuthCallbackParams {
   state: string;
 }
 
+/**
+ * Event payload for auth:started event
+ */
+export interface AuthStartedEvent {
+  /** Provider being authorized */
+  provider: string;
+}
+
+/**
+ * Event payload for auth:complete event
+ */
+export interface AuthCompleteEvent {
+  /** Provider that was authorized */
+  provider: string;
+  /** Session token for authenticated requests */
+  sessionToken: string;
+}
+
+/**
+ * Event payload for auth:error event
+ */
+export interface AuthErrorEvent {
+  /** Provider that failed authorization */
+  provider: string;
+  /** Error that occurred */
+  error: Error;
+}
+
+/**
+ * All possible OAuth event types
+ */
+export type OAuthEventType = 'auth:started' | 'auth:complete' | 'auth:error';
+
+/**
+ * Event handler function type
+ */
+export type OAuthEventHandler<T = any> = (payload: T) => void;
+

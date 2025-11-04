@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * OAuth Window Manager
  * Handles OAuth authorization UI (popup windows and redirects)

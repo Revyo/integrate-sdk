@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * OAuth Manager
  * Orchestrates OAuth 2.0 Authorization Code Flow with PKCE
@@ -145,7 +147,10 @@ export class OAuthManager {
       // 3. Store session token
       this.sessionToken = response.sessionToken;
 
-      // 4. Clean up pending auth
+      // 4. Save to sessionStorage
+      this.saveSessionToken(response.sessionToken);
+
+      // 5. Clean up pending auth
       this.pendingAuths.delete(state);
 
       return response.sessionToken;
@@ -217,6 +222,7 @@ export class OAuthManager {
    */
   setSessionToken(token: string): void {
     this.sessionToken = token;
+    this.saveSessionToken(token);
   }
 
   /**
@@ -224,6 +230,26 @@ export class OAuthManager {
    */
   clearSessionToken(): void {
     this.sessionToken = undefined;
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        window.sessionStorage.removeItem('integrate_session_token');
+      } catch (error) {
+        console.error('Failed to clear session token from sessionStorage:', error);
+      }
+    }
+  }
+
+  /**
+   * Save session token to sessionStorage
+   */
+  private saveSessionToken(token: string): void {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        window.sessionStorage.setItem('integrate_session_token', token);
+      } catch (error) {
+        console.error('Failed to save session token to sessionStorage:', error);
+      }
+    }
   }
 
   /**
