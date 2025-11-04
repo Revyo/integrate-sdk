@@ -33,7 +33,6 @@ export type {
   StatusResponse,
 } from "./adapters/base-handler.js";
 export { createNextOAuthHandler } from "./adapters/nextjs.js";
-export { OAuthCallbackPage, createOAuthCallbackPage } from "./adapters/nextjs-callback.js";
 export { createTanStackOAuthHandler } from "./adapters/tanstack-start.js";
 
 // Configuration

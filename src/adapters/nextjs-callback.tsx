@@ -24,7 +24,7 @@ import type { OAuthCallbackHandlerConfig } from '../oauth/types.js';
  * @example
  * ```tsx
  * // app/oauth/callback/page.tsx
- * import { OAuthCallbackPage } from 'integrate-sdk';
+ * import { OAuthCallbackPage } from 'integrate-sdk/oauth-callback';
  * 
  * export default function CallbackPage() {
  *   return <OAuthCallbackPage redirectUrl="/dashboard" />;
@@ -146,7 +146,11 @@ export function OAuthCallbackPage(config?: OAuthCallbackHandlerConfig) {
  * @example
  * ```tsx
  * // app/oauth/callback/page.tsx
- * export { default } from 'integrate-sdk/oauth-callback';
+ * import { createOAuthCallbackPage } from 'integrate-sdk/oauth-callback';
+ * 
+ * export default createOAuthCallbackPage({
+ *   redirectUrl: '/dashboard',
+ * });
  * ```
  */
 export function createOAuthCallbackPage(config?: OAuthCallbackHandlerConfig) {

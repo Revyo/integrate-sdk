@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Type-safe TypeScript SDK for MCP Client with plugin-based OAuth provider configuration",
   "type": "module",
   "main": "./dist/index.js",
@@ -26,10 +26,15 @@
     "./oauth": {
       "import": "./dist/oauth.js",
       "types": "./dist/oauth.d.ts"
+    },
+    "./oauth-callback": {
+      "import": "./src/adapters/nextjs-callback.tsx",
+      "types": "./dist/adapters/nextjs-callback.d.ts"
     }
   },
   "files": [
     "dist",
+    "src",
     "index.ts",
     "server.ts",
     "oauth.ts"

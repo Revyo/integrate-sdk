@@ -69,7 +69,7 @@ This automatically handles:
 Create `app/oauth/callback/page.tsx`:
 
 ```tsx
-import { OAuthCallbackPage } from 'integrate-sdk';
+import { OAuthCallbackPage } from 'integrate-sdk/oauth-callback';
 
 export default function CallbackPage() {
   return <OAuthCallbackPage redirectUrl="/dashboard" />;
@@ -419,7 +419,7 @@ interface OAuthCallbackHandlerConfig {
 **Example**:
 ```tsx
 // app/oauth/callback/page.tsx
-import { OAuthCallbackPage } from 'integrate-sdk';
+import { OAuthCallbackPage } from 'integrate-sdk/oauth-callback';
 
 export default function CallbackPage() {
   return (
@@ -434,7 +434,7 @@ export default function CallbackPage() {
 **Alternative: Using createOAuthCallbackPage**:
 ```tsx
 // app/oauth/callback/page.tsx
-import { createOAuthCallbackPage } from 'integrate-sdk';
+import { createOAuthCallbackPage } from 'integrate-sdk/oauth-callback';
 
 export default createOAuthCallbackPage({
   redirectUrl: '/dashboard',
