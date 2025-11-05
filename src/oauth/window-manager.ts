@@ -49,7 +49,9 @@ export class OAuthWindowManager {
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
     
+    // Features to force popup window (not a new tab)
     const features = [
+      `popup=yes`,              // Explicitly request popup (modern browsers)
       `width=${width}`,
       `height=${height}`,
       `left=${left}`,
@@ -62,9 +64,12 @@ export class OAuthWindowManager {
       'scrollbars=yes',
       'resizable=yes',
       'copyhistory=no',
+      'noopener=no',           // Keep opener reference (needed for postMessage)
     ].join(',');
     
-    this.popupWindow = window.open(url, 'oauth_popup', features);
+    // Use a unique name to prevent reusing existing windows
+    const windowName = `oauth_popup_${Date.now()}`;
+    this.popupWindow = window.open(url, windowName, features);
     
     if (!this.popupWindow) {
       console.warn('Popup was blocked by the browser. Please allow popups for this site.');

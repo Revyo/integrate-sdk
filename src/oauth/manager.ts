@@ -36,6 +36,9 @@ export class OAuthManager {
       popupOptions: flowConfig?.popupOptions,
       onAuthCallback: flowConfig?.onAuthCallback,
     };
+    
+    // Clean up any expired pending auth entries from localStorage
+    this.cleanupExpiredPendingAuths();
   }
 
   /**
@@ -73,10 +76,14 @@ export class OAuthManager {
     };
     this.pendingAuths.set(state, pendingAuth);
 
-    // 3. Request authorization URL from user's API route
+    // 3. Save to localStorage (works for both redirect and popup modes)
+    // Even in popup mode, browser might convert popup to tab, so we persist as fallback
+    this.savePendingAuthToStorage(state, pendingAuth);
+
+    // 4. Request authorization URL from user's API route
     const authUrl = await this.getAuthorizationUrl(provider, config.scopes, state, codeChallenge, config.redirectUri);
 
-    // 4. Open authorization URL (popup or redirect)
+    // 5. Open authorization URL (popup or redirect)
     if (this.flowConfig.mode === 'popup') {
       this.windowManager.openPopup(authUrl, this.flowConfig.popupOptions);
       
@@ -111,7 +118,12 @@ export class OAuthManager {
    */
   async handleCallback(code: string, state: string): Promise<string> {
     // 1. Verify state and get pending auth
-    const pendingAuth = this.pendingAuths.get(state);
+    let pendingAuth = this.pendingAuths.get(state);
+    
+    // If not in memory (page reload), try to load from sessionStorage
+    if (!pendingAuth) {
+      pendingAuth = this.loadPendingAuthFromStorage(state);
+    }
     
     if (!pendingAuth) {
       throw new Error('Invalid state parameter: no matching OAuth flow found');
@@ -121,6 +133,7 @@ export class OAuthManager {
     const fiveMinutes = 5 * 60 * 1000;
     if (Date.now() - pendingAuth.initiatedAt > fiveMinutes) {
       this.pendingAuths.delete(state);
+      this.removePendingAuthFromStorage(state);
       throw new Error('OAuth flow expired: please try again');
     }
 
@@ -148,12 +161,14 @@ export class OAuthManager {
       // 4. Save to sessionStorage
       this.saveSessionToken(response.sessionToken);
 
-      // 5. Clean up pending auth
+      // 5. Clean up pending auth from both memory and storage
       this.pendingAuths.delete(state);
+      this.removePendingAuthFromStorage(state);
 
       return response.sessionToken;
     } catch (error) {
       this.pendingAuths.delete(state);
+      this.removePendingAuthFromStorage(state);
       throw error;
     }
   }
@@ -246,6 +261,96 @@ export class OAuthManager {
         window.sessionStorage.setItem('integrate_session_token', token);
       } catch (error) {
         console.error('Failed to save session token to sessionStorage:', error);
+      }
+    }
+  }
+
+  /**
+   * Save pending auth to localStorage (for redirect flows)
+   * Uses localStorage instead of sessionStorage because OAuth may open in a new tab,
+   * and sessionStorage is isolated per tab. localStorage is shared across tabs.
+   * Keyed by state parameter for security and retrieval.
+   */
+  private savePendingAuthToStorage(state: string, pendingAuth: PendingAuth): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const key = `integrate_oauth_pending_${state}`;
+        window.localStorage.setItem(key, JSON.stringify(pendingAuth));
+      } catch (error) {
+        console.error('Failed to save pending auth to localStorage:', error);
+      }
+    }
+  }
+
+  /**
+   * Load pending auth from localStorage (after redirect)
+   * Returns undefined if not found or invalid
+   */
+  private loadPendingAuthFromStorage(state: string): PendingAuth | undefined {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const key = `integrate_oauth_pending_${state}`;
+        const stored = window.localStorage.getItem(key);
+        if (stored) {
+          return JSON.parse(stored) as PendingAuth;
+        }
+      } catch (error) {
+        console.error('Failed to load pending auth from localStorage:', error);
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Remove pending auth from localStorage
+   */
+  private removePendingAuthFromStorage(state: string): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const key = `integrate_oauth_pending_${state}`;
+        window.localStorage.removeItem(key);
+      } catch (error) {
+        console.error('Failed to remove pending auth from localStorage:', error);
+      }
+    }
+  }
+
+  /**
+   * Clean up expired pending auth entries from localStorage
+   * Removes any entries older than 5 minutes
+   */
+  private cleanupExpiredPendingAuths(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const prefix = 'integrate_oauth_pending_';
+        const fiveMinutes = 5 * 60 * 1000;
+        const now = Date.now();
+        
+        // Iterate through localStorage keys
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith(prefix)) {
+            try {
+              const stored = window.localStorage.getItem(key);
+              if (stored) {
+                const pendingAuth = JSON.parse(stored) as PendingAuth;
+                // Check if expired
+                if (now - pendingAuth.initiatedAt > fiveMinutes) {
+                  keysToRemove.push(key);
+                }
+              }
+            } catch (error) {
+              // Invalid JSON, remove it
+              keysToRemove.push(key);
+            }
+          }
+        }
+        
+        // Remove expired entries
+        keysToRemove.forEach(key => window.localStorage.removeItem(key));
+      } catch (error) {
+        console.error('Failed to cleanup expired pending auths:', error);
       }
     }
   }
