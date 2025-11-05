@@ -9,11 +9,11 @@ import { githubPlugin } from "../../src/plugins/github.js";
 import { gmailPlugin } from "../../src/plugins/gmail.js";
 import { createSimplePlugin } from "../../src/plugins/generic.js";
 
-afterEach(async () => {
-  await clearClientCache();
-});
-
 describe("Edge Cases", () => {
+  afterEach(async () => {
+    await clearClientCache();
+  });
+
   describe("EventEmitter removeAllListeners", () => {
     test("client can be created and event listeners work", () => {
       const client = createMCPClient({

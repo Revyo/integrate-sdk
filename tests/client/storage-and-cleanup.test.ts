@@ -12,18 +12,20 @@ import { gmailPlugin } from "../../src/plugins/gmail.js";
 const mockSessionStorage = new Map<string, string>();
 const mockLocalStorage = new Map<string, string>();
 
-beforeEach(() => {
-  // Setup mock storage
-  mockSessionStorage.clear();
-  mockLocalStorage.clear();
-  
-  // Mock global window object if it doesn't exist
-  if (typeof globalThis.window === 'undefined') {
-    (globalThis as any).window = {
+describe("Storage and Cleanup", () => {
+  beforeEach(() => {
+    // Setup mock storage
+    mockSessionStorage.clear();
+    mockLocalStorage.clear();
+    
+    // Mock global window object if it doesn't exist
+    if (typeof globalThis.window === 'undefined') {
+      (globalThis as any).window = {
       sessionStorage: {
         getItem: (key: string) => mockSessionStorage.get(key) || null,
         setItem: (key: string, value: string) => mockSessionStorage.set(key, value),
         removeItem: (key: string) => mockSessionStorage.delete(key),
+        clear: () => mockSessionStorage.clear(),
         get length() { return mockSessionStorage.size; },
         key: (index: number) => Array.from(mockSessionStorage.keys())[index] || null,
       },
@@ -31,33 +33,33 @@ beforeEach(() => {
         getItem: (key: string) => mockLocalStorage.get(key) || null,
         setItem: (key: string, value: string) => mockLocalStorage.set(key, value),
         removeItem: (key: string) => mockLocalStorage.delete(key),
+        clear: () => mockLocalStorage.clear(),
         get length() { return mockLocalStorage.size; },
         key: (index: number) => Array.from(mockLocalStorage.keys())[index] || null,
       },
-    };
-  }
-});
-
-afterEach(async () => {
-  mockSessionStorage.clear();
-  mockLocalStorage.clear();
-  await clearClientCache();
-  
-  // Clean up global window mock if it was set by this test file
-  if ((globalThis as any).window) {
-    // Clear any provider tokens
-    try {
-      if ((globalThis as any).window.localStorage) {
-        (globalThis as any).window.localStorage.removeItem('integrate_token_github');
-        (globalThis as any).window.localStorage.removeItem('integrate_token_google');
-      }
-    } catch {
-      // Ignore errors
+      };
     }
-  }
-});
+  });
 
-describe("Storage and Cleanup", () => {
+  afterEach(async () => {
+    mockSessionStorage.clear();
+    mockLocalStorage.clear();
+    await clearClientCache();
+    
+    // Clean up global window mock if it was set by this test file
+    if ((globalThis as any).window) {
+      // Clear any provider tokens
+      try {
+        if ((globalThis as any).window.localStorage) {
+          (globalThis as any).window.localStorage.removeItem('integrate_token_github');
+          (globalThis as any).window.localStorage.removeItem('integrate_token_google');
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+  });
+
   describe("Provider Token Storage", () => {
     test("loads provider token from localStorage on creation", () => {
       // Pre-populate localStorage with provider token

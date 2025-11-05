@@ -3,12 +3,26 @@
  * Tests for additional client methods to improve coverage
  */
 
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { createMCPClient } from "../../src/client.js";
 import { githubPlugin } from "../../src/plugins/github.js";
 import { gmailPlugin } from "../../src/plugins/gmail.js";
 
 describe("Client Methods", () => {
+  beforeEach(() => {
+    // Clear localStorage before each test to prevent token pollution
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.clear();
+    }
+  });
+
+  afterEach(() => {
+    // Clean up after each test
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.clear();
+    }
+  });
+
   describe("getAvailableTools", () => {
     test("returns empty array before connection", () => {
       const client = createMCPClient({
@@ -124,11 +138,20 @@ describe("Client Methods", () => {
           }),
         ],
         onReauthRequired: async () => false,
+        singleton: false,
       });
+
+      // Set initial authenticated state with a token
+      client.setProviderToken('github', {
+        accessToken: 'test-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+      expect(client.isProviderAuthenticated("github")).toBe(true);
 
       const result = await client.reauthenticate("github");
       expect(result).toBe(false);
-      expect(client.isProviderAuthenticated("github")).toBe(true); // Still true from initial state
+      expect(client.isProviderAuthenticated("github")).toBe(true); // Still true after failed reauth
     });
   });
 
@@ -198,8 +221,26 @@ describe("Client Methods", () => {
             clientSecret: "test-secret",
           }),
         ],
+        singleton: false,
       });
 
+      // Initially not authenticated (no tokens)
+      expect(client.isProviderAuthenticated("github")).toBe(false);
+      expect(client.isProviderAuthenticated("google")).toBe(false);
+
+      // Set tokens for providers
+      client.setProviderToken('github', {
+        accessToken: 'test-github-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+      client.setProviderToken('google', {
+        accessToken: 'test-google-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+
+      // Now authenticated
       expect(client.isProviderAuthenticated("github")).toBe(true);
       expect(client.isProviderAuthenticated("google")).toBe(true);
     });
