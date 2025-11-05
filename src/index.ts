@@ -37,6 +37,8 @@ export type {
   CallbackRequest,
   CallbackResponse,
   StatusResponse,
+  DisconnectRequest,
+  DisconnectResponse,
 } from "./adapters/base-handler.js";
 export { createNextOAuthHandler } from "./adapters/nextjs.js";
 export { createOAuthRedirectHandler } from "./adapters/nextjs-oauth-redirect.js";

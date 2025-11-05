@@ -74,6 +74,21 @@ export interface StatusResponse {
 }
 
 /**
+ * Request body for disconnect endpoint
+ */
+export interface DisconnectRequest {
+  provider: string;
+}
+
+/**
+ * Response from disconnect endpoint
+ */
+export interface DisconnectResponse {
+  success: boolean;
+  provider: string;
+}
+
+/**
  * OAuth Handler
  * Handles OAuth authorization flows by proxying requests to MCP server
  * with server-side OAuth credentials from environment variables
@@ -207,6 +222,45 @@ export class OAuthHandler {
 
     const data = await response.json();
     return data as StatusResponse;
+  }
+
+  /**
+   * Handle provider disconnection
+   * Revokes authorization for a specific provider
+   * 
+   * @param request - Disconnect request with provider name
+   * @param sessionToken - Session token from client
+   * @returns Disconnect response
+   * 
+   * @throws Error if no session token provided
+   * @throws Error if MCP server request fails
+   */
+  async handleDisconnect(request: DisconnectRequest, sessionToken: string): Promise<DisconnectResponse> {
+    if (!sessionToken) {
+      throw new Error('No session token provided. Cannot disconnect provider.');
+    }
+
+    // Forward to MCP server to revoke authorization
+    const url = new URL('/oauth/disconnect', this.serverUrl);
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Session-Token': sessionToken,
+      },
+      body: JSON.stringify({
+        provider: request.provider,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`MCP server failed to disconnect provider: ${error}`);
+    }
+
+    const data = await response.json();
+    return data as DisconnectResponse;
   }
 }
 

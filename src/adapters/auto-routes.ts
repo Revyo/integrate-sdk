@@ -63,7 +63,7 @@ export function getGlobalOAuthConfig(): OAuthHandlerConfig | null {
 
 /**
  * Universal POST handler
- * Handles authorize and callback actions
+ * Handles authorize, callback, and disconnect actions
  */
 export async function POST(
   req: any,
@@ -92,6 +92,22 @@ export async function POST(
     if (action === 'callback') {
       const body = await parseRequestBody(req);
       const result = await handler.handleCallback(body);
+      return createSuccessResponse(result);
+    }
+
+    if (action === 'disconnect') {
+      const body = await parseRequestBody(req);
+      const sessionToken = extractSessionToken(req);
+      
+      if (!sessionToken) {
+        return createErrorResponse('Missing X-Session-Token header', 400);
+      }
+      
+      if (!body.provider) {
+        return createErrorResponse('Missing provider in request body', 400);
+      }
+      
+      const result = await handler.handleDisconnect({ provider: body.provider }, sessionToken);
       return createSuccessResponse(result);
     }
 
@@ -156,6 +172,16 @@ async function parseRequestBody(req: any): Promise<any> {
 }
 
 /**
+ * Extract session token from request headers (works for both Next.js and standard Request)
+ */
+function extractSessionToken(req: any): string | undefined {
+  if (req.headers?.get) {
+    return req.headers.get('x-session-token') || undefined;
+  }
+  return undefined;
+}
+
+/**
  * Parse query parameters (works for both Next.js and standard Request)
  */
 function parseQueryParams(req: any): { provider?: string; sessionToken?: string } {
@@ -173,7 +199,7 @@ function parseQueryParams(req: any): { provider?: string; sessionToken?: string 
   }
 
   const provider = url.searchParams.get('provider') || undefined;
-  const sessionToken = req.headers?.get?.('x-session-token') || undefined;
+  const sessionToken = extractSessionToken(req);
 
   return { provider, sessionToken };
 }

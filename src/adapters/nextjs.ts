@@ -19,7 +19,7 @@ type NextResponse = any;
  * that handle authorization with server-side secrets.
  * 
  * @param config - OAuth handler configuration with provider credentials
- * @returns Object with authorize, callback, and status route handlers, plus a unified handler
+ * @returns Object with authorize, callback, status, and disconnect route handlers, plus a unified handler
  * 
  * @example
  * **Simple Setup (Recommended)** - One route file handles everything:
@@ -52,6 +52,9 @@ type NextResponse = any;
  * 
  * // app/api/integrate/oauth/status/route.ts
  * export const GET = handler.status;
+ * 
+ * // app/api/integrate/oauth/disconnect/route.ts
+ * export const POST = handler.disconnect;
  * ```
  */
 export function createNextOAuthHandler(config: OAuthHandlerConfig) {
@@ -238,6 +241,78 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
     },
 
     /**
+     * POST /api/integrate/oauth/disconnect
+     * 
+     * Revoke authorization for a specific provider
+     * 
+     * Request headers:
+     * - X-Session-Token: Session token from previous authorization
+     * 
+     * Request body:
+     * ```json
+     * {
+     *   "provider": "github"
+     * }
+     * ```
+     * 
+     * Response:
+     * ```json
+     * {
+     *   "success": true,
+     *   "provider": "github"
+     * }
+     * ```
+     * 
+     * @example
+     * ```typescript
+     * // app/api/integrate/oauth/disconnect/route.ts
+     * import { createNextOAuthHandler } from 'integrate-sdk';
+     * 
+     * const handler = createNextOAuthHandler({
+     *   providers: {
+     *     github: {
+     *       clientId: process.env.GITHUB_CLIENT_ID!,
+     *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+     *     },
+     *   },
+     * });
+     * 
+     * export const POST = handler.disconnect;
+     * ```
+     */
+    async disconnect(req: NextRequest): Promise<NextResponse> {
+      try {
+        const sessionToken = req.headers.get('x-session-token');
+
+        if (!sessionToken) {
+          return Response.json(
+            { error: 'Missing X-Session-Token header' },
+            { status: 400 }
+          );
+        }
+
+        const body = await req.json();
+        const { provider } = body;
+
+        if (!provider) {
+          return Response.json(
+            { error: 'Missing provider in request body' },
+            { status: 400 }
+          );
+        }
+
+        const result = await handler.handleDisconnect({ provider }, sessionToken);
+        return Response.json(result);
+      } catch (error: any) {
+        console.error('[OAuth Disconnect] Error:', error);
+        return Response.json(
+          { error: error.message || 'Failed to disconnect provider' },
+          { status: 500 }
+        );
+      }
+    },
+
+    /**
      * Create unified route handlers for catch-all route
      * 
      * This is the simplest way to set up OAuth routes - create a single catch-all
@@ -265,7 +340,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
     createRoutes() {
       return {
         /**
-         * POST handler for authorize and callback actions
+         * POST handler for authorize, callback, and disconnect actions
          */
         async POST(
           req: NextRequest,
@@ -281,6 +356,10 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
 
           if (action === 'callback') {
             return handlers.callback(req);
+          }
+
+          if (action === 'disconnect') {
+            return handlers.disconnect(req);
           }
 
           return Response.json(
