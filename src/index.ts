@@ -24,6 +24,8 @@ export type {
   AuthStartedEvent,
   AuthCompleteEvent,
   AuthErrorEvent,
+  AuthDisconnectEvent,
+  AuthLogoutEvent,
 } from "./oauth/types.js";
 
 // OAuth route adapters

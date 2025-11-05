@@ -118,9 +118,24 @@ export interface AuthErrorEvent {
 }
 
 /**
+ * Event payload for auth:logout event
+ */
+export interface AuthLogoutEvent {
+  // Empty for now, could add metadata later
+}
+
+/**
+ * Event payload for auth:disconnect event (provider-specific)
+ */
+export interface AuthDisconnectEvent {
+  /** Provider that was disconnected */
+  provider: string;
+}
+
+/**
  * All possible OAuth event types
  */
-export type OAuthEventType = 'auth:started' | 'auth:complete' | 'auth:error';
+export type OAuthEventType = 'auth:started' | 'auth:complete' | 'auth:error' | 'auth:logout' | 'auth:disconnect';
 
 /**
  * Event handler function type

@@ -32,6 +32,8 @@ import type {
   AuthStartedEvent,
   AuthCompleteEvent,
   AuthErrorEvent,
+  AuthLogoutEvent,
+  AuthDisconnectEvent,
 } from "./oauth/types.js";
 
 /**
@@ -617,11 +619,21 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    * client.on('auth:complete', ({ provider, sessionToken }) => {
    *   console.log(`${provider} authorized!`);
    * });
+   * 
+   * client.on('auth:disconnect', ({ provider }) => {
+   *   console.log(`${provider} disconnected`);
+   * });
+   * 
+   * client.on('auth:logout', () => {
+   *   console.log('User logged out from all services');
+   * });
    * ```
    */
   on(event: 'auth:started', handler: OAuthEventHandler<AuthStartedEvent>): void;
   on(event: 'auth:complete', handler: OAuthEventHandler<AuthCompleteEvent>): void;
   on(event: 'auth:error', handler: OAuthEventHandler<AuthErrorEvent>): void;
+  on(event: 'auth:disconnect', handler: OAuthEventHandler<AuthDisconnectEvent>): void;
+  on(event: 'auth:logout', handler: OAuthEventHandler<AuthLogoutEvent>): void;
   on(event: string, handler: OAuthEventHandler): void {
     this.eventEmitter.on(event, handler);
   }
@@ -635,6 +647,8 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   off(event: 'auth:started', handler: OAuthEventHandler<AuthStartedEvent>): void;
   off(event: 'auth:complete', handler: OAuthEventHandler<AuthCompleteEvent>): void;
   off(event: 'auth:error', handler: OAuthEventHandler<AuthErrorEvent>): void;
+  off(event: 'auth:disconnect', handler: OAuthEventHandler<AuthDisconnectEvent>): void;
+  off(event: 'auth:logout', handler: OAuthEventHandler<AuthLogoutEvent>): void;
   off(event: string, handler: OAuthEventHandler): void {
     this.eventEmitter.off(event, handler);
   }
@@ -683,6 +697,77 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       }
     }
     this.oauthManager.clearSessionToken();
+  }
+
+  /**
+   * Disconnect a specific OAuth provider
+   * Removes authorization for a single provider while keeping others connected
+   * 
+   * @param provider - Provider name to disconnect (e.g., 'github', 'gmail')
+   * 
+   * @example
+   * ```typescript
+   * // Disconnect only GitHub, keep Gmail connected
+   * await client.disconnectProvider('github');
+   * 
+   * // Check if still authorized
+   * const isAuthorized = await client.isAuthorized('github'); // false
+   * 
+   * // Re-authorize if needed
+   * await client.authorize('github');
+   * ```
+   */
+  async disconnectProvider(provider: string): Promise<void> {
+    // Verify the provider exists in plugins
+    const plugin = this.plugins.find(p => p.oauth?.provider === provider);
+    
+    if (!plugin?.oauth) {
+      throw new Error(`No OAuth configuration found for provider: ${provider}`);
+    }
+    
+    // Reset authentication state for this provider only
+    this.authState.set(provider, { authenticated: false });
+    
+    // Emit disconnect event for this provider
+    this.eventEmitter.emit('auth:disconnect', { provider });
+    
+    // Note: We don't clear the session token since other providers may still be using it
+    // The session on the server side will still exist for other providers
+  }
+
+  /**
+   * Logout and terminate all OAuth connections
+   * Clears all session tokens, pending OAuth state, and resets authentication state for all providers
+   * 
+   * @example
+   * ```typescript
+   * // Logout from all providers
+   * await client.logout();
+   * 
+   * // User needs to authorize again for all providers
+   * await client.authorize('github');
+   * await client.authorize('gmail');
+   * ```
+   */
+  async logout(): Promise<void> {
+    // Clear session token from storage and manager
+    this.clearSessionToken();
+    
+    // Clear all pending OAuth flows
+    this.oauthManager.clearAllPendingAuths();
+    
+    // Reset authentication state for all providers
+    this.authState.clear();
+    
+    // Re-initialize auth state as unauthenticated
+    for (const plugin of this.plugins) {
+      if (plugin.oauth) {
+        this.authState.set(plugin.oauth.provider, { authenticated: false });
+      }
+    }
+    
+    // Emit logout event
+    this.eventEmitter.emit('auth:logout', {});
   }
 
   /**
@@ -1114,8 +1199,8 @@ export function createMCPClient<TPlugins extends readonly MCPPlugin[]>(
  * Automatically detects and processes #oauth_callback={...} in the URL
  */
 function processOAuthCallbackFromHash(client: MCPClient<any>): void {
-  // Only run in browser environment
-  if (typeof window === 'undefined') {
+  // Only run in browser environment with proper window.location
+  if (typeof window === 'undefined' || !window.location) {
     return;
   }
 

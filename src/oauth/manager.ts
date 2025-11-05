@@ -253,6 +253,34 @@ export class OAuthManager {
   }
 
   /**
+   * Clear all pending OAuth flows
+   * Removes all pending auths from memory and localStorage
+   */
+  clearAllPendingAuths(): void {
+    // Clear in-memory pending auths
+    this.pendingAuths.clear();
+    
+    // Clear all pending auths from localStorage
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const prefix = 'integrate_oauth_pending_';
+        const keysToRemove: string[] = [];
+        
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith(prefix)) {
+            keysToRemove.push(key);
+          }
+        }
+        
+        keysToRemove.forEach(key => window.localStorage.removeItem(key));
+      } catch (error) {
+        console.error('Failed to clear pending auths from localStorage:', error);
+      }
+    }
+  }
+
+  /**
    * Save session token to sessionStorage
    */
   private saveSessionToken(token: string): void {
