@@ -302,11 +302,22 @@ describe("Advanced OAuth Features", () => {
             clientSecret: "gmail-secret",
           }),
         ],
-        sessionToken: "test-token",
         singleton: false,
       });
 
-      // Initially both authenticated
+      // Set provider tokens
+      client.setProviderToken('github', {
+        accessToken: 'github-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+      client.setProviderToken('google', {
+        accessToken: 'gmail-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+
+      // Both should be authenticated after setting tokens
       expect(client.isProviderAuthenticated("github")).toBe(true);
       expect(client.isProviderAuthenticated("google")).toBe(true);
 
@@ -563,7 +574,7 @@ describe("Advanced OAuth Features", () => {
   });
 
   describe("Provider Authentication", () => {
-    test("isProviderAuthenticated returns true for configured OAuth providers", () => {
+    test("isProviderAuthenticated returns true for configured OAuth providers with tokens", () => {
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -572,6 +583,12 @@ describe("Advanced OAuth Features", () => {
           }),
         ],
         singleton: false,
+      });
+
+      client.setProviderToken('github', {
+        accessToken: 'test-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
       });
 
       expect(client.isProviderAuthenticated("github")).toBe(true);
@@ -586,6 +603,12 @@ describe("Advanced OAuth Features", () => {
           }),
         ],
         singleton: false,
+      });
+
+      client.setProviderToken('github', {
+        accessToken: 'test-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
       });
 
       const state = client.getAuthState("github");

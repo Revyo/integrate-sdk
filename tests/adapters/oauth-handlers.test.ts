@@ -221,15 +221,14 @@ describe("OAuthHandler", () => {
       const mockFetch = mock(async (url: string, options?: any) => {
         expect(url).toContain("/oauth/status");
         expect(url).toContain("provider=github");
-        expect(options?.headers?.["X-Session-Token"]).toBe("token-123");
+        expect(options?.headers?.["Authorization"]).toBe("Bearer token-123");
 
         return {
           ok: true,
           json: async () => ({
             authorized: true,
-            provider: "github",
             scopes: ["repo", "user"],
-            expiresAt: 1234567890,
+            expiresAt: "2024-12-31T23:59:59Z",
           }),
         } as Response;
       });
@@ -239,7 +238,6 @@ describe("OAuthHandler", () => {
       const result = await handler.handleStatus("github", "token-123");
 
       expect(result.authorized).toBe(true);
-      expect(result.provider).toBe("github");
       expect(result.scopes).toEqual(["repo", "user"]);
       expect(mockFetch).toHaveBeenCalled();
     });
@@ -257,7 +255,6 @@ describe("OAuthHandler", () => {
       const result = await handler.handleStatus("github", "invalid-token");
 
       expect(result.authorized).toBe(false);
-      expect(result.provider).toBe("github");
     });
 
     it("should throw error when MCP server fails with non-401", async () => {

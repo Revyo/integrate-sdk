@@ -97,8 +97,8 @@ describe("OAuth Features", () => {
     });
   });
 
-  describe("Session Token Management", () => {
-    test("getSessionToken returns undefined initially", () => {
+  describe("Provider Token Management", () => {
+    test("getProviderToken returns undefined initially", () => {
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -109,10 +109,10 @@ describe("OAuth Features", () => {
         singleton: false,
       });
 
-      expect(client.getSessionToken()).toBeUndefined();
+      expect(client.getProviderToken("github")).toBeUndefined();
     });
 
-    test("setSessionToken sets the token", () => {
+    test("setProviderToken sets the token", () => {
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -123,11 +123,17 @@ describe("OAuth Features", () => {
         singleton: false,
       });
 
-      client.setSessionToken("test-token");
-      expect(client.getSessionToken()).toBe("test-token");
+      const tokenData = {
+        accessToken: "test-access-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      };
+      
+      client.setProviderToken("github", tokenData);
+      expect(client.getProviderToken("github")).toEqual(tokenData);
     });
 
-    test("clearSessionToken clears the token", () => {
+    test("clearSessionToken clears all provider tokens", () => {
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -138,26 +144,51 @@ describe("OAuth Features", () => {
         singleton: false,
       });
 
-      client.setSessionToken("test-token");
-      expect(client.getSessionToken()).toBe("test-token");
+      const tokenData = {
+        accessToken: "test-access-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      };
+      
+      client.setProviderToken("github", tokenData);
+      expect(client.getProviderToken("github")).toEqual(tokenData);
       
       client.clearSessionToken();
-      expect(client.getSessionToken()).toBeUndefined();
+      expect(client.getProviderToken("github")).toBeUndefined();
     });
 
-    test("accepts session token in config", () => {
+    test("manages tokens per provider independently", () => {
       const client = createMCPClient({
         plugins: [
           githubPlugin({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
+          gmailPlugin({
+            clientId: "gmail-id",
+            clientSecret: "gmail-secret",
+          }),
         ],
-        sessionToken: "config-token",
         singleton: false,
       });
 
-      expect(client.getSessionToken()).toBe("config-token");
+      const githubToken = {
+        accessToken: "github-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      };
+      
+      const gmailToken = {
+        accessToken: "gmail-token",
+        tokenType: "Bearer",
+        expiresIn: 7200,
+      };
+      
+      client.setProviderToken("github", githubToken);
+      client.setProviderToken("google", gmailToken);
+      
+      expect(client.getProviderToken("github")).toEqual(githubToken);
+      expect(client.getProviderToken("google")).toEqual(gmailToken);
     });
   });
 
@@ -178,19 +209,16 @@ describe("OAuth Features", () => {
       );
     });
 
-    test("throws error when no session token available", async () => {
-      // Clear any session storage from previous tests
-      if (typeof window !== 'undefined' && window.sessionStorage) {
+    test("throws error when no access token available", async () => {
+      // Clear localStorage to ensure no tokens from previous tests
+      if (typeof window !== 'undefined' && window.localStorage) {
         try {
-          window.sessionStorage.removeItem('integrate_session_token');
+          window.localStorage.removeItem('integrate_token_github');
         } catch {
           // Ignore errors
         }
       }
-      
-      // Ensure no fetch mock is active from previous tests
-      const originalFetch = globalThis.fetch;
-      
+
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -201,18 +229,16 @@ describe("OAuth Features", () => {
         singleton: false,
       });
 
-      expect(client.isProviderAuthenticated("github")).toBe(true);
+      // Verify no token is set
+      expect(client.getProviderToken('github')).toBeUndefined();
 
-      // Should throw because no session token
+      // Should throw because no access token for provider
       await expect(client.disconnectProvider("github")).rejects.toThrow(
-        "No session token available"
+        'No access token available for provider "github"'
       );
-      
-      // Restore fetch
-      globalThis.fetch = originalFetch;
     });
 
-    test("resets authentication state for provider with session token", async () => {
+    test("resets authentication state for provider with access token", async () => {
       // Mock fetch for disconnect call
       const originalFetch = global.fetch;
       global.fetch = mock(async () => {
@@ -226,8 +252,14 @@ describe("OAuth Features", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: "test-token",
         singleton: false,
+      });
+
+      // Set provider token
+      client.setProviderToken("github", {
+        accessToken: "test-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
       });
 
       expect(client.isProviderAuthenticated("github")).toBe(true);
@@ -254,8 +286,14 @@ describe("OAuth Features", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: "test-token",
         singleton: false,
+      });
+
+      // Set provider token
+      client.setProviderToken("github", {
+        accessToken: "test-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
       });
 
       let disconnectEvent: any = null;
@@ -290,8 +328,19 @@ describe("OAuth Features", () => {
             clientSecret: "gmail-secret",
           }),
         ],
-        sessionToken: "test-token",
         singleton: false,
+      });
+
+      // Set provider tokens
+      client.setProviderToken("github", {
+        accessToken: "github-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      });
+      client.setProviderToken("google", {
+        accessToken: "gmail-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
       });
 
       expect(client.isProviderAuthenticated("github")).toBe(true);
@@ -306,7 +355,7 @@ describe("OAuth Features", () => {
       global.fetch = originalFetch;
     });
 
-    test("does not clear session token", async () => {
+    test("clears only disconnected provider token", async () => {
       // Mock fetch for disconnect call
       const originalFetch = global.fetch;
       global.fetch = mock(async () => {
@@ -316,17 +365,33 @@ describe("OAuth Features", () => {
       const client = createMCPClient({
         plugins: [
           githubPlugin({
-            clientId: "test-id",
-            clientSecret: "test-secret",
+            clientId: "github-id",
+            clientSecret: "github-secret",
+          }),
+          gmailPlugin({
+            clientId: "gmail-id",
+            clientSecret: "gmail-secret",
           }),
         ],
-        sessionToken: "test-token",
         singleton: false,
+      });
+
+      // Set provider tokens
+      client.setProviderToken("github", {
+        accessToken: "github-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      });
+      client.setProviderToken("google", {
+        accessToken: "gmail-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
       });
 
       await client.disconnectProvider("github");
 
-      expect(client.getSessionToken()).toBe("test-token");
+      expect(client.getProviderToken("github")).toBeUndefined();
+      expect(client.getProviderToken("google")).toBeDefined();
 
       // Restore fetch
       global.fetch = originalFetch;
@@ -346,8 +411,14 @@ describe("OAuth Features", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: "test-token",
         singleton: false,
+      });
+
+      // Set provider token
+      client.setProviderToken("github", {
+        accessToken: "test-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
       });
 
       let errorEvent: any = null;
@@ -367,7 +438,7 @@ describe("OAuth Features", () => {
   });
 
   describe("logout", () => {
-    test("clears session token", async () => {
+    test("clears all provider tokens", async () => {
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -375,15 +446,20 @@ describe("OAuth Features", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: "test-token",
         singleton: false,
       });
 
-      expect(client.getSessionToken()).toBe("test-token");
+      client.setProviderToken("github", {
+        accessToken: "test-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      });
+
+      expect(client.getProviderToken("github")).toBeDefined();
 
       await client.logout();
 
-      expect(client.getSessionToken()).toBeUndefined();
+      expect(client.getProviderToken("github")).toBeUndefined();
     });
 
     test("resets authentication state for all providers", async () => {
@@ -399,6 +475,17 @@ describe("OAuth Features", () => {
           }),
         ],
         singleton: false,
+      });
+
+      client.setProviderToken("github", {
+        accessToken: "github-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      });
+      client.setProviderToken("google", {
+        accessToken: "gmail-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
       });
 
       expect(client.isProviderAuthenticated("github")).toBe(true);
@@ -711,6 +798,18 @@ describe("OAuth Features", () => {
           }),
         ],
         singleton: false,
+      });
+
+      // Set provider tokens
+      client.setProviderToken("github", {
+        accessToken: "github-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      });
+      client.setProviderToken("google", {
+        accessToken: "gmail-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
       });
 
       expect(client.isProviderAuthenticated("github")).toBe(true);

@@ -181,15 +181,14 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
      * - provider: Provider to check (e.g., "github")
      * 
      * Headers:
-     * - X-Session-Token: Session token from previous authorization
+     * - Authorization: Bearer <access_token>
      * 
      * Response:
      * ```json
      * {
      *   "authorized": true,
-     *   "provider": "github",
      *   "scopes": ["repo", "user"],
-     *   "expiresAt": 1234567890
+     *   "expiresAt": "2025-11-06T00:32:08Z"
      * }
      * ```
      * 
@@ -213,7 +212,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
     async status(req: NextRequest): Promise<NextResponse> {
       try {
         const provider = req.nextUrl.searchParams.get('provider');
-        const sessionToken = req.headers.get('x-session-token');
+        const authHeader = req.headers.get('authorization');
 
         if (!provider) {
           return Response.json(
@@ -222,14 +221,15 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
           );
         }
 
-        if (!sessionToken) {
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
           return Response.json(
-            { error: 'Missing X-Session-Token header' },
+            { error: 'Missing or invalid Authorization header' },
             { status: 400 }
           );
         }
 
-        const result = await handler.handleStatus(provider, sessionToken);
+        const accessToken = authHeader.substring(7); // Remove 'Bearer ' prefix
+        const result = await handler.handleStatus(provider, accessToken);
         return Response.json(result);
       } catch (error: any) {
         console.error('[OAuth Status] Error:', error);
@@ -246,7 +246,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
      * Revoke authorization for a specific provider
      * 
      * Request headers:
-     * - X-Session-Token: Session token from previous authorization
+     * - Authorization: Bearer <access_token>
      * 
      * Request body:
      * ```json
@@ -282,15 +282,16 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
      */
     async disconnect(req: NextRequest): Promise<NextResponse> {
       try {
-        const sessionToken = req.headers.get('x-session-token');
+        const authHeader = req.headers.get('authorization');
 
-        if (!sessionToken) {
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
           return Response.json(
-            { error: 'Missing X-Session-Token header' },
+            { error: 'Missing or invalid Authorization header' },
             { status: 400 }
           );
         }
 
+        const accessToken = authHeader.substring(7); // Remove 'Bearer ' prefix
         const body = await req.json();
         const { provider } = body;
 
@@ -301,7 +302,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
           );
         }
 
-        const result = await handler.handleDisconnect({ provider }, sessionToken);
+        const result = await handler.handleDisconnect({ provider }, accessToken);
         return Response.json(result);
       } catch (error: any) {
         console.error('[OAuth Disconnect] Error:', error);

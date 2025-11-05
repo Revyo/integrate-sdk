@@ -97,17 +97,17 @@ export async function POST(
 
     if (action === 'disconnect') {
       const body = await parseRequestBody(req);
-      const sessionToken = extractSessionToken(req);
+      const accessToken = extractAccessToken(req);
       
-      if (!sessionToken) {
-        return createErrorResponse('Missing X-Session-Token header', 400);
+      if (!accessToken) {
+        return createErrorResponse('Missing or invalid Authorization header', 400);
       }
       
       if (!body.provider) {
         return createErrorResponse('Missing provider in request body', 400);
       }
       
-      const result = await handler.handleDisconnect({ provider: body.provider }, sessionToken);
+      const result = await handler.handleDisconnect({ provider: body.provider }, accessToken);
       return createSuccessResponse(result);
     }
 
@@ -141,16 +141,18 @@ export async function GET(
 
   try {
     if (action === 'status') {
-      const { provider, sessionToken } = parseQueryParams(req);
+      const provider = extractProvider(req);
+      const accessToken = extractAccessToken(req);
 
-      if (!provider || !sessionToken) {
-        return createErrorResponse(
-          'Missing provider or session token',
-          400
-        );
+      if (!provider) {
+        return createErrorResponse('Missing provider parameter', 400);
       }
 
-      const result = await handler.handleStatus(provider, sessionToken);
+      if (!accessToken) {
+        return createErrorResponse('Missing or invalid Authorization header', 400);
+      }
+
+      const result = await handler.handleStatus(provider, accessToken);
       return createSuccessResponse(result);
     }
 
@@ -172,19 +174,22 @@ async function parseRequestBody(req: any): Promise<any> {
 }
 
 /**
- * Extract session token from request headers (works for both Next.js and standard Request)
+ * Extract access token from Authorization header (works for both Next.js and standard Request)
  */
-function extractSessionToken(req: any): string | undefined {
+function extractAccessToken(req: any): string | undefined {
   if (req.headers?.get) {
-    return req.headers.get('x-session-token') || undefined;
+    const authHeader = req.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      return authHeader.substring(7); // Remove 'Bearer ' prefix
+    }
   }
   return undefined;
 }
 
 /**
- * Parse query parameters (works for both Next.js and standard Request)
+ * Extract provider from query parameters (works for both Next.js and standard Request)
  */
-function parseQueryParams(req: any): { provider?: string; sessionToken?: string } {
+function extractProvider(req: any): string | undefined {
   let url: URL;
 
   // Next.js
@@ -195,13 +200,10 @@ function parseQueryParams(req: any): { provider?: string; sessionToken?: string 
   else if (req.url) {
     url = new URL(req.url);
   } else {
-    return {};
+    return undefined;
   }
 
-  const provider = url.searchParams.get('provider') || undefined;
-  const sessionToken = extractSessionToken(req);
-
-  return { provider, sessionToken };
+  return url.searchParams.get('provider') || undefined;
 }
 
 /**

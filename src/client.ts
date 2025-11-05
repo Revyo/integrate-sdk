@@ -180,22 +180,12 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       config.oauthFlow
     );
 
-    // Determine which session token to use: config > sessionStorage > none
-    let sessionToken = config.sessionToken;
+    // Load provider tokens from localStorage
+    const providers = this.plugins
+      .filter(p => p.oauth)
+      .map(p => p.oauth!.provider);
     
-    // If no token provided in config, try to load from sessionStorage
-    if (!sessionToken) {
-      const storedToken = this.loadSessionToken();
-      if (storedToken) {
-        sessionToken = storedToken;
-      }
-    }
-
-    // If we have a session token (from config or storage), set it
-    if (sessionToken) {
-      this.oauthManager.setSessionToken(sessionToken);
-      this.transport.setHeader('X-Session-Token', sessionToken);
-    }
+    this.oauthManager.loadAllProviderTokens(providers);
 
     // Collect all enabled tool names from plugins
     for (const plugin of this.plugins) {
@@ -203,9 +193,10 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
         this.enabledToolNames.add(toolName);
       }
       
-      // Initialize auth state for plugins with OAuth
+      // Initialize auth state for plugins with OAuth based on whether we have a token
       if (plugin.oauth) {
-        this.authState.set(plugin.oauth.provider, { authenticated: true });
+        const hasToken = this.oauthManager.getProviderToken(plugin.oauth.provider) !== undefined;
+        this.authState.set(plugin.oauth.provider, { authenticated: hasToken });
       }
     }
 
@@ -490,6 +481,16 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       );
     }
 
+    // Get provider for this tool and set Authorization header if it has OAuth
+    const provider = this.getProviderForTool(name);
+    if (provider) {
+      const tokenData = this.oauthManager.getProviderToken(provider);
+      if (tokenData) {
+        // Set Authorization header with provider's access token
+        this.transport.setHeader('Authorization', `Bearer ${tokenData.accessToken}`);
+      }
+    }
+
     const params: MCPToolCallParams = {
       name,
       arguments: args,
@@ -502,7 +503,6 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       );
       
       // Mark provider as authenticated on success
-      const provider = this.getProviderForTool(name);
       if (provider) {
         this.authState.set(provider, { authenticated: true });
       }
@@ -653,50 +653,12 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     this.eventEmitter.off(event, handler);
   }
 
-  /**
-   * Save session token to sessionStorage
-   * 
-   * @param token - Session token to save
-   */
-  private saveSessionToken(token: string): void {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      try {
-        window.sessionStorage.setItem('integrate_session_token', token);
-      } catch (error) {
-        console.error('Failed to save session token to sessionStorage:', error);
-      }
-    }
-  }
 
   /**
-   * Load session token from sessionStorage
-   * 
-   * @returns Session token or undefined if not found
-   */
-  private loadSessionToken(): string | undefined {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      try {
-        return window.sessionStorage.getItem('integrate_session_token') || undefined;
-      } catch (error) {
-        console.error('Failed to load session token from sessionStorage:', error);
-        return undefined;
-      }
-    }
-    return undefined;
-  }
-
-  /**
-   * Clear session token from sessionStorage
+   * Clear all provider tokens from localStorage
    */
   clearSessionToken(): void {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      try {
-        window.sessionStorage.removeItem('integrate_session_token');
-      } catch (error) {
-        console.error('Failed to clear session token from sessionStorage:', error);
-      }
-    }
-    this.oauthManager.clearSessionToken();
+    this.oauthManager.clearAllProviderTokens();
   }
 
   /**
@@ -919,15 +881,16 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     try {
       await this.oauthManager.initiateFlow(provider, plugin.oauth);
 
-      // Get the session token after authorization
-      const sessionToken = this.oauthManager.getSessionToken();
+      // Get the provider token after authorization
+      const tokenData = this.oauthManager.getProviderToken(provider);
       
-      if (sessionToken) {
-        // Save token to sessionStorage
-        this.saveSessionToken(sessionToken);
-        
+      if (tokenData) {
         // Emit auth:complete event
-        this.eventEmitter.emit('auth:complete', { provider, sessionToken });
+        this.eventEmitter.emit('auth:complete', { 
+          provider, 
+          accessToken: tokenData.accessToken,
+          expiresAt: tokenData.expiresAt
+        });
       }
 
       // Update auth state
@@ -959,25 +922,17 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    */
   async handleOAuthCallback(params: OAuthCallbackParams): Promise<void> {
     try {
-      const sessionToken = await this.oauthManager.handleCallback(params.code, params.state);
+      const result = await this.oauthManager.handleCallback(params.code, params.state);
       
-      // Save token to sessionStorage
-      this.saveSessionToken(sessionToken);
+      // Update auth state for this specific provider
+      this.authState.set(result.provider, { authenticated: true });
       
-      // Set session token in transport
-      this.transport.setHeader('X-Session-Token', sessionToken);
-
-      // Update auth states for all OAuth providers and emit events
-      for (const plugin of this.plugins) {
-        if (plugin.oauth) {
-          this.authState.set(plugin.oauth.provider, { authenticated: true });
-          // Emit auth:complete event for the provider
-          this.eventEmitter.emit('auth:complete', { 
-            provider: plugin.oauth.provider, 
-            sessionToken 
-          });
-        }
-      }
+      // Emit auth:complete event for the provider
+      this.eventEmitter.emit('auth:complete', { 
+        provider: result.provider, 
+        accessToken: result.accessToken,
+        expiresAt: result.expiresAt
+      });
     } catch (error) {
       // Emit error event (we don't know which provider, so use generic)
       this.eventEmitter.emit('auth:error', { 
@@ -989,24 +944,26 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   }
 
   /**
-   * Get the current session token
-   * Useful for storing and restoring sessions
+   * Get access token for a specific provider
+   * Useful for making direct API calls or storing tokens
    * 
-   * @returns Session token or undefined if not authorized
+   * @param provider - Provider name (e.g., 'github', 'gmail')
+   * @returns Provider token data or undefined if not authorized
    */
-  getSessionToken(): string | undefined {
-    return this.oauthManager.getSessionToken();
+  getProviderToken(provider: string): import('./oauth/types.js').ProviderTokenData | undefined {
+    return this.oauthManager.getProviderToken(provider);
   }
 
   /**
-   * Set session token manually
-   * Use this if you have an existing session token
+   * Set provider token manually
+   * Use this if you have an existing provider token
    * 
-   * @param token - Session token
+   * @param provider - Provider name
+   * @param tokenData - Provider token data
    */
-  setSessionToken(token: string): void {
-    this.oauthManager.setSessionToken(token);
-    this.transport.setHeader('X-Session-Token', token);
+  setProviderToken(provider: string, tokenData: import('./oauth/types.js').ProviderTokenData): void {
+    this.oauthManager.setProviderToken(provider, tokenData);
+    this.authState.set(provider, { authenticated: true });
   }
 
   /**

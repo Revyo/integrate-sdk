@@ -57,10 +57,12 @@ export interface CallbackRequest {
  * Response from callback endpoint
  */
 export interface CallbackResponse {
-  sessionToken: string;
-  provider: string;
-  scopes: string[];
-  expiresAt?: number;
+  accessToken: string;
+  refreshToken?: string;
+  tokenType: string;
+  expiresIn: number;
+  expiresAt?: string;
+  scopes?: string[];
 }
 
 /**
@@ -68,9 +70,8 @@ export interface CallbackResponse {
  */
 export interface StatusResponse {
   authorized: boolean;
-  provider: string;
   scopes?: string[];
-  expiresAt?: number;
+  expiresAt?: string;
 }
 
 /**
@@ -187,15 +188,15 @@ export class OAuthHandler {
 
   /**
    * Handle authorization status check
-   * Checks if a provider is currently authorized
+   * Checks if a provider access token is valid
    * 
    * @param provider - Provider to check
-   * @param sessionToken - Session token from client
+   * @param accessToken - Access token from client
    * @returns Authorization status
    * 
    * @throws Error if MCP server request fails
    */
-  async handleStatus(provider: string, sessionToken: string): Promise<StatusResponse> {
+  async handleStatus(provider: string, accessToken: string): Promise<StatusResponse> {
     // Forward to MCP server
     const url = new URL('/oauth/status', this.serverUrl);
     url.searchParams.set('provider', provider);
@@ -203,7 +204,7 @@ export class OAuthHandler {
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
-        'X-Session-Token': sessionToken,
+        'Authorization': `Bearer ${accessToken}`,
       },
     });
 
@@ -212,7 +213,6 @@ export class OAuthHandler {
       if (response.status === 401) {
         return {
           authorized: false,
-          provider,
         };
       }
 
@@ -229,15 +229,15 @@ export class OAuthHandler {
    * Revokes authorization for a specific provider
    * 
    * @param request - Disconnect request with provider name
-   * @param sessionToken - Session token from client
+   * @param accessToken - Access token from client
    * @returns Disconnect response
    * 
-   * @throws Error if no session token provided
+   * @throws Error if no access token provided
    * @throws Error if MCP server request fails
    */
-  async handleDisconnect(request: DisconnectRequest, sessionToken: string): Promise<DisconnectResponse> {
-    if (!sessionToken) {
-      throw new Error('No session token provided. Cannot disconnect provider.');
+  async handleDisconnect(request: DisconnectRequest, accessToken: string): Promise<DisconnectResponse> {
+    if (!accessToken) {
+      throw new Error('No access token provided. Cannot disconnect provider.');
     }
 
     // Forward to MCP server to revoke authorization
@@ -247,7 +247,7 @@ export class OAuthHandler {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Session-Token': sessionToken,
+        'Authorization': `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
         provider: request.provider,

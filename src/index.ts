@@ -19,6 +19,7 @@ export type {
   AuthorizationUrlResponse,
   OAuthCallbackResponse,
   OAuthCallbackParams,
+  ProviderTokenData,
   OAuthEventType,
   OAuthEventHandler,
   AuthStartedEvent,

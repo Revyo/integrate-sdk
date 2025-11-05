@@ -70,13 +70,39 @@ export interface AuthorizationUrlResponse {
 
 /**
  * OAuth callback response from server
- * Contains session token after successful authorization
+ * Contains access token after successful authorization
  */
 export interface OAuthCallbackResponse {
-  /** Session token for authenticated requests */
-  sessionToken: string;
-  /** Token expiration time */
+  /** OAuth access token */
+  accessToken: string;
+  /** OAuth refresh token */
+  refreshToken?: string;
+  /** Token type (usually "Bearer") */
+  tokenType: string;
+  /** Token expiration time in seconds */
+  expiresIn: number;
+  /** Token expiration timestamp */
   expiresAt?: string;
+  /** Granted scopes */
+  scopes?: string[];
+}
+
+/**
+ * Stored token data for a provider
+ */
+export interface ProviderTokenData {
+  /** OAuth access token */
+  accessToken: string;
+  /** OAuth refresh token */
+  refreshToken?: string;
+  /** Token type (usually "Bearer") */
+  tokenType: string;
+  /** Token expiration time in seconds */
+  expiresIn: number;
+  /** Token expiration timestamp */
+  expiresAt?: string;
+  /** Granted scopes */
+  scopes?: string[];
 }
 
 /**
@@ -103,8 +129,10 @@ export interface AuthStartedEvent {
 export interface AuthCompleteEvent {
   /** Provider that was authorized */
   provider: string;
-  /** Session token for authenticated requests */
-  sessionToken: string;
+  /** Access token for authenticated requests */
+  accessToken: string;
+  /** Token expiration timestamp */
+  expiresAt?: string;
 }
 
 /**

@@ -9,33 +9,48 @@ import { githubPlugin } from "../../src/plugins/github.js";
 import { gmailPlugin } from "../../src/plugins/gmail.js";
 
 // Mock browser environment
-const mockStorage = new Map<string, string>();
+const mockSessionStorage = new Map<string, string>();
+const mockLocalStorage = new Map<string, string>();
 
 beforeEach(() => {
-  // Setup mock sessionStorage
-  mockStorage.clear();
+  // Setup mock storage
+  mockSessionStorage.clear();
+  mockLocalStorage.clear();
   
   // Mock global window object if it doesn't exist
   if (typeof globalThis.window === 'undefined') {
     (globalThis as any).window = {
       sessionStorage: {
-        getItem: (key: string) => mockStorage.get(key) || null,
-        setItem: (key: string, value: string) => mockStorage.set(key, value),
-        removeItem: (key: string) => mockStorage.delete(key),
+        getItem: (key: string) => mockSessionStorage.get(key) || null,
+        setItem: (key: string, value: string) => mockSessionStorage.set(key, value),
+        removeItem: (key: string) => mockSessionStorage.delete(key),
+        get length() { return mockSessionStorage.size; },
+        key: (index: number) => Array.from(mockSessionStorage.keys())[index] || null,
+      },
+      localStorage: {
+        getItem: (key: string) => mockLocalStorage.get(key) || null,
+        setItem: (key: string, value: string) => mockLocalStorage.set(key, value),
+        removeItem: (key: string) => mockLocalStorage.delete(key),
+        get length() { return mockLocalStorage.size; },
+        key: (index: number) => Array.from(mockLocalStorage.keys())[index] || null,
       },
     };
   }
 });
 
 afterEach(async () => {
-  mockStorage.clear();
+  mockSessionStorage.clear();
+  mockLocalStorage.clear();
   await clearClientCache();
   
   // Clean up global window mock if it was set by this test file
-  if ((globalThis as any).window && (globalThis as any).window.sessionStorage) {
-    // Clear any session tokens
+  if ((globalThis as any).window) {
+    // Clear any provider tokens
     try {
-      (globalThis as any).window.sessionStorage.removeItem('integrate_session_token');
+      if ((globalThis as any).window.localStorage) {
+        (globalThis as any).window.localStorage.removeItem('integrate_token_github');
+        (globalThis as any).window.localStorage.removeItem('integrate_token_google');
+      }
     } catch {
       // Ignore errors
     }
@@ -43,10 +58,15 @@ afterEach(async () => {
 });
 
 describe("Storage and Cleanup", () => {
-  describe("Session Token Storage", () => {
-    test("loads session token from sessionStorage on creation", () => {
-      // Pre-populate sessionStorage
-      mockStorage.set('integrate_session_token', 'stored-token');
+  describe("Provider Token Storage", () => {
+    test("loads provider token from localStorage on creation", () => {
+      // Pre-populate localStorage with provider token
+      const tokenData = {
+        accessToken: 'stored-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      };
+      mockLocalStorage.set('integrate_token_github', JSON.stringify(tokenData));
 
       const client = createMCPClient({
         plugins: [
@@ -59,30 +79,47 @@ describe("Storage and Cleanup", () => {
       });
 
       // Should load the token from storage
-      expect(client.getSessionToken()).toBe('stored-token');
+      const loadedToken = client.getProviderToken('github');
+      expect(loadedToken).toEqual(tokenData);
     });
 
-    test("prefers config token over stored token", () => {
-      // Pre-populate sessionStorage
-      mockStorage.set('integrate_session_token', 'stored-token');
+    test("loads tokens for multiple providers", () => {
+      // Pre-populate localStorage with multiple provider tokens
+      const githubToken = {
+        accessToken: 'github-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      };
+      const gmailToken = {
+        accessToken: 'gmail-token',
+        tokenType: 'Bearer',
+        expiresIn: 7200,
+      };
+      
+      mockLocalStorage.set('integrate_token_github', JSON.stringify(githubToken));
+      mockLocalStorage.set('integrate_token_google', JSON.stringify(gmailToken));
 
       const client = createMCPClient({
         plugins: [
           githubPlugin({
-            clientId: "test-id",
-            clientSecret: "test-secret",
+            clientId: "github-id",
+            clientSecret: "github-secret",
+          }),
+          gmailPlugin({
+            clientId: "gmail-id",
+            clientSecret: "gmail-secret",
           }),
         ],
-        sessionToken: 'config-token',
         singleton: false,
       });
 
-      // Should use config token, not stored token
-      expect(client.getSessionToken()).toBe('config-token');
+      // Should load both tokens from storage
+      expect(client.getProviderToken('github')).toEqual(githubToken);
+      expect(client.getProviderToken('google')).toEqual(gmailToken);
     });
 
-    test("handles missing sessionStorage gracefully", () => {
-      // Temporarily remove sessionStorage
+    test("handles missing localStorage gracefully", () => {
+      // Temporarily remove localStorage
       const originalWindow = (globalThis as any).window;
       (globalThis as any).window = undefined;
 
@@ -96,8 +133,8 @@ describe("Storage and Cleanup", () => {
         singleton: false,
       });
 
-      // Should still work without sessionStorage
-      expect(client.getSessionToken()).toBeUndefined();
+      // Should still work without localStorage
+      expect(client.getProviderToken('github')).toBeUndefined();
 
       // Restore window
       (globalThis as any).window = originalWindow;
@@ -146,7 +183,7 @@ describe("Storage and Cleanup", () => {
   });
 
   describe("Token Persistence Across Operations", () => {
-    test("token persists after disconnectProvider", async () => {
+    test("other provider tokens persist after disconnectProvider", async () => {
       // Mock fetch for disconnect call
       const originalFetch = global.fetch;
       global.fetch = mock(async () => {
@@ -164,20 +201,32 @@ describe("Storage and Cleanup", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: 'multi-provider-token',
         singleton: false,
+      });
+
+      // Set provider tokens
+      client.setProviderToken('github', {
+        accessToken: 'github-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+      client.setProviderToken('google', {
+        accessToken: 'gmail-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
       });
 
       await client.disconnectProvider('github');
 
-      // Token should still exist for other providers
-      expect(client.getSessionToken()).toBe('multi-provider-token');
+      // Gmail token should still exist
+      expect(client.getProviderToken('github')).toBeUndefined();
+      expect(client.getProviderToken('google')).toBeDefined();
 
       // Restore fetch
       global.fetch = originalFetch;
     });
 
-    test("token clears after logout", async () => {
+    test("all tokens clear after logout", async () => {
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -185,16 +234,21 @@ describe("Storage and Cleanup", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: 'test-token',
         singleton: false,
+      });
+
+      client.setProviderToken('github', {
+        accessToken: 'test-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
       });
 
       await client.logout();
 
-      expect(client.getSessionToken()).toBeUndefined();
+      expect(client.getProviderToken('github')).toBeUndefined();
     });
 
-    test("setSessionToken persists to sessionStorage", () => {
+    test("setProviderToken persists to localStorage", () => {
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -205,14 +259,20 @@ describe("Storage and Cleanup", () => {
         singleton: false,
       });
 
-      client.setSessionToken('new-token');
+      const tokenData = {
+        accessToken: 'new-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      };
+
+      client.setProviderToken('github', tokenData);
 
       // Check both client and storage
-      expect(client.getSessionToken()).toBe('new-token');
-      expect(mockStorage.get('integrate_session_token')).toBe('new-token');
+      expect(client.getProviderToken('github')).toEqual(tokenData);
+      expect(mockLocalStorage.get('integrate_token_github')).toBe(JSON.stringify(tokenData));
     });
 
-    test("clearSessionToken removes from sessionStorage", () => {
+    test("clearSessionToken removes all tokens from localStorage", () => {
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -220,16 +280,23 @@ describe("Storage and Cleanup", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: 'test-token',
         singleton: false,
       });
 
-      expect(mockStorage.get('integrate_session_token')).toBe('test-token');
+      const tokenData = {
+        accessToken: 'test-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      };
+
+      client.setProviderToken('github', tokenData);
+
+      expect(mockLocalStorage.has('integrate_token_github')).toBe(true);
 
       client.clearSessionToken();
 
-      expect(client.getSessionToken()).toBeUndefined();
-      expect(mockStorage.has('integrate_session_token')).toBe(false);
+      expect(client.getProviderToken('github')).toBeUndefined();
+      expect(mockLocalStorage.has('integrate_token_github')).toBe(false);
     });
   });
 
@@ -266,11 +333,7 @@ describe("Storage and Cleanup", () => {
   });
 
   describe("Event System Storage Integration", () => {
-    test("emits error event when disconnect fails without session token", async () => {
-      // Temporarily remove sessionStorage
-      const originalWindow = (globalThis as any).window;
-      (globalThis as any).window = undefined;
-
+    test("emits error event when disconnect fails without access token", async () => {
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -286,12 +349,9 @@ describe("Storage and Cleanup", () => {
         errorFired = true;
       });
 
-      // Should throw and emit error because no session token
+      // Should throw and emit error because no access token
       await expect(client.disconnectProvider('github')).rejects.toThrow();
       expect(errorFired).toBe(true);
-
-      // Restore window
-      (globalThis as any).window = originalWindow;
     });
   });
 
@@ -304,7 +364,6 @@ describe("Storage and Cleanup", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: 'token1',
         singleton: false,
       });
 
@@ -315,12 +374,26 @@ describe("Storage and Cleanup", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: 'token2',
         singleton: false,
       });
 
-      expect(client1.getSessionToken()).toBe('token1');
-      expect(client2.getSessionToken()).toBe('token2');
+      const token1 = {
+        accessToken: 'token1',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      };
+
+      const token2 = {
+        accessToken: 'token2',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      };
+
+      client1.setProviderToken('github', token1);
+      client2.setProviderToken('github', token2);
+
+      expect(client1.getProviderToken('github')).toEqual(token1);
+      expect(client2.getProviderToken('github')).toEqual(token2);
     });
 
     test("disconnecting provider in one instance does not affect others", async () => {
@@ -337,7 +410,6 @@ describe("Storage and Cleanup", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: "token1",
         singleton: false,
       });
 
@@ -348,8 +420,19 @@ describe("Storage and Cleanup", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: "token2",
         singleton: false,
+      });
+
+      client1.setProviderToken('github', {
+        accessToken: 'token1',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+
+      client2.setProviderToken('github', {
+        accessToken: 'token2',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
       });
 
       await client1.disconnectProvider('github');
@@ -394,7 +477,6 @@ describe("Storage and Cleanup", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: 'test-token',
         timeout: 60000,
         headers: { 'X-Custom': 'value' },
         clientInfo: { name: 'custom', version: '1.0' },
@@ -458,8 +540,19 @@ describe("Storage and Cleanup", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: "test-token",
         singleton: false,
+      });
+
+      // Set provider tokens
+      client.setProviderToken('github', {
+        accessToken: 'github-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+      client.setProviderToken('google', {
+        accessToken: 'gmail-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
       });
 
       await client.disconnectProvider('github');

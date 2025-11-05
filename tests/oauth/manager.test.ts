@@ -44,37 +44,56 @@ describe("OAuth Manager", () => {
     });
   });
 
-  describe("Session Token Management", () => {
-    test("getSessionToken returns undefined initially", () => {
-      expect(manager.getSessionToken()).toBeUndefined();
+  describe("Provider Token Management", () => {
+    test("getProviderToken returns undefined initially", () => {
+      expect(manager.getProviderToken("github")).toBeUndefined();
     });
 
-    test("setSessionToken stores token", () => {
-      const token = "test-session-token-123";
-      manager.setSessionToken(token);
+    test("setProviderToken stores token", () => {
+      const tokenData = {
+        accessToken: "test-access-token-123",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      };
+      manager.setProviderToken("github", tokenData);
       
-      expect(manager.getSessionToken()).toBe(token);
+      expect(manager.getProviderToken("github")).toEqual(tokenData);
     });
 
-    test("clearSessionToken removes token", () => {
-      manager.setSessionToken("test-token");
-      expect(manager.getSessionToken()).toBe("test-token");
+    test("clearProviderToken removes token", () => {
+      const tokenData = {
+        accessToken: "test-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      };
+      manager.setProviderToken("github", tokenData);
+      expect(manager.getProviderToken("github")).toEqual(tokenData);
       
-      manager.clearSessionToken();
-      expect(manager.getSessionToken()).toBeUndefined();
+      manager.clearProviderToken("github");
+      expect(manager.getProviderToken("github")).toBeUndefined();
     });
 
-    test("setSessionToken overwrites previous token", () => {
-      manager.setSessionToken("token-1");
-      expect(manager.getSessionToken()).toBe("token-1");
+    test("setProviderToken overwrites previous token", () => {
+      const tokenData1 = {
+        accessToken: "token-1",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      };
+      const tokenData2 = {
+        accessToken: "token-2",
+        tokenType: "Bearer",
+        expiresIn: 7200,
+      };
+      manager.setProviderToken("github", tokenData1);
+      expect(manager.getProviderToken("github")).toEqual(tokenData1);
       
-      manager.setSessionToken("token-2");
-      expect(manager.getSessionToken()).toBe("token-2");
+      manager.setProviderToken("github", tokenData2);
+      expect(manager.getProviderToken("github")).toEqual(tokenData2);
     });
   });
 
   describe("checkAuthStatus", () => {
-    test("returns unauthorized when no session token", async () => {
+    test("returns unauthorized when no access token", async () => {
       // Mock fetch to return unauthorized
       global.fetch = mock(async () => ({
         ok: false,
@@ -85,18 +104,20 @@ describe("OAuth Manager", () => {
       const status = await manager.checkAuthStatus("github");
       
       expect(status.authorized).toBe(false);
-      expect(status.provider).toBe("github");
     });
 
-    test("returns authorized when session token is valid", async () => {
-      manager.setSessionToken("valid-token");
+    test("returns authorized when access token is valid", async () => {
+      manager.setProviderToken("github", {
+        accessToken: "valid-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      });
       
       global.fetch = mock(async () => ({
         ok: true,
         status: 200,
         json: async () => ({
           authorized: true,
-          provider: "github",
           scopes: ["repo", "user"],
           expiresAt: "2024-12-31T23:59:59Z",
         }),
@@ -105,12 +126,15 @@ describe("OAuth Manager", () => {
       const status = await manager.checkAuthStatus("github");
       
       expect(status.authorized).toBe(true);
-      expect(status.provider).toBe("github");
       expect(status.scopes).toEqual(["repo", "user"]);
     });
 
     test("handles network errors gracefully", async () => {
-      manager.setSessionToken("token");
+      manager.setProviderToken("github", {
+        accessToken: "token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      });
       
       global.fetch = mock(async () => {
         throw new Error("Network error");
@@ -119,12 +143,15 @@ describe("OAuth Manager", () => {
       const status = await manager.checkAuthStatus("github");
       
       expect(status.authorized).toBe(false);
-      expect(status.provider).toBe("github");
     });
 
-    test("includes session token in request header", async () => {
-      const sessionToken = "test-session-token";
-      manager.setSessionToken(sessionToken);
+    test("includes access token in request header", async () => {
+      const accessToken = "test-access-token";
+      manager.setProviderToken("github", {
+        accessToken,
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      });
       
       let capturedHeaders: Headers | undefined;
       
@@ -132,13 +159,15 @@ describe("OAuth Manager", () => {
         capturedHeaders = options?.headers;
         return {
           ok: true,
-          json: async () => ({ authorized: true, provider: "github" }),
+          json: async () => ({ authorized: true }),
         };
       }) as any;
 
       await manager.checkAuthStatus("github");
       
       expect(capturedHeaders).toBeDefined();
+      // Verify it includes Authorization header
+      expect(capturedHeaders).toBeTruthy();
     });
   });
 

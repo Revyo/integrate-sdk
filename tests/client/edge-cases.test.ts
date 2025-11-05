@@ -148,8 +148,13 @@ describe("Edge Cases", () => {
             clientSecret: "test-secret",
           }),
         ],
-        sessionToken: "test-token",
         singleton: false,
+      });
+
+      client.setProviderToken('github', {
+        accessToken: 'test-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
       });
 
       const initialState = client.getAuthState("github");
@@ -258,14 +263,18 @@ describe("Edge Cases", () => {
         singleton: false,
       });
 
-      expect(client.getSessionToken()).toBeUndefined();
+      expect(client.getProviderToken('github')).toBeUndefined();
       
-      // Setting and clearing
-      client.setSessionToken("test");
-      expect(client.getSessionToken()).toBe("test");
+      // Setting and clearing provider tokens
+      client.setProviderToken('github', {
+        accessToken: 'test',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+      expect(client.getProviderToken('github')).toBeDefined();
       
-      client.clearSessionToken();
-      expect(client.getSessionToken()).toBeUndefined();
+      client.clearSessionToken(); // Clears all provider tokens
+      expect(client.getProviderToken('github')).toBeUndefined();
     });
   });
 
@@ -325,6 +334,12 @@ describe("Edge Cases", () => {
           }),
         ],
         singleton: false,
+      });
+
+      client.setProviderToken('github', {
+        accessToken: 'test-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
       });
 
       expect(client.isProviderAuthenticated("unknown")).toBe(false);

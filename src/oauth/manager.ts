@@ -10,6 +10,7 @@ import type {
   AuthStatus,
   AuthorizationUrlResponse,
   OAuthCallbackResponse,
+  ProviderTokenData,
 } from "./types.js";
 import { generateCodeVerifier, generateCodeChallenge, generateState } from "./pkce.js";
 import { OAuthWindowManager } from "./window-manager.js";
@@ -20,7 +21,7 @@ import { OAuthWindowManager } from "./window-manager.js";
  */
 export class OAuthManager {
   private pendingAuths: Map<string, PendingAuth> = new Map();
-  private sessionToken?: string;
+  private providerTokens: Map<string, ProviderTokenData> = new Map();
   private windowManager: OAuthWindowManager;
   private flowConfig: OAuthFlowConfig;
   private oauthApiBase: string;
@@ -108,19 +109,20 @@ export class OAuthManager {
    * 
    * @param code - Authorization code from OAuth provider
    * @param state - State parameter for verification
-   * @returns Session token for authenticated requests
+   * @returns Provider token data with access token
    * 
    * @example
    * ```typescript
    * // In your callback route
-   * const sessionToken = await oauthManager.handleCallback(code, state);
+   * const tokenData = await oauthManager.handleCallback(code, state);
+   * console.log('Access token:', tokenData.accessToken);
    * ```
    */
-  async handleCallback(code: string, state: string): Promise<string> {
+  async handleCallback(code: string, state: string): Promise<ProviderTokenData & { provider: string }> {
     // 1. Verify state and get pending auth
     let pendingAuth = this.pendingAuths.get(state);
     
-    // If not in memory (page reload), try to load from sessionStorage
+    // If not in memory (page reload), try to load from localStorage
     if (!pendingAuth) {
       pendingAuth = this.loadPendingAuthFromStorage(state);
     }
@@ -155,17 +157,26 @@ export class OAuthManager {
         state
       );
 
-      // 3. Store session token
-      this.sessionToken = response.sessionToken;
+      // 3. Store provider token
+      const tokenData: ProviderTokenData = {
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        tokenType: response.tokenType,
+        expiresIn: response.expiresIn,
+        expiresAt: response.expiresAt,
+        scopes: response.scopes,
+      };
+      
+      this.providerTokens.set(pendingAuth.provider, tokenData);
 
-      // 4. Save to sessionStorage
-      this.saveSessionToken(response.sessionToken);
+      // 4. Save to localStorage
+      this.saveProviderToken(pendingAuth.provider, tokenData);
 
       // 5. Clean up pending auth from both memory and storage
       this.pendingAuths.delete(state);
       this.removePendingAuthFromStorage(state);
 
-      return response.sessionToken;
+      return { ...tokenData, provider: pendingAuth.provider };
     } catch (error) {
       this.pendingAuths.delete(state);
       this.removePendingAuthFromStorage(state);
@@ -188,7 +199,9 @@ export class OAuthManager {
    * ```
    */
   async checkAuthStatus(provider: string): Promise<AuthStatus> {
-    if (!this.sessionToken) {
+    const tokenData = this.providerTokens.get(provider);
+    
+    if (!tokenData) {
       return {
         authorized: false,
         provider,
@@ -201,7 +214,7 @@ export class OAuthManager {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'X-Session-Token': this.sessionToken,
+          'Authorization': `Bearer ${tokenData.accessToken}`,
         },
       });
 
@@ -213,7 +226,7 @@ export class OAuthManager {
       }
 
       const status = await response.json() as AuthStatus;
-      return status;
+      return { ...status, provider };
     } catch (error) {
       console.error('Failed to check auth status:', error);
       return {
@@ -237,8 +250,10 @@ export class OAuthManager {
    * ```
    */
   async disconnectProvider(provider: string): Promise<void> {
-    if (!this.sessionToken) {
-      throw new Error('No session token available. Cannot disconnect provider.');
+    const tokenData = this.providerTokens.get(provider);
+    
+    if (!tokenData) {
+      throw new Error(`No access token available for provider "${provider}". Cannot disconnect provider.`);
     }
 
     try {
@@ -248,7 +263,7 @@ export class OAuthManager {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Session-Token': this.sessionToken,
+          'Authorization': `Bearer ${tokenData.accessToken}`,
         },
         body: JSON.stringify({ provider }),
       });
@@ -257,6 +272,10 @@ export class OAuthManager {
         const errorText = await response.text();
         throw new Error(`Failed to disconnect provider: ${errorText}`);
       }
+      
+      // Clear provider token after successful disconnection
+      this.providerTokens.delete(provider);
+      this.clearProviderToken(provider);
     } catch (error) {
       console.error('Failed to disconnect provider:', error);
       throw error;
@@ -264,30 +283,55 @@ export class OAuthManager {
   }
 
   /**
-   * Get session token
+   * Get provider token data
    */
-  getSessionToken(): string | undefined {
-    return this.sessionToken;
+  getProviderToken(provider: string): ProviderTokenData | undefined {
+    return this.providerTokens.get(provider);
   }
 
   /**
-   * Set session token (for manual token management)
+   * Get all provider tokens
    */
-  setSessionToken(token: string): void {
-    this.sessionToken = token;
-    this.saveSessionToken(token);
+  getAllProviderTokens(): Map<string, ProviderTokenData> {
+    return new Map(this.providerTokens);
   }
 
   /**
-   * Clear session token
+   * Set provider token (for manual token management)
    */
-  clearSessionToken(): void {
-    this.sessionToken = undefined;
-    if (typeof window !== 'undefined' && window.sessionStorage) {
+  setProviderToken(provider: string, tokenData: ProviderTokenData): void {
+    this.providerTokens.set(provider, tokenData);
+    this.saveProviderToken(provider, tokenData);
+  }
+
+  /**
+   * Clear specific provider token
+   */
+  clearProviderToken(provider: string): void {
+    this.providerTokens.delete(provider);
+    if (typeof window !== 'undefined' && window.localStorage) {
       try {
-        window.sessionStorage.removeItem('integrate_session_token');
+        window.localStorage.removeItem(`integrate_token_${provider}`);
       } catch (error) {
-        console.error('Failed to clear session token from sessionStorage:', error);
+        console.error(`Failed to clear token for ${provider} from localStorage:`, error);
+      }
+    }
+  }
+
+  /**
+   * Clear all provider tokens
+   */
+  clearAllProviderTokens(): void {
+    const providers = Array.from(this.providerTokens.keys());
+    this.providerTokens.clear();
+    
+    if (typeof window !== 'undefined' && window.localStorage) {
+      for (const provider of providers) {
+        try {
+          window.localStorage.removeItem(`integrate_token_${provider}`);
+        } catch (error) {
+          console.error(`Failed to clear token for ${provider} from localStorage:`, error);
+        }
       }
     }
   }
@@ -321,14 +365,46 @@ export class OAuthManager {
   }
 
   /**
-   * Save session token to sessionStorage
+   * Save provider token to localStorage
    */
-  private saveSessionToken(token: string): void {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
+  private saveProviderToken(provider: string, tokenData: ProviderTokenData): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
       try {
-        window.sessionStorage.setItem('integrate_session_token', token);
+        const key = `integrate_token_${provider}`;
+        window.localStorage.setItem(key, JSON.stringify(tokenData));
       } catch (error) {
-        console.error('Failed to save session token to sessionStorage:', error);
+        console.error(`Failed to save token for ${provider} to localStorage:`, error);
+      }
+    }
+  }
+
+  /**
+   * Load provider token from localStorage
+   * Returns undefined if not found or invalid
+   */
+  private loadProviderToken(provider: string): ProviderTokenData | undefined {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const key = `integrate_token_${provider}`;
+        const stored = window.localStorage.getItem(key);
+        if (stored) {
+          return JSON.parse(stored) as ProviderTokenData;
+        }
+      } catch (error) {
+        console.error(`Failed to load token for ${provider} from localStorage:`, error);
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Load all provider tokens from localStorage on initialization
+   */
+  loadAllProviderTokens(providers: string[]): void {
+    for (const provider of providers) {
+      const tokenData = this.loadProviderToken(provider);
+      if (tokenData) {
+        this.providerTokens.set(provider, tokenData);
       }
     }
   }

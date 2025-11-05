@@ -14,8 +14,8 @@ The Integrate SDK uses OAuth API routes to securely handle authorization without
 **Flow**:
 1. **Browser SDK** → Calls your API route
 2. **Your API Route** → Adds OAuth secrets from env vars → Forwards to MCP server
-3. **MCP Server** → Returns authorization URL or session token
-4. **Your API Route** → Returns response to browser
+3. **MCP Server** → Returns authorization URL or access token
+4. **Your API Route** → Returns response to browser (SDK stores token in localStorage)
 
 ## Quick Setup (3 Steps!)
 

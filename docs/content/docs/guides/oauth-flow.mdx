@@ -14,8 +14,8 @@ The SDK handles the entire OAuth flow for you:
 1. **Initiate Authorization** - Opens OAuth provider's authorization page
 2. **User Grants Permissions** - User authorizes your app
 3. **Handle Callback** - SDK receives authorization code
-4. **Exchange for Token** - Server exchanges code for session token
-5. **Store Token** - Token is stored for subsequent API calls
+4. **Exchange for Token** - Server exchanges code for access token
+5. **Store Token** - Access token is stored per provider in localStorage
 
 ## Quick Start
 
@@ -74,12 +74,14 @@ if (!await client.isAuthorized('github')) {
 }
 
 // After redirect back from OAuth callback route
-// The SDK automatically picks up the callback params from sessionStorage
+// The SDK automatically:
+// 1. Picks up the callback params from URL hash
+// 2. Exchanges code for access token
+// 3. Stores the token in localStorage
 // Just check if authorization is complete:
 if (await client.isAuthorized('github')) {
-  // Save the session token for future use
-  const sessionToken = client.getSessionToken();
-  localStorage.setItem('sessionToken', sessionToken);
+  console.log('GitHub is authorized!');
+  // Token is already persisted - no need to manually save
 }
 ```
 
@@ -105,13 +107,19 @@ const repos = await client.github.listRepos({ username: 'octocat' });
 
 ### ⚠️ Server-Side (Node.js) - API Calls Only
 
-On the server, OAuth UI flows aren't available, but you can make API calls with an existing session token:
+On the server, OAuth UI flows aren't available, but you can make API calls with provider access tokens:
 
 ```typescript
 // Node.js/Server environment
 const client = createMCPClient({
   plugins: [githubPlugin({ /* ... */ })],
-  sessionToken: userSessionToken, // Use token from browser flow
+});
+
+// Set the access token for the provider
+client.setProviderToken('github', {
+  accessToken: userAccessToken, // From your database
+  tokenType: 'Bearer',
+  expiresIn: 3600,
 });
 
 // ✅ API calls work fine
@@ -148,15 +156,22 @@ export async function authorizeGitHub() {
   try {
     await client.authorize('github');
     
-    // Get session token
-    const sessionToken = client.getSessionToken();
+    // Get access token for the provider
+    const tokenData = client.getProviderToken('github');
     
-    // Send to your backend to store
-    await fetch('/api/auth/save-token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: 'github', sessionToken }),
-    });
+    if (tokenData) {
+      // Send to your backend to store
+      await fetch('/api/auth/save-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          provider: 'github', 
+          accessToken: tokenData.accessToken,
+          refreshToken: tokenData.refreshToken,
+          expiresAt: tokenData.expiresAt,
+        }),
+      });
+    }
     
     return true;
   } catch (error) {
@@ -181,14 +196,25 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { provider, sessionToken } = req.body;
+  const { provider, accessToken, refreshToken, expiresAt } = req.body;
   const userId = req.session.userId; // Your session management
 
   // Store in database
   await db.userTokens.upsert({
     where: { userId_provider: { userId, provider } },
-    update: { sessionToken, updatedAt: new Date() },
-    create: { userId, provider, sessionToken },
+    update: { 
+      accessToken, 
+      refreshToken, 
+      expiresAt, 
+      updatedAt: new Date() 
+    },
+    create: { 
+      userId, 
+      provider, 
+      accessToken, 
+      refreshToken, 
+      expiresAt 
+    },
   });
 
   res.status(200).json({ success: true });
@@ -218,7 +244,7 @@ export default async function handler(
     return res.status(401).json({ error: 'Not authorized' });
   }
 
-  // Create client with stored token
+  // Create client and set provider token
   const client = createMCPClient({
     plugins: [
       githubPlugin({
@@ -226,7 +252,15 @@ export default async function handler(
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
       }),
     ],
-    sessionToken: userToken.sessionToken,
+  });
+
+  // Set the access token for the provider
+  client.setProviderToken('github', {
+    accessToken: userToken.accessToken,
+    refreshToken: userToken.refreshToken,
+    tokenType: 'Bearer',
+    expiresIn: 3600, // You may want to calculate this from expiresAt
+    expiresAt: userToken.expiresAt,
   });
 
   try {
@@ -308,35 +342,68 @@ export const GET = createOAuthRedirectHandler({
 
 The SDK automatically picks up the OAuth callback data and completes the flow.
 
-## Session Token Management
+## Provider Token Management
 
-### Store and Restore Sessions
+### Automatic Token Persistence
+
+The SDK automatically stores provider tokens in `localStorage` when you authorize:
 
 ```typescript
-// Save session token for persistence
-const sessionToken = client.getSessionToken();
-localStorage.setItem('integrate_token', sessionToken);
+// Authorize GitHub
+await client.authorize('github');
 
-// Restore session on page load
-const savedToken = localStorage.getItem('integrate_token');
-if (savedToken) {
-  client.setSessionToken(savedToken);
-}
+// Token is automatically saved to localStorage
+// On page reload, the SDK automatically loads it
 
-// Now you can make API calls without re-authorizing
-const repos = await client.github.listRepos({ username: 'octocat' });
+// Check if token exists
+const tokenData = client.getProviderToken('github');
+console.log('Has GitHub token:', !!tokenData);
 ```
 
-### Initialize Client with Existing Token
+### Manual Token Management
 
 ```typescript
-const client = createMCPClient({
-  plugins: [githubPlugin({ /* ... */ })],
-  sessionToken: 'existing-token-from-storage',
+// Get token for a provider
+const tokenData = client.getProviderToken('github');
+if (tokenData) {
+  console.log('Access token:', tokenData.accessToken);
+  console.log('Expires at:', tokenData.expiresAt);
+}
+
+// Set token manually (e.g., after loading from your database)
+client.setProviderToken('github', {
+  accessToken: 'gho_...',
+  refreshToken: 'ghr_...',
+  tokenType: 'Bearer',
+  expiresIn: 3600,
+  expiresAt: '2025-01-01T00:00:00Z',
 });
 
-// Skip authorization, directly make API calls
-const repos = await client.github.listRepos({ username: 'octocat' });
+// Clear token for a specific provider
+client.disconnectProvider('github');
+
+// Clear all provider tokens
+client.clearSessionToken(); // Clears all tokens
+```
+
+### Multi-Provider Token Storage
+
+Each provider's token is stored independently:
+
+```typescript
+// Authorize multiple providers
+await client.authorize('github');
+await client.authorize('gmail');
+
+// Each has its own token
+const githubToken = client.getProviderToken('github');
+const gmailToken = client.getProviderToken('gmail');
+
+// Disconnect one provider doesn't affect others
+await client.disconnectProvider('github');
+
+// Gmail token still works
+const emails = await client.gmail.listEmails({ maxResults: 10 });
 ```
 
 ## Multiple Providers

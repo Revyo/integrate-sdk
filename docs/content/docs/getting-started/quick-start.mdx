@@ -60,7 +60,7 @@ The SDK works in both browser and Node.js environments, but with different capab
 - Complete session management
 
 ### Server Environment 🖥️
-- Make API calls with existing session token
+- Make API calls with provider access tokens
 - No OAuth UI (throws error if attempted)
 - Perfect for backend API routes
 
@@ -68,7 +68,13 @@ The SDK works in both browser and Node.js environments, but with different capab
 // Server-side usage (Node.js)
 const client = createMCPClient({
   plugins: [githubPlugin({ /* ... */ })],
-  sessionToken: userSessionToken, // Use token from browser flow
+});
+
+// Set the access token for the provider
+client.setProviderToken('github', {
+  accessToken: userAccessToken, // From your database
+  tokenType: 'Bearer',
+  expiresIn: 3600,
 });
 
 // ✅ API calls work fine
@@ -79,7 +85,7 @@ await client.authorize('github');
 // Error: can only be used in browser environments
 ```
 
-💡 **Tip:** Handle OAuth authorization in the browser, then pass the session token to your backend for API calls.
+💡 **Tip:** Handle OAuth authorization in the browser, then store the access token in your database for backend API calls.
 
 ## Step-by-Step Breakdown
 

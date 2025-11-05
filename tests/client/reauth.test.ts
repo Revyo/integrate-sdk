@@ -134,6 +134,12 @@ describe("Re-authentication Flow", () => {
         ],
       });
 
+      client.setProviderToken('github', {
+        accessToken: 'test-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+
       const state = client.getAuthState("github");
       expect(state).toBeDefined();
       expect(state?.authenticated).toBe(true);
@@ -147,6 +153,12 @@ describe("Re-authentication Flow", () => {
             clientSecret: "test-secret",
           }),
         ],
+      });
+
+      client.setProviderToken('github', {
+        accessToken: 'test-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
       });
 
       expect(client.isProviderAuthenticated("github")).toBe(true);
@@ -239,10 +251,16 @@ describe("Re-authentication Flow", () => {
         singleton: false,  // Ensure fresh instance for testing
       });
 
+      client.setProviderToken('github', {
+        accessToken: 'test-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+
       const success = await client.reauthenticate("github");
 
       expect(success).toBe(false);
-      // State should still be authenticated (initial state)
+      // State should still be authenticated after failed reauth
       expect(client.isProviderAuthenticated("github")).toBe(true);
     });
   });
