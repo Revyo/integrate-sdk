@@ -178,7 +178,19 @@ describe("OAuth Features", () => {
       );
     });
 
-    test("resets authentication state for provider", async () => {
+    test("throws error when no session token available", async () => {
+      // Clear any session storage from previous tests
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        try {
+          window.sessionStorage.removeItem('integrate_session_token');
+        } catch {
+          // Ignore errors
+        }
+      }
+      
+      // Ensure no fetch mock is active from previous tests
+      const originalFetch = globalThis.fetch;
+      
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -191,12 +203,22 @@ describe("OAuth Features", () => {
 
       expect(client.isProviderAuthenticated("github")).toBe(true);
 
-      await client.disconnectProvider("github");
-
-      expect(client.isProviderAuthenticated("github")).toBe(false);
+      // Should throw because no session token
+      await expect(client.disconnectProvider("github")).rejects.toThrow(
+        "No session token available"
+      );
+      
+      // Restore fetch
+      globalThis.fetch = originalFetch;
     });
 
-    test("emits auth:disconnect event", async () => {
+    test("resets authentication state for provider with session token", async () => {
+      // Mock fetch for disconnect call
+      const originalFetch = global.fetch;
+      global.fetch = mock(async () => {
+        return new Response(null, { status: 200 });
+      }) as any;
+
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -204,6 +226,35 @@ describe("OAuth Features", () => {
             clientSecret: "test-secret",
           }),
         ],
+        sessionToken: "test-token",
+        singleton: false,
+      });
+
+      expect(client.isProviderAuthenticated("github")).toBe(true);
+
+      await client.disconnectProvider("github");
+
+      expect(client.isProviderAuthenticated("github")).toBe(false);
+
+      // Restore fetch
+      global.fetch = originalFetch;
+    });
+
+    test("emits auth:disconnect event", async () => {
+      // Mock fetch for disconnect call
+      const originalFetch = global.fetch;
+      global.fetch = mock(async () => {
+        return new Response(null, { status: 200 });
+      }) as any;
+
+      const client = createMCPClient({
+        plugins: [
+          githubPlugin({
+            clientId: "test-id",
+            clientSecret: "test-secret",
+          }),
+        ],
+        sessionToken: "test-token",
         singleton: false,
       });
 
@@ -216,20 +267,30 @@ describe("OAuth Features", () => {
 
       expect(disconnectEvent).toBeDefined();
       expect(disconnectEvent.provider).toBe("github");
+
+      // Restore fetch
+      global.fetch = originalFetch;
     });
 
     test("disconnects single provider while keeping others", async () => {
+      // Mock fetch for disconnect call
+      const originalFetch = global.fetch;
+      global.fetch = mock(async () => {
+        return new Response(null, { status: 200 });
+      }) as any;
+
       const client = createMCPClient({
         plugins: [
           githubPlugin({
-            clientId: "test-id",
-            clientSecret: "test-secret",
+            clientId: "github-id",
+            clientSecret: "github-secret",
           }),
           gmailPlugin({
-            clientId: "test-id",
-            clientSecret: "test-secret",
+            clientId: "gmail-id",
+            clientSecret: "gmail-secret",
           }),
         ],
+        sessionToken: "test-token",
         singleton: false,
       });
 
@@ -240,9 +301,18 @@ describe("OAuth Features", () => {
 
       expect(client.isProviderAuthenticated("github")).toBe(false);
       expect(client.isProviderAuthenticated("google")).toBe(true);
+
+      // Restore fetch
+      global.fetch = originalFetch;
     });
 
     test("does not clear session token", async () => {
+      // Mock fetch for disconnect call
+      const originalFetch = global.fetch;
+      global.fetch = mock(async () => {
+        return new Response(null, { status: 200 });
+      }) as any;
+
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -257,6 +327,42 @@ describe("OAuth Features", () => {
       await client.disconnectProvider("github");
 
       expect(client.getSessionToken()).toBe("test-token");
+
+      // Restore fetch
+      global.fetch = originalFetch;
+    });
+
+    test("emits error event on disconnect failure", async () => {
+      // Mock fetch to fail
+      const originalFetch = global.fetch;
+      global.fetch = mock(async () => {
+        return new Response("Server error", { status: 500 });
+      }) as any;
+
+      const client = createMCPClient({
+        plugins: [
+          githubPlugin({
+            clientId: "test-id",
+            clientSecret: "test-secret",
+          }),
+        ],
+        sessionToken: "test-token",
+        singleton: false,
+      });
+
+      let errorEvent: any = null;
+      client.on("auth:error", (event) => {
+        errorEvent = event;
+      });
+
+      await expect(client.disconnectProvider("github")).rejects.toThrow();
+
+      expect(errorEvent).toBeDefined();
+      expect(errorEvent.provider).toBe("github");
+      expect(errorEvent.error).toBeDefined();
+
+      // Restore fetch
+      global.fetch = originalFetch;
     });
   });
 

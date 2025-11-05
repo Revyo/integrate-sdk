@@ -30,6 +30,16 @@ beforeEach(() => {
 afterEach(async () => {
   mockStorage.clear();
   await clearClientCache();
+  
+  // Clean up global window mock if it was set by this test file
+  if ((globalThis as any).window && (globalThis as any).window.sessionStorage) {
+    // Clear any session tokens
+    try {
+      (globalThis as any).window.sessionStorage.removeItem('integrate_session_token');
+    } catch {
+      // Ignore errors
+    }
+  }
 });
 
 describe("Storage and Cleanup", () => {
@@ -137,6 +147,12 @@ describe("Storage and Cleanup", () => {
 
   describe("Token Persistence Across Operations", () => {
     test("token persists after disconnectProvider", async () => {
+      // Mock fetch for disconnect call
+      const originalFetch = global.fetch;
+      global.fetch = mock(async () => {
+        return new Response(null, { status: 200 });
+      }) as any;
+
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -156,6 +172,9 @@ describe("Storage and Cleanup", () => {
 
       // Token should still exist for other providers
       expect(client.getSessionToken()).toBe('multi-provider-token');
+
+      // Restore fetch
+      global.fetch = originalFetch;
     });
 
     test("token clears after logout", async () => {
@@ -247,7 +266,7 @@ describe("Storage and Cleanup", () => {
   });
 
   describe("Event System Storage Integration", () => {
-    test("emits events even without browser storage", () => {
+    test("emits error event when disconnect fails without session token", async () => {
       // Temporarily remove sessionStorage
       const originalWindow = (globalThis as any).window;
       (globalThis as any).window = undefined;
@@ -262,14 +281,14 @@ describe("Storage and Cleanup", () => {
         singleton: false,
       });
 
-      let eventFired = false;
-      client.on('auth:disconnect', () => {
-        eventFired = true;
+      let errorFired = false;
+      client.on('auth:error', () => {
+        errorFired = true;
       });
 
-      client.disconnectProvider('github');
-
-      expect(eventFired).toBe(true);
+      // Should throw and emit error because no session token
+      await expect(client.disconnectProvider('github')).rejects.toThrow();
+      expect(errorFired).toBe(true);
 
       // Restore window
       (globalThis as any).window = originalWindow;
@@ -305,6 +324,12 @@ describe("Storage and Cleanup", () => {
     });
 
     test("disconnecting provider in one instance does not affect others", async () => {
+      // Mock fetch for disconnect call
+      const originalFetch = global.fetch;
+      global.fetch = mock(async () => {
+        return new Response(null, { status: 200 });
+      }) as any;
+
       const client1 = createMCPClient({
         plugins: [
           githubPlugin({
@@ -312,6 +337,7 @@ describe("Storage and Cleanup", () => {
             clientSecret: "test-secret",
           }),
         ],
+        sessionToken: "token1",
         singleton: false,
       });
 
@@ -322,6 +348,7 @@ describe("Storage and Cleanup", () => {
             clientSecret: "test-secret",
           }),
         ],
+        sessionToken: "token2",
         singleton: false,
       });
 
@@ -329,6 +356,9 @@ describe("Storage and Cleanup", () => {
 
       expect(client1.isProviderAuthenticated('github')).toBe(false);
       expect(client2.isProviderAuthenticated('github')).toBe(true);
+
+      // Restore fetch
+      global.fetch = originalFetch;
     });
   });
 
@@ -411,6 +441,12 @@ describe("Storage and Cleanup", () => {
     });
 
     test("disconnectProvider only affects specified provider", async () => {
+      // Mock fetch for disconnect call
+      const originalFetch = global.fetch;
+      global.fetch = mock(async () => {
+        return new Response(null, { status: 200 });
+      }) as any;
+
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -422,6 +458,7 @@ describe("Storage and Cleanup", () => {
             clientSecret: "test-secret",
           }),
         ],
+        sessionToken: "test-token",
         singleton: false,
       });
 
@@ -432,6 +469,9 @@ describe("Storage and Cleanup", () => {
 
       expect(githubState?.authenticated).toBe(false);
       expect(gmailState?.authenticated).toBe(true);
+
+      // Restore fetch
+      global.fetch = originalFetch;
     });
   });
 });

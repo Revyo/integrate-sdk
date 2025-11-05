@@ -224,6 +224,46 @@ export class OAuthManager {
   }
 
   /**
+   * Disconnect a specific provider
+   * Makes a server-side call to revoke authorization for the provider
+   * 
+   * @param provider - OAuth provider to disconnect
+   * @returns Promise that resolves when disconnection is complete
+   * 
+   * @example
+   * ```typescript
+   * await oauthManager.disconnectProvider('github');
+   * // GitHub is now disconnected server-side
+   * ```
+   */
+  async disconnectProvider(provider: string): Promise<void> {
+    if (!this.sessionToken) {
+      throw new Error('No session token available. Cannot disconnect provider.');
+    }
+
+    try {
+      const url = `${this.oauthApiBase}/disconnect`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Token': this.sessionToken,
+        },
+        body: JSON.stringify({ provider }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to disconnect provider: ${errorText}`);
+      }
+    } catch (error) {
+      console.error('Failed to disconnect provider:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get session token
    */
   getSessionToken(): string | undefined {

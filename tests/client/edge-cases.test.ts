@@ -3,7 +3,7 @@
  * Additional tests to improve line coverage for edge cases
  */
 
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { createMCPClient, clearClientCache } from "../../src/client.js";
 import { githubPlugin } from "../../src/plugins/github.js";
 import { gmailPlugin } from "../../src/plugins/gmail.js";
@@ -135,6 +135,12 @@ describe("Edge Cases", () => {
     });
 
     test("auth state persists across operations", async () => {
+      // Mock fetch for disconnect call
+      const originalFetch = global.fetch;
+      global.fetch = mock(async () => {
+        return new Response(null, { status: 200 });
+      }) as any;
+
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -142,6 +148,7 @@ describe("Edge Cases", () => {
             clientSecret: "test-secret",
           }),
         ],
+        sessionToken: "test-token",
         singleton: false,
       });
 
@@ -152,6 +159,9 @@ describe("Edge Cases", () => {
 
       const afterDisconnect = client.getAuthState("github");
       expect(afterDisconnect?.authenticated).toBe(false);
+
+      // Restore fetch
+      global.fetch = originalFetch;
     });
   });
 
@@ -229,6 +239,15 @@ describe("Edge Cases", () => {
 
   describe("Session token edge cases", () => {
     test("handles undefined session token gracefully", () => {
+      // Clear any session storage from previous tests
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        try {
+          window.sessionStorage.removeItem('integrate_session_token');
+        } catch {
+          // Ignore errors
+        }
+      }
+      
       const client = createMCPClient({
         plugins: [
           githubPlugin({

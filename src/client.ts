@@ -702,6 +702,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   /**
    * Disconnect a specific OAuth provider
    * Removes authorization for a single provider while keeping others connected
+   * Makes a server-side call to revoke the provider's authorization
    * 
    * @param provider - Provider name to disconnect (e.g., 'github', 'gmail')
    * 
@@ -725,11 +726,23 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       throw new Error(`No OAuth configuration found for provider: ${provider}`);
     }
     
-    // Reset authentication state for this provider only
-    this.authState.set(provider, { authenticated: false });
-    
-    // Emit disconnect event for this provider
-    this.eventEmitter.emit('auth:disconnect', { provider });
+    try {
+      // Make server-side call to disconnect the provider
+      await this.oauthManager.disconnectProvider(provider);
+      
+      // Reset authentication state for this provider only
+      this.authState.set(provider, { authenticated: false });
+      
+      // Emit disconnect event for this provider
+      this.eventEmitter.emit('auth:disconnect', { provider });
+    } catch (error) {
+      // Emit error event
+      this.eventEmitter.emit('auth:error', { 
+        provider, 
+        error: error as Error 
+      });
+      throw error;
+    }
     
     // Note: We don't clear the session token since other providers may still be using it
     // The session on the server side will still exist for other providers

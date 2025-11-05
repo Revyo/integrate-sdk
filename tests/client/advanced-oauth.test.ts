@@ -285,6 +285,12 @@ describe("Advanced OAuth Features", () => {
 
   describe("Multiple Provider Auth States", () => {
     test("tracks auth state independently for each provider", async () => {
+      // Mock fetch for disconnect call
+      const originalFetch = global.fetch;
+      global.fetch = mock(async () => {
+        return new Response(null, { status: 200 });
+      }) as any;
+
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -296,6 +302,7 @@ describe("Advanced OAuth Features", () => {
             clientSecret: "gmail-secret",
           }),
         ],
+        sessionToken: "test-token",
         singleton: false,
       });
 
@@ -314,6 +321,9 @@ describe("Advanced OAuth Features", () => {
 
       expect(client.isProviderAuthenticated("github")).toBe(false);
       expect(client.isProviderAuthenticated("google")).toBe(false);
+
+      // Restore fetch
+      global.fetch = originalFetch;
     });
   });
 
