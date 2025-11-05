@@ -157,7 +157,7 @@ describe("OAuthHandler", () => {
   });
 
   describe("handleCallback", () => {
-    it("should exchange code for session token", async () => {
+    it("should exchange code for access token", async () => {
       const mockFetch = mock(async (url: string, options?: any) => {
         expect(url).toContain("/oauth/callback");
 
@@ -165,12 +165,15 @@ describe("OAuthHandler", () => {
         expect(body.provider).toBe("github");
         expect(body.code).toBe("auth-code-123");
         expect(body.code_verifier).toBe("verifier-123");
+        expect(body.client_id).toBe("github-client-id");
+        expect(body.client_secret).toBe("github-client-secret");
 
         return {
           ok: true,
           json: async () => ({
-            sessionToken: "session-token-456",
-            provider: "github",
+            accessToken: "gho_123456",
+            tokenType: "Bearer",
+            expiresIn: 28800,
             scopes: ["repo", "user"],
           }),
         } as Response;
@@ -187,8 +190,9 @@ describe("OAuthHandler", () => {
 
       const result = await handler.handleCallback(request);
 
-      expect(result.sessionToken).toBe("session-token-456");
-      expect(result.provider).toBe("github");
+      expect(result.accessToken).toBe("gho_123456");
+      expect(result.tokenType).toBe("Bearer");
+      expect(result.expiresIn).toBe(28800);
       expect(result.scopes).toEqual(["repo", "user"]);
       expect(mockFetch).toHaveBeenCalled();
     });
@@ -212,6 +216,19 @@ describe("OAuthHandler", () => {
 
       await expect(handler.handleCallback(request)).rejects.toThrow(
         "MCP server failed to exchange authorization code"
+      );
+    });
+
+    it("should throw error for unconfigured provider", async () => {
+      const request: CallbackRequest = {
+        provider: "slack",
+        code: "code-123",
+        codeVerifier: "verifier",
+        state: "state",
+      };
+
+      await expect(handler.handleCallback(request)).rejects.toThrow(
+        "Provider slack not configured"
       );
     });
   });

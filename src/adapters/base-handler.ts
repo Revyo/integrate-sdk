@@ -153,15 +153,27 @@ export class OAuthHandler {
 
   /**
    * Handle OAuth callback
-   * Exchanges authorization code for session token
+   * Exchanges authorization code for access token
    * 
    * @param request - Callback request with authorization code
-   * @returns Session token and authorization details
+   * @returns Access token and authorization details
    * 
+   * @throws Error if provider is not configured
    * @throws Error if MCP server request fails
    */
   async handleCallback(request: CallbackRequest): Promise<CallbackResponse> {
-    // Forward to MCP server for token exchange
+    // Get OAuth config from environment (server-side)
+    const providerConfig = this.config.providers[request.provider];
+    if (!providerConfig) {
+      throw new Error(`Provider ${request.provider} not configured. Add OAuth credentials to your API route configuration.`);
+    }
+
+    // Validate required fields
+    if (!providerConfig.clientId || !providerConfig.clientSecret) {
+      throw new Error(`Missing OAuth credentials for ${request.provider}. Check your environment variables.`);
+    }
+
+    // Forward to MCP server for token exchange with credentials
     const url = new URL('/oauth/callback', this.serverUrl);
 
     const response = await fetch(url.toString(), {
@@ -174,6 +186,8 @@ export class OAuthHandler {
         code: request.code,
         code_verifier: request.codeVerifier,
         state: request.state,
+        client_id: providerConfig.clientId,
+        client_secret: providerConfig.clientSecret,
       }),
     });
 
