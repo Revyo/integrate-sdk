@@ -6,12 +6,27 @@ export function baseOptions(): BaseLayoutProps {
     links: [
       {
         type: 'main',
-        url: '/#',
+        url: '/pricing',
         text: 'Pricing',
+      },
+      {
+        type: 'button',
+        url: 'https://app.integrate.dev',
+        text: 'Sign In',
+        secondary: true,
+      },
+      {
+        type: 'button',
+        url: 'https://app.integrate.dev/signup',
+        text: 'Get Started',
+        secondary: true,
       },
     ],
     nav: {
       title: 'Integrate',
+    },
+    themeSwitch: {
+      enabled: false,
     },
   };
 }
