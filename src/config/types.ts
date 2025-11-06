@@ -179,6 +179,21 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * ```
    */
   autoHandleOAuthCallback?: boolean;
+
+  /**
+   * Global OAuth redirect URI for all providers
+   * Used as fallback when individual plugins don't specify their own redirectUri
+   * If not provided, will auto-detect from VERCEL_URL or NEXTAUTH_URL
+   * 
+   * @example
+   * ```typescript
+   * createMCPServer({
+   *   redirectUri: 'https://myapp.com/oauth/callback',
+   *   plugins: [...]
+   * })
+   * ```
+   */
+  redirectUri?: string;
 }
 
 /**

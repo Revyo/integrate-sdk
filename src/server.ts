@@ -9,17 +9,61 @@ import type { MCPPlugin } from './plugins/types.js';
 import { createNextOAuthHandler } from './adapters/nextjs.js';
 
 /**
+ * Global registry for server configuration
+ * Stores OAuth provider configuration for singleton handlers
+ */
+let globalServerConfig: {
+  providers: Record<string, {
+    clientId: string;
+    clientSecret: string;
+    redirectUri?: string;
+  }>;
+} | null = null;
+
+/**
+ * Auto-detect base URL from environment variables
+ * Checks VERCEL_URL, NEXTAUTH_URL, and falls back to localhost
+ * 
+ * @returns Default redirect URI based on environment
+ */
+function getDefaultRedirectUri(): string {
+  // In browser context (should not happen for server SDK)
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/oauth/callback`;
+  }
+  
+  // Vercel deployment
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}/oauth/callback`;
+  }
+  
+  // NextAuth URL or custom base URL
+  if (process.env.NEXTAUTH_URL) {
+    return `${process.env.NEXTAUTH_URL}/oauth/callback`;
+  }
+  
+  // Development fallback
+  return 'http://localhost:3000/oauth/callback';
+}
+
+/**
  * Create MCP Server instance with OAuth secrets
  * 
  * This is for SERVER-SIDE ONLY - includes OAuth secrets from environment variables.
  * Use this in your server configuration file (e.g., lib/integrate-server.ts)
+ * 
+ * The redirectUri can be specified globally and will be used for all plugins.
+ * If not provided, it will auto-detect from VERCEL_URL or NEXTAUTH_URL.
  * 
  * @example
  * ```typescript
  * // lib/integrate-server.ts (server-side only!)
  * import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
  * 
- * export const { client: serverClient, POST, GET } = createMCPServer({
+ * export const { client: serverClient } = createMCPServer({
+ *   redirectUri: process.env.VERCEL_URL 
+ *     ? `https://${process.env.VERCEL_URL}/oauth/callback`
+ *     : 'http://localhost:3000/oauth/callback',
  *   plugins: [
  *     githubPlugin({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -38,7 +82,7 @@ import { createNextOAuthHandler } from './adapters/nextjs.js';
  * Then in your route file:
  * ```typescript
  * // app/api/integrate/oauth/[action]/route.ts
- * export { POST, GET } from '@/lib/integrate-server';
+ * export { POST, GET } from 'integrate-sdk/server';
  * ```
  */
 export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
@@ -52,7 +96,7 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
     );
   }
 
-  // Extract OAuth providers from plugins
+  // Extract OAuth providers from plugins with global redirectUri fallback
   const providers: Record<string, {
     clientId: string;
     clientSecret: string;
@@ -61,7 +105,7 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
 
   for (const plugin of config.plugins) {
     if (plugin.oauth) {
-      const { clientId, clientSecret, redirectUri } = plugin.oauth;
+      const { clientId, clientSecret, redirectUri: pluginRedirectUri } = plugin.oauth;
       
       if (!clientId || !clientSecret) {
         console.warn(
@@ -71,6 +115,9 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
         continue;
       }
 
+      // Use plugin-specific redirectUri, fall back to global config, then auto-detect
+      const redirectUri = pluginRedirectUri || config.redirectUri || getDefaultRedirectUri();
+
       providers[plugin.id] = {
         clientId,
         clientSecret,
@@ -78,6 +125,9 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
       };
     }
   }
+
+  // Register config globally for singleton handlers
+  globalServerConfig = { providers };
 
   // Create the client instance
   const client = new MCPClient(config);
@@ -114,4 +164,62 @@ export type { MCPClientConfig } from './config/types.js';
 export { githubPlugin } from './plugins/github.js';
 export { gmailPlugin } from './plugins/gmail.js';
 export { genericOAuthPlugin, createSimplePlugin } from './plugins/generic.js';
+
+/**
+ * Singleton POST handler for OAuth routes
+ * Uses the configuration from createMCPServer()
+ * 
+ * This handler must be used after calling createMCPServer() to register
+ * OAuth provider configuration.
+ * 
+ * @example
+ * ```typescript
+ * // app/api/integrate/oauth/[action]/route.ts
+ * export { POST, GET } from 'integrate-sdk/server';
+ * ```
+ */
+export const POST = async (
+  req: any,
+  context: { params: { action: string } | Promise<{ action: string }> }
+) => {
+  if (!globalServerConfig) {
+    return Response.json(
+      { error: 'OAuth not configured. Call createMCPServer() in your server initialization file first.' },
+      { status: 500 }
+    );
+  }
+  
+  const handler = createNextOAuthHandler(globalServerConfig);
+  const routes = handler.createRoutes();
+  return routes.POST(req, context);
+};
+
+/**
+ * Singleton GET handler for OAuth routes
+ * Uses the configuration from createMCPServer()
+ * 
+ * This handler must be used after calling createMCPServer() to register
+ * OAuth provider configuration.
+ * 
+ * @example
+ * ```typescript
+ * // app/api/integrate/oauth/[action]/route.ts
+ * export { POST, GET } from 'integrate-sdk/server';
+ * ```
+ */
+export const GET = async (
+  req: any,
+  context: { params: { action: string } | Promise<{ action: string }> }
+) => {
+  if (!globalServerConfig) {
+    return Response.json(
+      { error: 'OAuth not configured. Call createMCPServer() in your server initialization file first.' },
+      { status: 500 }
+    );
+  }
+  
+  const handler = createNextOAuthHandler(globalServerConfig);
+  const routes = handler.createRoutes();
+  return routes.GET(req, context);
+};
 
