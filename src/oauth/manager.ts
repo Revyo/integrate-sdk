@@ -186,6 +186,10 @@ export class OAuthManager {
 
   /**
    * Check authorization status for a provider
+   * Returns whether a token exists locally (stateless check)
+   * 
+   * Note: This only checks if a token exists locally, not if it's valid.
+   * Token validation happens when making actual API calls.
    * 
    * @param provider - OAuth provider to check
    * @returns Authorization status
@@ -194,7 +198,7 @@ export class OAuthManager {
    * ```typescript
    * const status = await oauthManager.checkAuthStatus('github');
    * if (status.authorized) {
-   *   console.log('GitHub is authorized');
+   *   console.log('GitHub token exists locally');
    * }
    * ```
    */
@@ -208,32 +212,14 @@ export class OAuthManager {
       };
     }
 
-    try {
-      const url = `${this.oauthApiBase}/status?provider=${encodeURIComponent(provider)}`;
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${tokenData.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        return {
-          authorized: false,
-          provider,
-        };
-      }
-
-      const status = await response.json() as AuthStatus;
-      return { ...status, provider };
-    } catch (error) {
-      console.error('Failed to check auth status:', error);
-      return {
-        authorized: false,
-        provider,
-      };
-    }
+    // Return local token status without server validation
+    // Token validity will be checked when making actual API calls
+    return {
+      authorized: true,
+      provider,
+      scopes: tokenData.scopes,
+      expiresAt: tokenData.expiresAt,
+    };
   }
 
   /**

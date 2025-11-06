@@ -93,81 +93,63 @@ describe("OAuth Manager", () => {
   });
 
   describe("checkAuthStatus", () => {
-    test("returns unauthorized when no access token", async () => {
-      // Mock fetch to return unauthorized
-      global.fetch = mock(async () => ({
-        ok: false,
-        status: 401,
-        json: async () => ({ authorized: false }),
-      })) as any;
-
+    test("returns unauthorized when no token exists locally", async () => {
       const status = await manager.checkAuthStatus("github");
       
       expect(status.authorized).toBe(false);
+      expect(status.provider).toBe("github");
     });
 
-    test("returns authorized when access token is valid", async () => {
+    test("returns authorized when token exists locally", async () => {
       manager.setProviderToken("github", {
         accessToken: "valid-token",
         tokenType: "Bearer",
         expiresIn: 3600,
+        scopes: ["repo", "user"],
       });
+
+      const status = await manager.checkAuthStatus("github");
       
-      global.fetch = mock(async () => ({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          authorized: true,
-          scopes: ["repo", "user"],
-          expiresAt: "2024-12-31T23:59:59Z",
-        }),
-      })) as any;
+      expect(status.authorized).toBe(true);
+      expect(status.provider).toBe("github");
+      expect(status.scopes).toEqual(["repo", "user"]);
+    });
+
+    test("includes token metadata when available", async () => {
+      const expiresAt = "2024-12-31T23:59:59Z";
+      manager.setProviderToken("github", {
+        accessToken: "token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+        scopes: ["repo", "user"],
+        expiresAt,
+      });
 
       const status = await manager.checkAuthStatus("github");
       
       expect(status.authorized).toBe(true);
       expect(status.scopes).toEqual(["repo", "user"]);
+      expect(status.expiresAt).toBe(expiresAt);
     });
 
-    test("handles network errors gracefully", async () => {
+    test("performs local check without server call", async () => {
+      // Set up a token
       manager.setProviderToken("github", {
         accessToken: "token",
         tokenType: "Bearer",
         expiresIn: 3600,
       });
-      
+
+      // Mock fetch to throw - if it's called, test will fail
       global.fetch = mock(async () => {
-        throw new Error("Network error");
+        throw new Error("Should not call server for auth status");
       }) as any;
 
       const status = await manager.checkAuthStatus("github");
       
-      expect(status.authorized).toBe(false);
-    });
-
-    test("includes access token in request header", async () => {
-      const accessToken = "test-access-token";
-      manager.setProviderToken("github", {
-        accessToken,
-        tokenType: "Bearer",
-        expiresIn: 3600,
-      });
-      
-      let capturedHeaders: Headers | undefined;
-      
-      global.fetch = mock(async (url, options: any) => {
-        capturedHeaders = options?.headers;
-        return {
-          ok: true,
-          json: async () => ({ authorized: true }),
-        };
-      }) as any;
-
-      await manager.checkAuthStatus("github");
-      
-      expect(capturedHeaders).toBeDefined();
-      // Verify it includes Authorization header
-      expect(capturedHeaders).toBeTruthy();
+      // Should return authorized without calling server
+      expect(status.authorized).toBe(true);
+      expect(global.fetch).not.toHaveBeenCalled();
     });
   });
 
