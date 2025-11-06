@@ -98,7 +98,7 @@ describe("Plugin System", () => {
         clientSecret: "test-secret",
       });
 
-      expect(plugin.oauth?.provider).toBe("google");
+      expect(plugin.oauth?.provider).toBe("gmail");
       expect(plugin.oauth?.clientId).toBe("test-id");
       expect(plugin.oauth?.clientSecret).toBe("test-secret");
     });

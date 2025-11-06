@@ -226,7 +226,7 @@ describe("Client Methods", () => {
 
       // Initially not authenticated (no tokens)
       expect(client.isProviderAuthenticated("github")).toBe(false);
-      expect(client.isProviderAuthenticated("google")).toBe(false);
+      expect(client.isProviderAuthenticated("gmail")).toBe(false);
 
       // Set tokens for providers
       client.setProviderToken('github', {
@@ -234,7 +234,7 @@ describe("Client Methods", () => {
         tokenType: 'Bearer',
         expiresIn: 3600,
       });
-      client.setProviderToken('google', {
+      client.setProviderToken('gmail', {
         accessToken: 'test-google-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
@@ -242,7 +242,7 @@ describe("Client Methods", () => {
 
       // Now authenticated
       expect(client.isProviderAuthenticated("github")).toBe(true);
-      expect(client.isProviderAuthenticated("google")).toBe(true);
+      expect(client.isProviderAuthenticated("gmail")).toBe(true);
     });
   });
 

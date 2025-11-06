@@ -99,7 +99,7 @@ describe("Storage and Cleanup", () => {
       };
       
       mockLocalStorage.set('integrate_token_github', JSON.stringify(githubToken));
-      mockLocalStorage.set('integrate_token_google', JSON.stringify(gmailToken));
+      mockLocalStorage.set('integrate_token_gmail', JSON.stringify(gmailToken));
 
       const client = createMCPClient({
         plugins: [
@@ -117,7 +117,7 @@ describe("Storage and Cleanup", () => {
 
       // Should load both tokens from storage
       expect(client.getProviderToken('github')).toEqual(githubToken);
-      expect(client.getProviderToken('google')).toEqual(gmailToken);
+      expect(client.getProviderToken('gmail')).toEqual(gmailToken);
     });
 
     test("handles missing localStorage gracefully", () => {
@@ -206,7 +206,7 @@ describe("Storage and Cleanup", () => {
         tokenType: 'Bearer',
         expiresIn: 3600,
       });
-      client.setProviderToken('google', {
+      client.setProviderToken('gmail', {
         accessToken: 'gmail-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
@@ -216,7 +216,7 @@ describe("Storage and Cleanup", () => {
 
       // Gmail token should still exist
       expect(client.getProviderToken('github')).toBeUndefined();
-      expect(client.getProviderToken('google')).toBeDefined();
+      expect(client.getProviderToken('gmail')).toBeDefined();
     });
 
     test("all tokens clear after logout", async () => {
@@ -501,9 +501,9 @@ describe("Storage and Cleanup", () => {
 
       // Auth states should exist but be false
       expect(client.getAuthState('github')).toBeDefined();
-      expect(client.getAuthState('google')).toBeDefined();
+      expect(client.getAuthState('gmail')).toBeDefined();
       expect(client.isProviderAuthenticated('github')).toBe(false);
-      expect(client.isProviderAuthenticated('google')).toBe(false);
+      expect(client.isProviderAuthenticated('gmail')).toBe(false);
     });
 
     test("disconnectProvider only affects specified provider", async () => {
@@ -527,7 +527,7 @@ describe("Storage and Cleanup", () => {
         tokenType: 'Bearer',
         expiresIn: 3600,
       });
-      client.setProviderToken('google', {
+      client.setProviderToken('gmail', {
         accessToken: 'gmail-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
@@ -536,7 +536,7 @@ describe("Storage and Cleanup", () => {
       await client.disconnectProvider('github');
 
       const githubState = client.getAuthState('github');
-      const gmailState = client.getAuthState('google');
+      const gmailState = client.getAuthState('gmail');
 
       expect(githubState?.authenticated).toBe(false);
       expect(gmailState?.authenticated).toBe(true);

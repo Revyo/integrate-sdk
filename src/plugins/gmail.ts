@@ -68,7 +68,7 @@ const GMAIL_TOOLS = [
  */
 export function gmailPlugin(config: GmailPluginConfig): MCPPlugin {
   const oauth: OAuthConfig = {
-    provider: "google",
+    provider: "gmail",
     clientId: config.clientId,
     clientSecret: config.clientSecret,
     scopes: config.scopes || [

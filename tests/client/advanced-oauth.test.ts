@@ -311,7 +311,7 @@ describe("Advanced OAuth Features", () => {
         tokenType: 'Bearer',
         expiresIn: 3600,
       });
-      client.setProviderToken('google', {
+      client.setProviderToken('gmail', {
         accessToken: 'gmail-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
@@ -319,19 +319,19 @@ describe("Advanced OAuth Features", () => {
 
       // Both should be authenticated after setting tokens
       expect(client.isProviderAuthenticated("github")).toBe(true);
-      expect(client.isProviderAuthenticated("google")).toBe(true);
+      expect(client.isProviderAuthenticated("gmail")).toBe(true);
 
       // Disconnect one
       await client.disconnectProvider("github");
 
       expect(client.isProviderAuthenticated("github")).toBe(false);
-      expect(client.isProviderAuthenticated("google")).toBe(true);
+      expect(client.isProviderAuthenticated("gmail")).toBe(true);
 
       // Logout all
       await client.logout();
 
       expect(client.isProviderAuthenticated("github")).toBe(false);
-      expect(client.isProviderAuthenticated("google")).toBe(false);
+      expect(client.isProviderAuthenticated("gmail")).toBe(false);
 
       // Restore fetch
       global.fetch = originalFetch;
@@ -569,7 +569,7 @@ describe("Advanced OAuth Features", () => {
       expect(githubConfig?.provider).toBe("github");
       
       const gmailConfig = configs.get("gmail");
-      expect(gmailConfig?.provider).toBe("google");
+      expect(gmailConfig?.provider).toBe("gmail");
     });
   });
 
