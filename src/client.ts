@@ -856,17 +856,26 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    * Opens authorization URL in popup or redirects based on configuration
    * 
    * @param provider - Provider name (github, gmail, etc.)
+   * @param options - Optional configuration for the authorization flow
+   * @param options.returnUrl - URL to redirect to after OAuth completion (for redirect mode)
    * 
    * @example
    * ```typescript
-   * // Popup flow
+   * // Basic usage - popup flow
    * await client.authorize('github');
    * 
-   * // Redirect flow
-   * await client.authorize('github'); // User is redirected away
+   * // Redirect flow with custom return URL
+   * await client.authorize('github', { 
+   *   returnUrl: '/marketplace/github' 
+   * });
+   * 
+   * // Auto-detect current location
+   * await client.authorize('github', { 
+   *   returnUrl: window.location.pathname 
+   * });
    * ```
    */
-  async authorize(provider: string): Promise<void> {
+  async authorize(provider: string, options?: { returnUrl?: string }): Promise<void> {
     const plugin = this.plugins.find(p => p.oauth?.provider === provider);
     
     if (!plugin?.oauth) {
@@ -879,7 +888,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     this.eventEmitter.emit('auth:started', { provider });
 
     try {
-      await this.oauthManager.initiateFlow(provider, plugin.oauth);
+      await this.oauthManager.initiateFlow(provider, plugin.oauth, options?.returnUrl);
 
       // Get the provider token after authorization
       const tokenData = this.oauthManager.getProviderToken(provider);

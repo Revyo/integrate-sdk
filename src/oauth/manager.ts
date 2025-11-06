@@ -12,7 +12,7 @@ import type {
   OAuthCallbackResponse,
   ProviderTokenData,
 } from "./types.js";
-import { generateCodeVerifier, generateCodeChallenge, generateState } from "./pkce.js";
+import { generateCodeVerifier, generateCodeChallenge, generateStateWithReturnUrl } from "./pkce.js";
 import { OAuthWindowManager } from "./window-manager.js";
 
 /**
@@ -47,23 +47,28 @@ export class OAuthManager {
    * 
    * @param provider - OAuth provider (github, gmail, etc.)
    * @param config - OAuth configuration
+   * @param returnUrl - Optional URL to redirect to after OAuth completion
    * @returns Promise that resolves when authorization is complete
    * 
    * @example
    * ```typescript
+   * // Basic flow
    * await oauthManager.initiateFlow('github', {
    *   provider: 'github',
    *   clientId: 'abc123',
    *   clientSecret: 'secret',
    *   scopes: ['repo', 'user']
    * });
+   * 
+   * // With return URL
+   * await oauthManager.initiateFlow('github', config, '/marketplace/github');
    * ```
    */
-  async initiateFlow(provider: string, config: OAuthConfig): Promise<void> {
+  async initiateFlow(provider: string, config: OAuthConfig, returnUrl?: string): Promise<void> {
     // 1. Generate PKCE parameters
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
-    const state = generateState();
+    const state = generateStateWithReturnUrl(returnUrl);
 
     // 2. Store pending auth
     const pendingAuth: PendingAuth = {
@@ -73,6 +78,7 @@ export class OAuthManager {
       codeChallenge,
       scopes: config.scopes,
       redirectUri: config.redirectUri,
+      returnUrl,
       initiatedAt: Date.now(),
     };
     this.pendingAuths.set(state, pendingAuth);
