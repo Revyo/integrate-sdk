@@ -224,7 +224,11 @@ export class OAuthManager {
 
   /**
    * Disconnect a specific provider
-   * Makes a server-side call to revoke authorization for the provider
+   * Clears the local token for the provider (stateless operation)
+   * 
+   * Note: This only clears the local token. It does not revoke the token
+   * on the provider's side. For full revocation, handle that separately
+   * in your application if needed.
    * 
    * @param provider - OAuth provider to disconnect
    * @returns Promise that resolves when disconnection is complete
@@ -232,7 +236,7 @@ export class OAuthManager {
    * @example
    * ```typescript
    * await oauthManager.disconnectProvider('github');
-   * // GitHub is now disconnected server-side
+   * // GitHub token is now cleared locally
    * ```
    */
   async disconnectProvider(provider: string): Promise<void> {
@@ -242,30 +246,9 @@ export class OAuthManager {
       throw new Error(`No access token available for provider "${provider}". Cannot disconnect provider.`);
     }
 
-    try {
-      const url = `${this.oauthApiBase}/disconnect`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tokenData.accessToken}`,
-        },
-        body: JSON.stringify({ provider }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to disconnect provider: ${errorText}`);
-      }
-      
-      // Clear provider token after successful disconnection
-      this.providerTokens.delete(provider);
-      this.clearProviderToken(provider);
-    } catch (error) {
-      console.error('Failed to disconnect provider:', error);
-      throw error;
-    }
+    // Clear provider token locally (stateless)
+    this.providerTokens.delete(provider);
+    this.clearProviderToken(provider);
   }
 
   /**

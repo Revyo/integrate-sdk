@@ -239,12 +239,6 @@ describe("OAuth Features", () => {
     });
 
     test("resets authentication state for provider with access token", async () => {
-      // Mock fetch for disconnect call
-      const originalFetch = global.fetch;
-      global.fetch = mock(async () => {
-        return new Response(null, { status: 200 });
-      }) as any;
-
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -264,21 +258,13 @@ describe("OAuth Features", () => {
 
       expect(client.isProviderAuthenticated("github")).toBe(true);
 
+      // Disconnect clears token locally without server call
       await client.disconnectProvider("github");
 
       expect(client.isProviderAuthenticated("github")).toBe(false);
-
-      // Restore fetch
-      global.fetch = originalFetch;
     });
 
     test("emits auth:disconnect event", async () => {
-      // Mock fetch for disconnect call
-      const originalFetch = global.fetch;
-      global.fetch = mock(async () => {
-        return new Response(null, { status: 200 });
-      }) as any;
-
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -305,18 +291,9 @@ describe("OAuth Features", () => {
 
       expect(disconnectEvent).toBeDefined();
       expect(disconnectEvent.provider).toBe("github");
-
-      // Restore fetch
-      global.fetch = originalFetch;
     });
 
     test("disconnects single provider while keeping others", async () => {
-      // Mock fetch for disconnect call
-      const originalFetch = global.fetch;
-      global.fetch = mock(async () => {
-        return new Response(null, { status: 200 });
-      }) as any;
-
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -350,18 +327,9 @@ describe("OAuth Features", () => {
 
       expect(client.isProviderAuthenticated("github")).toBe(false);
       expect(client.isProviderAuthenticated("google")).toBe(true);
-
-      // Restore fetch
-      global.fetch = originalFetch;
     });
 
     test("clears only disconnected provider token", async () => {
-      // Mock fetch for disconnect call
-      const originalFetch = global.fetch;
-      global.fetch = mock(async () => {
-        return new Response(null, { status: 200 });
-      }) as any;
-
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -392,18 +360,9 @@ describe("OAuth Features", () => {
 
       expect(client.getProviderToken("github")).toBeUndefined();
       expect(client.getProviderToken("google")).toBeDefined();
-
-      // Restore fetch
-      global.fetch = originalFetch;
     });
 
-    test("emits error event on disconnect failure", async () => {
-      // Mock fetch to fail
-      const originalFetch = global.fetch;
-      global.fetch = mock(async () => {
-        return new Response("Server error", { status: 500 });
-      }) as any;
-
+    test("performs local disconnect without server call", async () => {
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -421,19 +380,15 @@ describe("OAuth Features", () => {
         expiresIn: 3600,
       });
 
-      let errorEvent: any = null;
-      client.on("auth:error", (event) => {
-        errorEvent = event;
-      });
+      // Mock fetch to throw - if it's called, test will fail
+      global.fetch = mock(async () => {
+        throw new Error("Should not call server for disconnect");
+      }) as any;
 
-      await expect(client.disconnectProvider("github")).rejects.toThrow();
+      await client.disconnectProvider("github");
 
-      expect(errorEvent).toBeDefined();
-      expect(errorEvent.provider).toBe("github");
-      expect(errorEvent.error).toBeDefined();
-
-      // Restore fetch
-      global.fetch = originalFetch;
+      expect(client.getProviderToken("github")).toBeUndefined();
+      expect(global.fetch).not.toHaveBeenCalled();
     });
   });
 

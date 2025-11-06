@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "Type-safe TypeScript SDK for MCP Client with plugin-based OAuth provider configuration",
   "type": "module",
   "main": "./dist/index.js",

@@ -186,12 +186,6 @@ describe("Storage and Cleanup", () => {
 
   describe("Token Persistence Across Operations", () => {
     test("other provider tokens persist after disconnectProvider", async () => {
-      // Mock fetch for disconnect call
-      const originalFetch = global.fetch;
-      global.fetch = mock(async () => {
-        return new Response(null, { status: 200 });
-      }) as any;
-
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -223,9 +217,6 @@ describe("Storage and Cleanup", () => {
       // Gmail token should still exist
       expect(client.getProviderToken('github')).toBeUndefined();
       expect(client.getProviderToken('google')).toBeDefined();
-
-      // Restore fetch
-      global.fetch = originalFetch;
     });
 
     test("all tokens clear after logout", async () => {
@@ -399,12 +390,6 @@ describe("Storage and Cleanup", () => {
     });
 
     test("disconnecting provider in one instance does not affect others", async () => {
-      // Mock fetch for disconnect call
-      const originalFetch = global.fetch;
-      global.fetch = mock(async () => {
-        return new Response(null, { status: 200 });
-      }) as any;
-
       const client1 = createMCPClient({
         plugins: [
           githubPlugin({
@@ -441,9 +426,6 @@ describe("Storage and Cleanup", () => {
 
       expect(client1.isProviderAuthenticated('github')).toBe(false);
       expect(client2.isProviderAuthenticated('github')).toBe(true);
-
-      // Restore fetch
-      global.fetch = originalFetch;
     });
   });
 
@@ -525,12 +507,6 @@ describe("Storage and Cleanup", () => {
     });
 
     test("disconnectProvider only affects specified provider", async () => {
-      // Mock fetch for disconnect call
-      const originalFetch = global.fetch;
-      global.fetch = mock(async () => {
-        return new Response(null, { status: 200 });
-      }) as any;
-
       const client = createMCPClient({
         plugins: [
           githubPlugin({
@@ -564,9 +540,6 @@ describe("Storage and Cleanup", () => {
 
       expect(githubState?.authenticated).toBe(false);
       expect(gmailState?.authenticated).toBe(true);
-
-      // Restore fetch
-      global.fetch = originalFetch;
     });
   });
 });
