@@ -99,6 +99,72 @@ export function generateState(): string {
 }
 
 /**
+ * Generate a state parameter with optional return URL
+ * Encodes both CSRF token and return URL for dynamic post-OAuth redirects
+ * 
+ * @param returnUrl - Optional URL to redirect to after OAuth completion
+ * @returns A state string encoding both CSRF token and returnUrl
+ * 
+ * @example
+ * ```typescript
+ * // Simple state without return URL
+ * const state = generateStateWithReturnUrl();
+ * 
+ * // State with return URL
+ * const state = generateStateWithReturnUrl('/marketplace/github');
+ * ```
+ */
+export function generateStateWithReturnUrl(returnUrl?: string): string {
+  const csrf = generateState(); // Generate random CSRF token
+  const stateData = returnUrl ? { csrf, returnUrl } : { csrf };
+  
+  // Encode the state data as JSON, then base64url encode it
+  const encoder = new TextEncoder();
+  const jsonBytes = encoder.encode(JSON.stringify(stateData));
+  return base64UrlEncode(jsonBytes);
+}
+
+/**
+ * Parse a state parameter to extract CSRF token and optional return URL
+ * Handles both old format (plain string) and new format (JSON object)
+ * 
+ * @param state - The state parameter to parse
+ * @returns Object containing csrf token and optional returnUrl
+ * 
+ * @example
+ * ```typescript
+ * const stateData = parseState(state);
+ * console.log(stateData.csrf); // CSRF token
+ * console.log(stateData.returnUrl); // Return URL (if present)
+ * ```
+ */
+export function parseState(state: string): { csrf: string; returnUrl?: string } {
+  try {
+    const decoded = base64UrlDecode(state);
+    const parsed = JSON.parse(decoded);
+    
+    // Handle both old (string) and new (object) state formats
+    if (typeof parsed === 'string') {
+      // Old format: plain CSRF token
+      return { csrf: parsed };
+    } else if (parsed && typeof parsed === 'object') {
+      // New format: { csrf, returnUrl? }
+      return {
+        csrf: parsed.csrf || state, // Fallback to original state if no csrf field
+        returnUrl: parsed.returnUrl,
+      };
+    }
+    
+    // Fallback: treat as plain CSRF token
+    return { csrf: state };
+  } catch {
+    // If parsing fails (invalid JSON or base64), treat as plain CSRF token
+    // This maintains backward compatibility with old state parameters
+    return { csrf: state };
+  }
+}
+
+/**
  * Base64url encode a Uint8Array
  * Base64url encoding uses URL-safe characters (no +, /, =)
  * 
@@ -123,5 +189,38 @@ function base64UrlEncode(array: Uint8Array): string {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '');
+}
+
+/**
+ * Base64url decode a string to UTF-8 text
+ * Reverses base64url encoding and converts to string
+ * 
+ * @param str - The base64url-encoded string to decode
+ * @returns Decoded UTF-8 string
+ */
+function base64UrlDecode(str: string): string {
+  // Convert base64url to base64
+  let base64 = str
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  
+  // Add padding if needed
+  while (base64.length % 4 !== 0) {
+    base64 += '=';
+  }
+  
+  if (typeof Buffer !== 'undefined') {
+    // Node.js
+    return Buffer.from(base64, 'base64').toString('utf-8');
+  } else {
+    // Browser
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const decoder = new TextDecoder();
+    return decoder.decode(bytes);
+  }
 }
 

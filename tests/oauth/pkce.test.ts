@@ -7,6 +7,8 @@ import {
   generateCodeVerifier,
   generateCodeChallenge,
   generateState,
+  generateStateWithReturnUrl,
+  parseState,
 } from "../../src/oauth/pkce.js";
 
 describe("PKCE Utilities", () => {
@@ -132,6 +134,163 @@ describe("PKCE Utilities", () => {
     });
   });
 
+  describe("generateStateWithReturnUrl", () => {
+    test("generates state without return URL", () => {
+      const state = generateStateWithReturnUrl();
+      
+      expect(state).toBeDefined();
+      expect(typeof state).toBe("string");
+      expect(state.length).toBeGreaterThan(0);
+      expect(state).not.toMatch(/[+/=]/);
+    });
+
+    test("generates state with return URL", () => {
+      const returnUrl = "/marketplace/github";
+      const state = generateStateWithReturnUrl(returnUrl);
+      
+      expect(state).toBeDefined();
+      expect(typeof state).toBe("string");
+      expect(state.length).toBeGreaterThan(0);
+      expect(state).not.toMatch(/[+/=]/);
+    });
+
+    test("generates unique states even with same return URL", () => {
+      const returnUrl = "/marketplace/github";
+      const state1 = generateStateWithReturnUrl(returnUrl);
+      const state2 = generateStateWithReturnUrl(returnUrl);
+      
+      expect(state1).not.toBe(state2);
+    });
+
+    test("encodes return URL properly", () => {
+      const returnUrl = "/marketplace/github?tab=integrations";
+      const state = generateStateWithReturnUrl(returnUrl);
+      
+      // Should be base64url encoded
+      expect(state).toMatch(/^[A-Za-z0-9_-]+$/);
+      
+      // Should be decodable
+      const decoded = parseState(state);
+      expect(decoded.returnUrl).toBe(returnUrl);
+    });
+
+    test("handles complex return URLs", () => {
+      const returnUrl = "/path/with/multiple/segments?param1=value1&param2=value2#hash";
+      const state = generateStateWithReturnUrl(returnUrl);
+      
+      const decoded = parseState(state);
+      expect(decoded.returnUrl).toBe(returnUrl);
+    });
+  });
+
+  describe("parseState", () => {
+    test("parses state without return URL", () => {
+      const state = generateStateWithReturnUrl();
+      const decoded = parseState(state);
+      
+      expect(decoded).toBeDefined();
+      expect(decoded.csrf).toBeDefined();
+      expect(typeof decoded.csrf).toBe("string");
+      expect(decoded.returnUrl).toBeUndefined();
+    });
+
+    test("parses state with return URL", () => {
+      const returnUrl = "/marketplace/github";
+      const state = generateStateWithReturnUrl(returnUrl);
+      const decoded = parseState(state);
+      
+      expect(decoded.csrf).toBeDefined();
+      expect(decoded.returnUrl).toBe(returnUrl);
+    });
+
+    test("handles legacy plain string state format", () => {
+      const plainState = "plain-csrf-token-12345";
+      const decoded = parseState(plainState);
+      
+      expect(decoded.csrf).toBe(plainState);
+      expect(decoded.returnUrl).toBeUndefined();
+    });
+
+    test("handles old generateState() format for backward compatibility", () => {
+      const oldState = generateState();
+      const decoded = parseState(oldState);
+      
+      expect(decoded.csrf).toBeDefined();
+      expect(decoded.returnUrl).toBeUndefined();
+    });
+
+    test("returns csrf from invalid base64 gracefully", () => {
+      const invalidState = "!!!invalid-base64!!!";
+      const decoded = parseState(invalidState);
+      
+      expect(decoded.csrf).toBe(invalidState);
+      expect(decoded.returnUrl).toBeUndefined();
+    });
+
+    test("round-trip encoding/decoding preserves data", () => {
+      const returnUrl = "/marketplace/github";
+      const state = generateStateWithReturnUrl(returnUrl);
+      const decoded = parseState(state);
+      
+      expect(decoded.csrf).toBeDefined();
+      expect(decoded.csrf.length).toBeGreaterThan(0);
+      expect(decoded.returnUrl).toBe(returnUrl);
+    });
+
+    test("round-trip without return URL preserves CSRF", () => {
+      const state = generateStateWithReturnUrl();
+      const decoded = parseState(state);
+      
+      expect(decoded.csrf).toBeDefined();
+      expect(decoded.csrf.length).toBeGreaterThan(0);
+      expect(decoded.returnUrl).toBeUndefined();
+    });
+  });
+
+  describe("Dynamic Return URL Integration", () => {
+    test("different return URLs produce different states", () => {
+      const state1 = generateStateWithReturnUrl("/page1");
+      const state2 = generateStateWithReturnUrl("/page2");
+      
+      expect(state1).not.toBe(state2);
+      
+      const decoded1 = parseState(state1);
+      const decoded2 = parseState(state2);
+      
+      expect(decoded1.returnUrl).toBe("/page1");
+      expect(decoded2.returnUrl).toBe("/page2");
+    });
+
+    test("handles URL-encoded characters in return URL", () => {
+      const returnUrl = "/search?q=hello%20world&filter=active";
+      const state = generateStateWithReturnUrl(returnUrl);
+      const decoded = parseState(state);
+      
+      expect(decoded.returnUrl).toBe(returnUrl);
+    });
+
+    test("handles empty string return URL", () => {
+      const state = generateStateWithReturnUrl("");
+      const decoded = parseState(state);
+      
+      // Empty string is falsy, so it's not included (treated as no return URL)
+      expect(decoded.csrf).toBeDefined();
+      expect(decoded.returnUrl).toBeUndefined();
+    });
+
+    test("CSRF tokens are unique even with same return URL", () => {
+      const returnUrl = "/marketplace";
+      const state1 = generateStateWithReturnUrl(returnUrl);
+      const state2 = generateStateWithReturnUrl(returnUrl);
+      
+      const decoded1 = parseState(state1);
+      const decoded2 = parseState(state2);
+      
+      expect(decoded1.csrf).not.toBe(decoded2.csrf);
+      expect(decoded1.returnUrl).toBe(decoded2.returnUrl);
+    });
+  });
+
   describe("PKCE Flow Integration", () => {
     test("complete PKCE flow generates valid parameters", async () => {
       // Generate all PKCE parameters
@@ -164,6 +323,21 @@ describe("PKCE Utilities", () => {
       expect(verifier1).not.toBe(verifier2);
       expect(challenge1).not.toBe(challenge2);
       expect(state1).not.toBe(state2);
+    });
+
+    test("complete PKCE flow with return URL", async () => {
+      const returnUrl = "/marketplace/github";
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = await generateCodeChallenge(codeVerifier);
+      const state = generateStateWithReturnUrl(returnUrl);
+      
+      expect(codeVerifier).toBeDefined();
+      expect(codeChallenge).toBeDefined();
+      expect(state).toBeDefined();
+      
+      const decoded = parseState(state);
+      expect(decoded.csrf).toBeDefined();
+      expect(decoded.returnUrl).toBe(returnUrl);
     });
   });
 });

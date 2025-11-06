@@ -10,7 +10,7 @@ export type { ToolInvocationOptions } from "./client.js";
 // OAuth utilities
 export { OAuthManager } from "./oauth/manager.js";
 export { OAuthWindowManager, sendCallbackToOpener } from "./oauth/window-manager.js";
-export { generateCodeVerifier, generateCodeChallenge, generateState } from "./oauth/pkce.js";
+export { generateCodeVerifier, generateCodeChallenge, generateState, generateStateWithReturnUrl, parseState } from "./oauth/pkce.js";
 export type {
   OAuthFlowConfig,
   PopupOptions,

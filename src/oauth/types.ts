@@ -56,6 +56,8 @@ export interface PendingAuth {
   scopes: string[];
   /** Redirect URI */
   redirectUri?: string;
+  /** Return URL - where to redirect after OAuth completion */
+  returnUrl?: string;
   /** Timestamp when auth was initiated */
   initiatedAt: number;
 }
