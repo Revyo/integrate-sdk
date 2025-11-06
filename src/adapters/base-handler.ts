@@ -97,7 +97,12 @@ export interface DisconnectResponse {
 export class OAuthHandler {
   private readonly serverUrl = MCP_SERVER_URL;
   
-  constructor(private config: OAuthHandlerConfig) {}
+  constructor(private config: OAuthHandlerConfig) {
+    // Validate config on initialization
+    if (!config || !config.providers) {
+      throw new Error('OAuthHandler requires a valid config with providers');
+    }
+  }
 
   /**
    * Handle authorization URL request
@@ -109,7 +114,7 @@ export class OAuthHandler {
    * @throws Error if provider is not configured
    * @throws Error if MCP server request fails
    */
-  async handleAuthorize(request: AuthorizeRequest): Promise<AuthorizeResponse> {
+  async handleAuthorize(request: AuthorizeRequest): Promise<AuthorizeResponse> {    
     // Get OAuth config from environment (server-side)
     const providerConfig = this.config.providers[request.provider];
     if (!providerConfig) {
@@ -162,8 +167,11 @@ export class OAuthHandler {
    * @throws Error if MCP server request fails
    */
   async handleCallback(request: CallbackRequest): Promise<CallbackResponse> {
+    // Debug: Log what we're trying to access
+    
     // Get OAuth config from environment (server-side)
     const providerConfig = this.config.providers[request.provider];
+
     if (!providerConfig) {
       throw new Error(`Provider ${request.provider} not configured. Add OAuth credentials to your API route configuration.`);
     }

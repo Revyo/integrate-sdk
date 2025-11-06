@@ -6,6 +6,7 @@
 import { MCPClient } from './client.js';
 import type { MCPClientConfig } from './config/types.js';
 import type { MCPPlugin } from './plugins/types.js';
+import { createNextOAuthHandler } from './adapters/nextjs.js';
 
 /**
  * Create MCP Server instance with OAuth secrets
@@ -101,7 +102,6 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
  * Internal function used by createMCPServer
  */
 function createOAuthRouteHandlers(config: { providers: Record<string, any> }) {
-  const { createNextOAuthHandler } = require('./adapters/nextjs.js');
   const handler = createNextOAuthHandler(config);
   return handler.createRoutes();
 }

@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Type-safe TypeScript SDK for MCP Client with plugin-based OAuth provider configuration",
   "type": "module",
   "main": "./dist/index.js",
@@ -43,8 +43,7 @@
     "test:watch": "bun test --watch tests/",
     "test:unit": "bun test tests/protocol tests/plugins tests/client tests/integrations tests/oauth tests/transport tests/utils tests/errors",
     "test:integration": "bun test tests/integration/simple-integration.test.ts",
-    "test:coverage": "bun test --coverage tests/",
-    "prepare": "simple-git-hooks"
+    "test:coverage": "bun test --coverage tests/"
   },
   "keywords": [
     "mcp",
