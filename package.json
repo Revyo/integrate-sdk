@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Type-safe TypeScript SDK for MCP Client with plugin-based OAuth provider configuration",
   "type": "module",
   "main": "./dist/index.js",
@@ -35,6 +35,7 @@
     "oauth.ts"
   ],
   "scripts": {
+    "prep": "bun run type-check && bun run build",
     "build": "bun build index.ts server.ts oauth.ts --outdir dist --target node --format esm && bun run build:types",
     "build:types": "tsc --emitDeclarationOnly --declaration --declarationMap",
     "dev": "bun --watch src/index.ts",

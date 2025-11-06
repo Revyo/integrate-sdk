@@ -196,6 +196,7 @@ export class OAuthHandler {
         state: request.state,
         client_id: providerConfig.clientId,
         client_secret: providerConfig.clientSecret,
+        redirect_uri: providerConfig.redirectUri,
       }),
     });
 

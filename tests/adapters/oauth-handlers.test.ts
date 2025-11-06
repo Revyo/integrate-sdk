@@ -197,6 +197,49 @@ describe("OAuthHandler", () => {
       expect(mockFetch).toHaveBeenCalled();
     });
 
+    it("should send all required OAuth credentials including redirect_uri", async () => {
+      const mockFetch = mock(async (url: string, options?: any) => {
+        expect(url).toContain("/oauth/callback");
+        expect(options?.method).toBe("POST");
+        expect(options?.headers?.["Content-Type"]).toBe("application/json");
+
+        const body = JSON.parse(options?.body);
+        
+        // Verify all required OAuth parameters are present
+        expect(body.provider).toBe("github");
+        expect(body.code).toBe("auth-code-123");
+        expect(body.code_verifier).toBe("verifier-123");
+        expect(body.state).toBe("state-123");
+        
+        // Verify all three OAuth credentials are sent
+        expect(body.client_id).toBe("github-client-id");
+        expect(body.client_secret).toBe("github-client-secret");
+        expect(body.redirect_uri).toBe("https://app.com/callback");
+
+        return {
+          ok: true,
+          json: async () => ({
+            accessToken: "gho_123456",
+            tokenType: "Bearer",
+            expiresIn: 28800,
+          }),
+        } as Response;
+      });
+
+      global.fetch = mockFetch as any;
+
+      const request: CallbackRequest = {
+        provider: "github",
+        code: "auth-code-123",
+        codeVerifier: "verifier-123",
+        state: "state-123",
+      };
+
+      await handler.handleCallback(request);
+      
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
     it("should throw error when MCP server fails", async () => {
       const mockFetch = mock(async () => {
         return {
