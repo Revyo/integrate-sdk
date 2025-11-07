@@ -49,6 +49,42 @@ function getProviderForTool(client: MCPClient<any>, toolName: string): string | 
 }
 
 /**
+ * Normalize JSON Schema to ensure it's valid for Vercel AI SDK
+ * Handles edge cases like type: "None" or missing type
+ */
+function normalizeSchema(schema: any): any {
+  if (!schema || typeof schema !== 'object') {
+    return {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    };
+  }
+
+  // If type is "None" or null, convert to empty object schema
+  if (schema.type === 'None' || schema.type === null || schema.type === undefined) {
+    return {
+      type: 'object',
+      properties: schema.properties || {},
+      additionalProperties: schema.additionalProperties ?? false,
+      required: schema.required || [],
+    };
+  }
+
+  // Ensure type is "object" for Vercel AI SDK
+  if (schema.type !== 'object') {
+    return {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    };
+  }
+
+  // Schema looks valid, return as-is
+  return schema;
+}
+
+/**
  * Convert a single MCP tool to Vercel AI SDK format
  * 
  * @param mcpTool - The MCP tool definition
@@ -63,7 +99,7 @@ export function convertMCPToolToVercelAI(
 ): VercelAITool {
   return {
     description: mcpTool.description || `Execute ${mcpTool.name}`,
-    parameters: mcpTool.inputSchema, // MCP tools already use JSON Schema format
+    parameters: normalizeSchema(mcpTool.inputSchema), // Normalize schema for AI SDK
     execute: async (args: Record<string, unknown>) => {
       // If provider tokens are provided, inject the appropriate token
       if (options?.providerTokens) {

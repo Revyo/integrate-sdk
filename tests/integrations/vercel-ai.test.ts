@@ -283,6 +283,134 @@ describe("Vercel AI SDK Integration", () => {
     });
   });
 
+  describe("Schema normalization", () => {
+    test("handles type: 'None' schema", async () => {
+      const client = createMCPClient({
+        singleton: false,
+        plugins: [
+          createSimplePlugin({
+            id: "test",
+            tools: ["test_tool"],
+          }),
+        ],
+      });
+
+      const mockTool: MCPTool = {
+        name: "test_tool",
+        description: "Test",
+        inputSchema: { 
+          type: "None" as any, // Invalid type that some tools might have
+          properties: { id: { type: "string" } },
+        },
+      };
+
+      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
+      (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
+
+      const tools = await getVercelAITools(client);
+      
+      // Should normalize to proper object schema
+      expect(tools["test_tool"].parameters.type).toBe("object");
+      expect(tools["test_tool"].parameters.properties).toBeDefined();
+    });
+
+    test("handles missing type in schema", async () => {
+      const client = createMCPClient({
+        singleton: false,
+        plugins: [
+          createSimplePlugin({
+            id: "test",
+            tools: ["test_tool"],
+          }),
+        ],
+      });
+
+      const mockTool: MCPTool = {
+        name: "test_tool",
+        description: "Test",
+        inputSchema: { 
+          properties: { name: { type: "string" } },
+          // No type field
+        } as any,
+      };
+
+      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
+      (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
+
+      const tools = await getVercelAITools(client);
+      
+      // Should add type: "object"
+      expect(tools["test_tool"].parameters.type).toBe("object");
+      expect(tools["test_tool"].parameters.properties.name).toBeDefined();
+    });
+
+    test("handles null or invalid schema", async () => {
+      const client = createMCPClient({
+        singleton: false,
+        plugins: [
+          createSimplePlugin({
+            id: "test",
+            tools: ["test_tool"],
+          }),
+        ],
+      });
+
+      const mockTool: MCPTool = {
+        name: "test_tool",
+        description: "Test",
+        inputSchema: null as any,
+      };
+
+      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
+      (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
+
+      const tools = await getVercelAITools(client);
+      
+      // Should provide safe default schema
+      expect(tools["test_tool"].parameters.type).toBe("object");
+      expect(tools["test_tool"].parameters.properties).toEqual({});
+    });
+
+    test("preserves valid object schema", async () => {
+      const client = createMCPClient({
+        singleton: false,
+        plugins: [
+          createSimplePlugin({
+            id: "test",
+            tools: ["test_tool"],
+          }),
+        ],
+      });
+
+      const validSchema = {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          count: { type: "number" },
+        },
+        required: ["title"],
+      };
+
+      const mockTool: MCPTool = {
+        name: "test_tool",
+        description: "Test",
+        inputSchema: validSchema,
+      };
+
+      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
+      (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
+
+      const tools = await getVercelAITools(client);
+      
+      // Should preserve the valid schema as-is
+      expect(tools["test_tool"].parameters).toEqual(validSchema);
+    });
+  });
+
   describe("Server-side token passing", () => {
     test("accepts providerTokens option in getVercelAITools", async () => {
       const client = createMCPClient({
