@@ -1,3 +1,34 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+
+/* Fix Shiki code block styling - prevent nested blocks and add padding */
+/* Target Shiki's pre elements - they typically have inline styles or shiki class */
+pre.shiki,
+pre[class*='shiki'],
+pre[style*='background'] {
+  margin: 0 !important;
+  padding: 1rem !important;
+  background: #000 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  overflow: visible !important;
+}
+
+pre.shiki code,
+pre[class*='shiki'] code,
+pre[style*='background'] code {
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  display: block;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Ensure code elements inside pre don't create nested blocks */
+pre code {
+  display: block;
+  padding: 0;
+  margin: 0;
+}

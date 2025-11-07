@@ -13,16 +13,18 @@ import {
 
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
+import { Footer } from '@/components/footer';
 
 const layoutWidthClass = 'container mx-auto px-6 lg:px-12';
 
 const codeSample = `import {
-  createMCPClient,
+  createMCPServer,
   githubPlugin,
   gmailPlugin,
 } from 'integrate-sdk';
 
-const client = await createMCPClient({
+export const { client: serverClient } = createMCPServer({
+  redirectUri: 'http://localhost:3000',
   plugins: [
     githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID,
@@ -32,32 +34,31 @@ const client = await createMCPClient({
     gmailPlugin({
       clientId: process.env.GMAIL_CLIENT_ID,
       clientSecret: process.env.GMAIL_CLIENT_SECRET,
+      scopes: ['https://www.googleapis.com/auth/gmail.send'],
     }),
   ],
 });
 
-await client.connect();
 await client.github.createIssue({
   owner: 'integrate-dev',
   repo: 'roadmap',
   title: 'Ship agent hand-offs',
 });`;
 
-const vercelAICodeSample = `import { createMCPClient, githubPlugin, getVercelAITools } from "integrate-sdk";
+const vercelAICodeSample = `import { createMCPServer, githubPlugin, getVercelAITools } from "integrate-sdk";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 // 1. Create and connect MCP client
-const mcpClient = createMCPClient({
+const mcpClient = createMCPServer({
   plugins: [
     githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      scopes: ['repo', 'user'],
     }),
   ],
 });
-
-await mcpClient.connect();
 
 // 2. Get tools in Vercel AI SDK format
 const tools = getVercelAITools(mcpClient);
@@ -67,7 +68,7 @@ const result = await generateText({
   model: openai("gpt-5"),
   prompt: 'Create a GitHub issue titled "Bug in login" in myrepo',
   tools,
-  maxToolRoundtrips: 5,
+  maxSteps: 5,
 });
 
 console.log(result.text);`;
@@ -135,7 +136,7 @@ export default async function HomePage() {
     }),
     codeToHtml(codeSample, {
       lang: 'ts',
-      theme: 'min-dark',
+      theme: 'github-dark',
     }),
     codeToHtml(vercelAICodeSample, {
       lang: 'ts',
@@ -143,7 +144,7 @@ export default async function HomePage() {
     }),
     codeToHtml(vercelAICodeSample, {
       lang: 'ts',
-      theme: 'min-dark',
+      theme: 'github-dark',
     }),
   ]);
 
@@ -167,10 +168,10 @@ export default async function HomePage() {
                 Integrate SDK gives your AI systems a secure, typed gateway into third-party APIs. Configure plugins, stream MCP tool calls, and instrument everything with confidence.
               </p>
               <div className="flex flex-wrap gap-3">
-                <Link href="/docs/getting-started/quick-start" className={primaryCtaClass}>
+                <a href="https://app.integrate.dev" className={primaryCtaClass}>
                   Get started
                   <ArrowRight className="size-4" aria-hidden />
-                </Link>
+                </a>
                 <Link href="/docs" className={secondaryCtaClass}>
                   Explore the docs
                   <ArrowRight className="size-4" aria-hidden />
@@ -193,17 +194,15 @@ export default async function HomePage() {
             </div>
             <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white/80 shadow-xl backdrop-blur-sm dark:border-zinc-700/60 dark:bg-zinc-900/70">
               <div className="absolute -top-20 right-10 size-40 rounded-full bg-fuchsia-500/20 blur-2xl dark:bg-fuchsia-500/30" aria-hidden />
-              <div className="space-y-4 p-6 text-sm">
-                <div className="grid gap-0">
-                  <div
-                    className="hidden overflow-hidden rounded-xl border border-zinc-200 shadow-inner dark:block dark:border-zinc-700/60"
-                    dangerouslySetInnerHTML={{ __html: darkCodeHtml }}
-                  />
-                  <div
-                    className="block overflow-hidden rounded-xl border border-zinc-200 shadow-inner dark:hidden"
-                    dangerouslySetInnerHTML={{ __html: lightCodeHtml }}
-                  />
-                </div>
+              <div className="text-sm">
+                <div
+                  className="hidden dark:block"
+                  dangerouslySetInnerHTML={{ __html: darkCodeHtml }}
+                />
+                <div
+                  className="block dark:hidden"
+                  dangerouslySetInnerHTML={{ __html: lightCodeHtml }}
+                />
               </div>
             </div>
           </div>
@@ -212,7 +211,7 @@ export default async function HomePage() {
         <section
           className={cn(
             layoutWidthClass,
-            'grid gap-6 rounded-3xl border border-zinc-200 bg-white/70 p-10 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60 sm:grid-cols-3 sm:p-12',
+            'grid gap-6 md:rounded-3xl border border-zinc-200 bg-white/70 p-10 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60 sm:grid-cols-3 sm:p-12',
           )}
         >
           {featureHighlights.map((feature) => (
@@ -255,17 +254,15 @@ export default async function HomePage() {
             </ul>
           </div>
           <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white/80 shadow-xl backdrop-blur-sm dark:border-zinc-700/60 dark:bg-zinc-900/70">
-            <div className="space-y-4 p-6 text-sm">
-              <div className="grid gap-0">
-                <div
-                  className="hidden overflow-hidden rounded-xl border border-zinc-200 shadow-inner dark:block dark:border-zinc-700/60"
-                  dangerouslySetInnerHTML={{ __html: darkVercelAICodeHtml }}
-                />
-                <div
-                  className="block overflow-hidden rounded-xl border border-zinc-200 shadow-inner dark:hidden"
-                  dangerouslySetInnerHTML={{ __html: lightVercelAICodeHtml }}
-                />
-              </div>
+            <div className="text-sm">
+              <div
+                className="hidden dark:block"
+                dangerouslySetInnerHTML={{ __html: darkVercelAICodeHtml }}
+              />
+              <div
+                className="block dark:hidden"
+                dangerouslySetInnerHTML={{ __html: lightVercelAICodeHtml }}
+              />
             </div>
           </div>
         </section>
@@ -311,16 +308,16 @@ export default async function HomePage() {
           <div className="absolute inset-0 -z-10 bg-linear-to-br from-fuchsia-500/20 via-transparent to-blue-500/20 dark:from-fuchsia-500/25 dark:to-blue-500/25" />
           <div className="space-y-6">
             <h2 className="text-3xl font-semibold text-zinc-900 dark:text-white sm:text-4xl">
-              <span className="text-blue-500">Integrate</span> email, docs, calendars, and repos to equip your AI.
+              Integrate any app to equip your AI or app.
             </h2>
             <p className="mx-auto max-w-2xl text-base text-zinc-600 dark:text-zinc-300">
               Start with the Quick Start guide, wire up credentials in minutes, and empower your agents to act like senior operators across every SaaS your team relies on.
             </p>
             <div className="flex flex-wrap justify-center gap-3">
-              <Link href="/docs/getting-started/installation" className={primaryCtaClass}>
+              <a href="https://app.integrate.dev" className={primaryCtaClass}>
                 Get started
                 <ArrowRight className="size-4" aria-hidden />
-              </Link>
+              </a>
               <Link href="/docs/integrations/vercel-ai" className={secondaryCtaClass}>
                 See the Vercel AI guide
                 <ArrowRight className="size-4" aria-hidden />
@@ -330,75 +327,7 @@ export default async function HomePage() {
         </section>
       </main>
 
-      <footer className="mt-auto border-t border-zinc-200 bg-white/80 py-12 dark:border-zinc-800 dark:bg-zinc-950/60">
-        <div className={cn(layoutWidthClass, 'grid gap-10 text-sm text-zinc-600 dark:text-zinc-300 sm:grid-cols-2 lg:grid-cols-4')}>
-          <div className="space-y-3">
-            <p className="text-base font-semibold text-zinc-900 dark:text-white">Integrate SDK</p>
-            <p className="max-w-xs text-sm">
-              A type-safe TypeScript SDK for connecting AI systems to the Integrate MCP server.
-            </p>
-            <Link href="/docs" className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400">
-              Read the documentation
-              <ArrowRight className="size-4" aria-hidden />
-            </Link>
-          </div>
-          <div className="space-y-2">
-            <p className="font-semibold text-zinc-900 dark:text-white">Getting started</p>
-            <ul className="space-y-1">
-              <li>
-                <Link href="/docs/getting-started/installation" className="hover:text-blue-600 dark:hover:text-blue-400">
-                  Installation
-                </Link>
-              </li>
-              <li>
-                <Link href="/docs/getting-started/quick-start" className="hover:text-blue-600 dark:hover:text-blue-400">
-                  Quick Start
-                </Link>
-              </li>
-              <li>
-                <Link href="/docs/reference/api-reference" className="hover:text-blue-600 dark:hover:text-blue-400">
-                  API Reference
-                </Link>
-              </li>
-            </ul>
-          </div>
-          <div className="space-y-2">
-            <p className="font-semibold text-zinc-900 dark:text-white">Integrations</p>
-            <ul className="space-y-1">
-              <li>
-                <Link href="/docs/plugins" className="hover:text-blue-600 dark:hover:text-blue-400">
-                  Built-in Plugins
-                </Link>
-              </li>
-              <li>
-                <Link href="/docs/integrations/vercel-ai" className="hover:text-blue-600 dark:hover:text-blue-400">
-                  Vercel AI SDK
-                </Link>
-              </li>
-            </ul>
-          </div>
-          <div className="space-y-2">
-            <p className="font-semibold text-zinc-900 dark:text-white">Resources</p>
-            <ul className="space-y-1">
-              <li>
-                <Link href="/docs/reference/architecture" className="hover:text-blue-600 dark:hover:text-blue-400">
-                  Architecture
-                </Link>
-              </li>
-              <li>
-                <Link href="/docs/guides/advanced-usage" className="hover:text-blue-600 dark:hover:text-blue-400">
-                  Advanced usage
-                </Link>
-              </li>
-              <li>
-                <Link href="/docs" className="hover:text-blue-600 dark:hover:text-blue-400">
-                  Changelog (coming soon)
-                </Link>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
