@@ -179,8 +179,9 @@ describe("Vercel AI SDK Integration", () => {
   });
 
   describe("getVercelAITools", () => {
-    test("is an alias for convertMCPToolsToVercelAI", () => {
+    test("is an alias for convertMCPToolsToVercelAI", async () => {
       const client = createMCPClient({
+        singleton: false,
         plugins: [
           createSimplePlugin({
             id: "test",
@@ -197,8 +198,9 @@ describe("Vercel AI SDK Integration", () => {
 
       (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
       (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
 
-      const result1 = getVercelAITools(client);
+      const result1 = await getVercelAITools(client);
       const result2 = convertMCPToolsToVercelAI(client);
 
       expect(Object.keys(result1)).toEqual(Object.keys(result2));
@@ -282,8 +284,9 @@ describe("Vercel AI SDK Integration", () => {
   });
 
   describe("Server-side token passing", () => {
-    test("accepts providerTokens option in getVercelAITools", () => {
+    test("accepts providerTokens option in getVercelAITools", async () => {
       const client = createMCPClient({
+        singleton: false,
         plugins: [
           createSimplePlugin({
             id: "github",
@@ -300,8 +303,9 @@ describe("Vercel AI SDK Integration", () => {
 
       (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
       (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
 
-      const tools = getVercelAITools(client, {
+      const tools = await getVercelAITools(client, {
         providerTokens: { github: "test_token_123" },
       });
 
@@ -311,6 +315,7 @@ describe("Vercel AI SDK Integration", () => {
 
     test("injects provider token in Authorization header during tool execution", async () => {
       const client = createMCPClient({
+        singleton: false,
         plugins: [
           createSimplePlugin({
             id: "github",
@@ -343,6 +348,9 @@ describe("Vercel AI SDK Integration", () => {
         removeHeader: function(key: string) {
           delete this.headers[key];
         },
+        isConnected: function() {
+          return true;
+        },
       };
       (client as any).transport = mockTransport;
 
@@ -361,7 +369,7 @@ describe("Vercel AI SDK Integration", () => {
         };
       };
 
-      const tools = getVercelAITools(client, {
+      const tools = await getVercelAITools(client, {
         providerTokens: { github: "test_token_123" },
       });
 
@@ -418,7 +426,7 @@ describe("Vercel AI SDK Integration", () => {
         isError: false,
       });
 
-      const tools = getVercelAITools(client, {
+      const tools = await getVercelAITools(client, {
         providerTokens: { github: "test_token_123" },
       });
 
@@ -480,6 +488,9 @@ describe("Vercel AI SDK Integration", () => {
         removeHeader: function(key: string) {
           delete this.headers[key];
         },
+        isConnected: function() {
+          return true;
+        },
       };
       (client as any).transport = mockTransport;
 
@@ -499,7 +510,7 @@ describe("Vercel AI SDK Integration", () => {
         };
       };
 
-      const tools = getVercelAITools(client, {
+      const tools = await getVercelAITools(client, {
         providerTokens: {
           github: "github_token_123",
           gmail: "gmail_token_456",
@@ -516,6 +527,7 @@ describe("Vercel AI SDK Integration", () => {
 
     test("works without providerTokens option (client-side usage)", async () => {
       const client = createMCPClient({
+        singleton: false,
         plugins: [
           createSimplePlugin({
             id: "test",
@@ -532,6 +544,7 @@ describe("Vercel AI SDK Integration", () => {
 
       (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
       (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
 
       client._callToolByName = async () => ({
         content: [{ type: "text", text: "success" }],
@@ -539,7 +552,7 @@ describe("Vercel AI SDK Integration", () => {
       });
 
       // Call without providerTokens option
-      const tools = getVercelAITools(client);
+      const tools = await getVercelAITools(client);
       const result = await tools["test_tool"].execute({ input: "test" });
 
       expect(result).toBeDefined();
@@ -593,7 +606,7 @@ describe("Vercel AI SDK Integration", () => {
       });
 
       // Call with providerTokens but missing the github token
-      const tools = getVercelAITools(client, {
+      const tools = await getVercelAITools(client, {
         providerTokens: { gmail: "gmail_token_123" }, // No github token
       });
 

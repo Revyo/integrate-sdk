@@ -161,11 +161,11 @@ export function convertMCPToolsToVercelAI(
 ): Record<string, any> {
   const mcpTools = client.getEnabledTools();
   const vercelTools: Record<string, any> = {};
-
+  
   for (const mcpTool of mcpTools) {
     vercelTools[mcpTool.name] = convertMCPToolToVercelAI(mcpTool, client, options);
   }
-
+  
   return vercelTools;
 }
 
@@ -173,28 +173,34 @@ export function convertMCPToolsToVercelAI(
  * Get tools in a format compatible with Vercel AI SDK v5's tools parameter
  * 
  * This returns the tools in the exact format expected by ai.generateText() and ai.streamText()
+ * Automatically connects the client if not already connected.
  * 
- * @param client - The MCP client instance (must be connected)
+ * @param client - The MCP client instance
  * @param options - Optional configuration including provider tokens for server-side usage
  * @returns Tools object ready to pass to generateText({ tools: ... }) or streamText({ tools: ... })
  * 
  * @example
  * ```typescript
  * // Client-side usage
- * const tools = getVercelAITools(mcpClient);
+ * const tools = await getVercelAITools(mcpClient);
  * ```
  * 
  * @example
  * ```typescript
  * // Server-side usage with tokens from client
  * const providerTokens = JSON.parse(req.headers.get('x-integrate-tokens') || '{}');
- * const tools = getVercelAITools(serverClient, { providerTokens });
+ * const tools = await getVercelAITools(serverClient, { providerTokens });
  * ```
  */
-export function getVercelAITools(
+export async function getVercelAITools(
   client: MCPClient<any>,
   options?: VercelAIToolsOptions
 ) {
+  // Auto-connect if not connected (lazy connection)
+  if (!client.isConnected()) {
+    await client.connect();
+  }
+  
   return convertMCPToolsToVercelAI(client, options);
 }
 

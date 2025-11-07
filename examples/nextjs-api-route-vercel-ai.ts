@@ -92,13 +92,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4. Ensure server client is connected
-    if (!serverClient.isConnected()) {
-      await serverClient.connect();
-    }
-
-    // 5. Get tools with user's provider tokens
-    const tools = getVercelAITools(serverClient, { providerTokens });
+    // 4. Get tools with user's provider tokens (auto-connects if needed)
+    const tools = await getVercelAITools(serverClient, { providerTokens });
 
     console.log(`[AI Route] Processing request with ${Object.keys(tools).length} tools`);
     console.log(`[AI Route] Authenticated providers: ${Object.keys(providerTokens).join(', ')}`);
@@ -204,12 +199,8 @@ export async function GET(req: Request) {
 
     const providerTokens = JSON.parse(tokensHeader);
     
-    // Ensure connected
-    if (!serverClient.isConnected()) {
-      await serverClient.connect();
-    }
-
-    const tools = getVercelAITools(serverClient, { providerTokens });
+    // Get tools (auto-connects if needed)
+    const tools = await getVercelAITools(serverClient, { providerTokens });
     
     // Group tools by provider
     const toolsByProvider: Record<string, string[]> = {};
