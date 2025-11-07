@@ -16,7 +16,7 @@ The integration converts MCP tools into Vercel AI SDK tool format, enabling AI m
 - Search Notion databases
 - And any other MCP tool you enable
 
-## Quick Example
+## Quick Example (Client-Side)
 
 ```typescript
 import { createMCPClient, githubPlugin, getVercelAITools } from "integrate-sdk";
@@ -48,6 +48,142 @@ const result = await generateText({
 
 console.log(result.text);
 ```
+
+## Server-Side Usage
+
+The Vercel AI SDK is commonly used server-side in API routes and serverless functions. Here's how to use it with the Integrate SDK on the server:
+
+### Flow Overview
+
+1. **Client**: User authenticates via OAuth, tokens stored in localStorage
+2. **Client → Server**: Tokens sent in request headers
+3. **Server**: Uses tokens to execute tools with user's permissions
+4. **Response**: AI results returned to client
+
+### Server-Side Example
+
+```typescript
+// app/api/ai/route.ts (Next.js API Route)
+import { createMCPServer, githubPlugin } from "integrate-sdk/server";
+import { getVercelAITools } from "integrate-sdk";
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+export async function POST(req: Request) {
+  // 1. Get provider tokens from request header
+  const tokensHeader = req.headers.get("x-integrate-tokens");
+  if (!tokensHeader) {
+    return Response.json({ error: "Missing tokens" }, { status: 401 });
+  }
+
+  const providerTokens = JSON.parse(tokensHeader);
+  // { github: 'ghp_...', gmail: 'ya29...' }
+
+  // 2. Create server client with OAuth secrets
+  const { client: serverClient } = createMCPServer({
+    plugins: [
+      githubPlugin({
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      }),
+    ],
+  });
+
+  await serverClient.connect();
+
+  // 3. Get tools with user's tokens
+  const tools = getVercelAITools(serverClient, { providerTokens });
+
+  // 4. Use with AI
+  const body = await req.json();
+  const result = await generateText({
+    model: openai("gpt-4"),
+    prompt: body.prompt,
+    tools,
+    maxToolRoundtrips: 5,
+  });
+
+  await serverClient.disconnect();
+
+  return Response.json({ text: result.text });
+}
+```
+
+### Client-Side: Sending Tokens
+
+```typescript
+// Client-side code to send tokens to server
+import { createMCPClient, githubPlugin } from "integrate-sdk";
+
+const client = createMCPClient({
+  plugins: [githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! })],
+});
+
+await client.connect();
+await client.authorize("github");
+
+// Get all provider tokens
+const providerTokens = client.getAllProviderTokens();
+// { github: 'ghp_...', gmail: 'ya29...' }
+
+// Send to server
+const response = await fetch("/api/ai", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-integrate-tokens": JSON.stringify(providerTokens),
+  },
+  body: JSON.stringify({ prompt: "Create a GitHub issue" }),
+});
+
+const result = await response.json();
+```
+
+### Streaming Responses
+
+```typescript
+// app/api/ai/stream/route.ts
+import { createMCPServer, githubPlugin } from "integrate-sdk/server";
+import { getVercelAITools } from "integrate-sdk";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+export async function POST(req: Request) {
+  const tokensHeader = req.headers.get("x-integrate-tokens");
+  const providerTokens = JSON.parse(tokensHeader || "{}");
+
+  const { client: serverClient } = createMCPServer({
+    plugins: [
+      githubPlugin({
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      }),
+    ],
+  });
+
+  await serverClient.connect();
+  const tools = getVercelAITools(serverClient, { providerTokens });
+
+  const body = await req.json();
+  const result = await streamText({
+    model: openai("gpt-4"),
+    prompt: body.prompt,
+    tools,
+    maxToolRoundtrips: 5,
+  });
+
+  return result.toAIStreamResponse();
+}
+```
+
+### Security Best Practices
+
+1. **OAuth Secrets**: Never expose `clientSecret` to the client
+2. **Token Validation**: Validate tokens on every server request
+3. **HTTPS Only**: Always use HTTPS for token transmission
+4. **Rate Limiting**: Implement per-user rate limits
+5. **Token Encryption**: Consider encrypting tokens in transit
+6. **Connection Cleanup**: Always disconnect after request completes
 
 ## Installation
 

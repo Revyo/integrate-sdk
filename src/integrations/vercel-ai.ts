@@ -17,6 +17,27 @@ export interface VercelAITool {
 }
 
 /**
+ * Options for converting MCP tools to Vercel AI SDK format
+ */
+export interface VercelAIToolsOptions {
+  /**
+   * Provider tokens for server-side usage
+   * Maps provider names (e.g., 'github', 'gmail') to their access tokens
+   * 
+   * @example
+   * ```typescript
+   * const tools = getVercelAITools(serverClient, {
+   *   providerTokens: {
+   *     github: 'ghp_...',
+   *     gmail: 'ya29...'
+   *   }
+   * });
+   * ```
+   */
+  providerTokens?: Record<string, string>;
+}
+
+/**
  * Convert MCP JSON Schema to Vercel AI SDK parameters format
  * 
  * Note: Vercel AI SDK typically uses Zod, but we return plain JSON Schema
@@ -29,20 +50,60 @@ function convertMCPSchemaToParameters(inputSchema: Record<string, unknown>): Rec
 }
 
 /**
+ * Get the provider for a tool by checking which plugin includes it
+ * @internal
+ */
+function getProviderForTool(client: MCPClient<any>, toolName: string): string | undefined {
+  // Access the client's method to get provider for tool
+  // This uses the internal method but it's safe since we're in the same SDK
+  return (client as any).getProviderForTool?.(toolName);
+}
+
+/**
  * Convert a single MCP tool to Vercel AI SDK format
  * 
  * @param mcpTool - The MCP tool definition
  * @param client - The MCP client instance (used for executing the tool)
+ * @param options - Optional configuration including provider tokens
  * @returns Vercel AI SDK compatible tool definition
  */
 export function convertMCPToolToVercelAI(
   mcpTool: MCPTool,
-  client: MCPClient
+  client: MCPClient<any>,
+  options?: VercelAIToolsOptions
 ): VercelAITool {
   return {
     description: mcpTool.description || `Execute ${mcpTool.name}`,
     parameters: convertMCPSchemaToParameters(mcpTool.inputSchema),
     execute: async (args: Record<string, unknown>) => {
+      // If provider tokens are provided, inject the appropriate token
+      if (options?.providerTokens) {
+        const provider = getProviderForTool(client, mcpTool.name);
+        if (provider && options.providerTokens[provider]) {
+          // Get the transport from the client and set the Authorization header
+          const transport = (client as any).transport;
+          if (transport && typeof transport.setHeader === 'function') {
+            const previousAuthHeader = transport.headers?.['Authorization'];
+            
+            try {
+              // Set the authorization header for this tool call
+              transport.setHeader('Authorization', `Bearer ${options.providerTokens[provider]}`);
+              
+              // Execute the tool with the injected token
+              const result = await client._callToolByName(mcpTool.name, args);
+              return result;
+            } finally {
+              // Clean up: restore previous auth header or remove it
+              if (previousAuthHeader) {
+                transport.setHeader('Authorization', previousAuthHeader);
+              } else if (transport.removeHeader) {
+                transport.removeHeader('Authorization');
+              }
+            }
+          }
+        }
+      }
+      
       // Use internal method to call tools by name for integration purposes
       const result = await client._callToolByName(mcpTool.name, args);
       return result;
@@ -54,10 +115,12 @@ export function convertMCPToolToVercelAI(
  * Convert all enabled MCP tools to Vercel AI SDK format
  * 
  * @param client - The MCP client instance (must be connected)
+ * @param options - Optional configuration including provider tokens for server-side usage
  * @returns Object mapping tool names to Vercel AI SDK tool definitions
  * 
  * @example
  * ```typescript
+ * // Client-side usage
  * import { createMCPClient, githubPlugin } from 'integrate-sdk';
  * import { convertMCPToolsToVercelAI } from 'integrate-sdk/vercel-ai';
  * import { generateText } from 'ai';
@@ -76,15 +139,42 @@ export function convertMCPToolToVercelAI(
  *   tools,
  * });
  * ```
+ * 
+ * @example
+ * ```typescript
+ * // Server-side usage with token passing
+ * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * import { convertMCPToolsToVercelAI } from 'integrate-sdk/vercel-ai';
+ * 
+ * const { client: serverClient } = createMCPServer({
+ *   plugins: [githubPlugin({ clientId: '...', clientSecret: '...' })],
+ * });
+ * 
+ * // In your API route handler
+ * export async function POST(req: Request) {
+ *   const providerTokens = JSON.parse(req.headers.get('x-integrate-tokens') || '{}');
+ *   
+ *   const tools = convertMCPToolsToVercelAI(serverClient, { providerTokens });
+ *   
+ *   const result = await generateText({
+ *     model: openai('gpt-4'),
+ *     prompt: 'Create a GitHub issue',
+ *     tools,
+ *   });
+ *   
+ *   return Response.json(result);
+ * }
+ * ```
  */
 export function convertMCPToolsToVercelAI(
-  client: MCPClient
+  client: MCPClient<any>,
+  options?: VercelAIToolsOptions
 ): Record<string, VercelAITool> {
   const mcpTools = client.getEnabledTools();
   const vercelTools: Record<string, VercelAITool> = {};
 
   for (const mcpTool of mcpTools) {
-    vercelTools[mcpTool.name] = convertMCPToolToVercelAI(mcpTool, client);
+    vercelTools[mcpTool.name] = convertMCPToolToVercelAI(mcpTool, client, options);
   }
 
   return vercelTools;
@@ -96,9 +186,26 @@ export function convertMCPToolsToVercelAI(
  * This is an alternative that returns the tools in the exact format expected by ai.generateText()
  * 
  * @param client - The MCP client instance (must be connected)
+ * @param options - Optional configuration including provider tokens for server-side usage
  * @returns Tools object ready to pass to generateText({ tools: ... })
+ * 
+ * @example
+ * ```typescript
+ * // Client-side usage
+ * const tools = getVercelAITools(mcpClient);
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * // Server-side usage with tokens from client
+ * const providerTokens = JSON.parse(req.headers.get('x-integrate-tokens') || '{}');
+ * const tools = getVercelAITools(serverClient, { providerTokens });
+ * ```
  */
-export function getVercelAITools(client: MCPClient) {
-  return convertMCPToolsToVercelAI(client);
+export function getVercelAITools(
+  client: MCPClient<any>,
+  options?: VercelAIToolsOptions
+) {
+  return convertMCPToolsToVercelAI(client, options);
 }
 

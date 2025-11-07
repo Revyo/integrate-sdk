@@ -280,5 +280,327 @@ describe("Vercel AI SDK Integration", () => {
       expect(result).toEqual(mockResponse);
     });
   });
+
+  describe("Server-side token passing", () => {
+    test("accepts providerTokens option in getVercelAITools", () => {
+      const client = createMCPClient({
+        plugins: [
+          createSimplePlugin({
+            id: "github",
+            tools: ["github_create_issue"],
+          }),
+        ],
+      });
+
+      const mockTool: MCPTool = {
+        name: "github_create_issue",
+        description: "Create issue",
+        inputSchema: { type: "object", properties: {} },
+      };
+
+      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
+      (client as any).initialized = true;
+
+      const tools = getVercelAITools(client, {
+        providerTokens: { github: "test_token_123" },
+      });
+
+      expect(tools).toBeDefined();
+      expect(tools["github_create_issue"]).toBeDefined();
+    });
+
+    test("injects provider token in Authorization header during tool execution", async () => {
+      const client = createMCPClient({
+        plugins: [
+          createSimplePlugin({
+            id: "github",
+            tools: ["github_create_issue"],
+            oauth: {
+              provider: "github",
+              clientId: "test",
+              clientSecret: "test",
+              scopes: [],
+            },
+          }),
+        ],
+      });
+
+      const mockTool: MCPTool = {
+        name: "github_create_issue",
+        description: "Create issue",
+        inputSchema: { type: "object", properties: {} },
+      };
+
+      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
+      (client as any).initialized = true;
+
+      // Mock transport to track header changes
+      const mockTransport = {
+        headers: {},
+        setHeader: function(key: string, value: string) {
+          this.headers[key] = value;
+        },
+        removeHeader: function(key: string) {
+          delete this.headers[key];
+        },
+      };
+      (client as any).transport = mockTransport;
+
+      // Mock getProviderForTool
+      (client as any).getProviderForTool = (toolName: string) => {
+        return "github";
+      };
+
+      let headerDuringExecution: string | undefined;
+      client._callToolByName = async (name: string, args?: Record<string, unknown>) => {
+        // Capture the Authorization header during execution
+        headerDuringExecution = mockTransport.headers['Authorization'];
+        return {
+          content: [{ type: "text", text: "success" }],
+          isError: false,
+        };
+      };
+
+      const tools = getVercelAITools(client, {
+        providerTokens: { github: "test_token_123" },
+      });
+
+      await tools["github_create_issue"].execute({ title: "Test" });
+
+      // Verify that the Authorization header was set during execution
+      expect(headerDuringExecution).toBe("Bearer test_token_123");
+    });
+
+    test("cleans up Authorization header after tool execution", async () => {
+      const client = createMCPClient({
+        singleton: false,
+        plugins: [
+          createSimplePlugin({
+            id: "github",
+            tools: ["github_create_issue"],
+            oauth: {
+              provider: "github",
+              clientId: "test",
+              clientSecret: "test",
+              scopes: [],
+            },
+          }),
+        ],
+      });
+
+      const mockTool: MCPTool = {
+        name: "github_create_issue",
+        description: "Create issue",
+        inputSchema: { type: "object", properties: {} },
+      };
+
+      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
+      (client as any).initialized = true;
+
+      // Mock transport
+      const mockTransport = {
+        headers: {},
+        setHeader: function(key: string, value: string) {
+          this.headers[key] = value;
+        },
+        removeHeader: function(key: string) {
+          delete this.headers[key];
+        },
+        isConnected: function() {
+          return true;
+        },
+      };
+      (client as any).transport = mockTransport;
+      (client as any).getProviderForTool = () => "github";
+
+      client._callToolByName = async () => ({
+        content: [{ type: "text", text: "success" }],
+        isError: false,
+      });
+
+      const tools = getVercelAITools(client, {
+        providerTokens: { github: "test_token_123" },
+      });
+
+      await tools["github_create_issue"].execute({ title: "Test" });
+
+      // Verify that the Authorization header was cleaned up
+      expect(mockTransport.headers['Authorization']).toBeUndefined();
+    });
+
+    test("uses correct token for each provider", async () => {
+      const client = createMCPClient({
+        plugins: [
+          createSimplePlugin({
+            id: "github",
+            tools: ["github_create_issue"],
+            oauth: {
+              provider: "github",
+              clientId: "test",
+              clientSecret: "test",
+              scopes: [],
+            },
+          }),
+          createSimplePlugin({
+            id: "gmail",
+            tools: ["gmail_send_email"],
+            oauth: {
+              provider: "gmail",
+              clientId: "test",
+              clientSecret: "test",
+              scopes: [],
+            },
+          }),
+        ],
+      });
+
+      const githubTool: MCPTool = {
+        name: "github_create_issue",
+        description: "Create issue",
+        inputSchema: { type: "object", properties: {} },
+      };
+
+      const gmailTool: MCPTool = {
+        name: "gmail_send_email",
+        description: "Send email",
+        inputSchema: { type: "object", properties: {} },
+      };
+
+      (client as any).availableTools = new Map([
+        [githubTool.name, githubTool],
+        [gmailTool.name, gmailTool],
+      ]);
+      (client as any).initialized = true;
+
+      const mockTransport = {
+        headers: {},
+        setHeader: function(key: string, value: string) {
+          this.headers[key] = value;
+        },
+        removeHeader: function(key: string) {
+          delete this.headers[key];
+        },
+      };
+      (client as any).transport = mockTransport;
+
+      // Mock getProviderForTool to return correct provider
+      (client as any).getProviderForTool = (toolName: string) => {
+        if (toolName.startsWith("github")) return "github";
+        if (toolName.startsWith("gmail")) return "gmail";
+        return undefined;
+      };
+
+      const executionTokens: Record<string, string> = {};
+      client._callToolByName = async (name: string) => {
+        executionTokens[name] = mockTransport.headers['Authorization'] || '';
+        return {
+          content: [{ type: "text", text: "success" }],
+          isError: false,
+        };
+      };
+
+      const tools = getVercelAITools(client, {
+        providerTokens: {
+          github: "github_token_123",
+          gmail: "gmail_token_456",
+        },
+      });
+
+      await tools["github_create_issue"].execute({ title: "Test" });
+      await tools["gmail_send_email"].execute({ to: "test@example.com" });
+
+      // Verify correct tokens were used
+      expect(executionTokens["github_create_issue"]).toBe("Bearer github_token_123");
+      expect(executionTokens["gmail_send_email"]).toBe("Bearer gmail_token_456");
+    });
+
+    test("works without providerTokens option (client-side usage)", async () => {
+      const client = createMCPClient({
+        plugins: [
+          createSimplePlugin({
+            id: "test",
+            tools: ["test_tool"],
+          }),
+        ],
+      });
+
+      const mockTool: MCPTool = {
+        name: "test_tool",
+        description: "Test",
+        inputSchema: { type: "object", properties: {} },
+      };
+
+      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
+      (client as any).initialized = true;
+
+      client._callToolByName = async () => ({
+        content: [{ type: "text", text: "success" }],
+        isError: false,
+      });
+
+      // Call without providerTokens option
+      const tools = getVercelAITools(client);
+      const result = await tools["test_tool"].execute({ input: "test" });
+
+      expect(result).toBeDefined();
+    });
+
+    test("handles missing provider token gracefully", async () => {
+      const client = createMCPClient({
+        singleton: false,
+        plugins: [
+          createSimplePlugin({
+            id: "github",
+            tools: ["github_create_issue"],
+            oauth: {
+              provider: "github",
+              clientId: "test",
+              clientSecret: "test",
+              scopes: [],
+            },
+          }),
+        ],
+      });
+
+      const mockTool: MCPTool = {
+        name: "github_create_issue",
+        description: "Create issue",
+        inputSchema: { type: "object", properties: {} },
+      };
+
+      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
+      (client as any).initialized = true;
+      
+      // Mock transport
+      const mockTransport = {
+        headers: {},
+        setHeader: function(key: string, value: string) {
+          this.headers[key] = value;
+        },
+        removeHeader: function(key: string) {
+          delete this.headers[key];
+        },
+        isConnected: function() {
+          return true;
+        },
+      };
+      (client as any).transport = mockTransport;
+      (client as any).getProviderForTool = () => "github";
+
+      client._callToolByName = async () => ({
+        content: [{ type: "text", text: "success" }],
+        isError: false,
+      });
+
+      // Call with providerTokens but missing the github token
+      const tools = getVercelAITools(client, {
+        providerTokens: { gmail: "gmail_token_123" }, // No github token
+      });
+
+      // Should still execute without error (falls back to default behavior)
+      const result = await tools["github_create_issue"].execute({ title: "Test" });
+      expect(result).toBeDefined();
+    });
+  });
 });
 
