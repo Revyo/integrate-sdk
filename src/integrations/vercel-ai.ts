@@ -1,19 +1,20 @@
 /**
  * Vercel AI SDK Integration
  * 
- * Helper functions to convert MCP tools to Vercel AI SDK format
+ * Helper functions to convert MCP tools to Vercel AI SDK v5 format
  */
 
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
 
 /**
- * Tool definition for Vercel AI SDK
+ * Tool definition compatible with Vercel AI SDK v5
+ * This matches the CoreTool interface from 'ai' package v5
  */
 export interface VercelAITool {
-  description: string;
-  parameters: Record<string, unknown>;
-  execute: (args: Record<string, unknown>) => Promise<unknown>;
+  description?: string;
+  parameters: any; // JSON Schema or Zod schema for tool parameters
+  execute: (args: any, options?: any) => Promise<any>;
 }
 
 /**
@@ -35,18 +36,6 @@ export interface VercelAIToolsOptions {
    * ```
    */
   providerTokens?: Record<string, string>;
-}
-
-/**
- * Convert MCP JSON Schema to Vercel AI SDK parameters format
- * 
- * Note: Vercel AI SDK typically uses Zod, but we return plain JSON Schema
- * which is compatible with the AI SDK's schema parameter
- */
-function convertMCPSchemaToParameters(inputSchema: Record<string, unknown>): Record<string, unknown> {
-  // MCP tools already use JSON Schema format
-  // Vercel AI SDK accepts JSON Schema or Zod schemas
-  return inputSchema;
 }
 
 /**
@@ -74,7 +63,7 @@ export function convertMCPToolToVercelAI(
 ): VercelAITool {
   return {
     description: mcpTool.description || `Execute ${mcpTool.name}`,
-    parameters: convertMCPSchemaToParameters(mcpTool.inputSchema),
+    parameters: mcpTool.inputSchema, // MCP tools already use JSON Schema format
     execute: async (args: Record<string, unknown>) => {
       // If provider tokens are provided, inject the appropriate token
       if (options?.providerTokens) {
@@ -112,11 +101,11 @@ export function convertMCPToolToVercelAI(
 }
 
 /**
- * Convert all enabled MCP tools to Vercel AI SDK format
+ * Convert all enabled MCP tools to Vercel AI SDK v5 format
  * 
  * @param client - The MCP client instance (must be connected)
  * @param options - Optional configuration including provider tokens for server-side usage
- * @returns Object mapping tool names to Vercel AI SDK tool definitions
+ * @returns Object mapping tool names to Vercel AI SDK v5 tool definitions (compatible with CoreTool from 'ai' package v5)
  * 
  * @example
  * ```typescript
@@ -169,9 +158,9 @@ export function convertMCPToolToVercelAI(
 export function convertMCPToolsToVercelAI(
   client: MCPClient<any>,
   options?: VercelAIToolsOptions
-): Record<string, VercelAITool> {
+): Record<string, any> {
   const mcpTools = client.getEnabledTools();
-  const vercelTools: Record<string, VercelAITool> = {};
+  const vercelTools: Record<string, any> = {};
 
   for (const mcpTool of mcpTools) {
     vercelTools[mcpTool.name] = convertMCPToolToVercelAI(mcpTool, client, options);
@@ -181,13 +170,13 @@ export function convertMCPToolsToVercelAI(
 }
 
 /**
- * Get tools in a format compatible with Vercel AI SDK's tools parameter
+ * Get tools in a format compatible with Vercel AI SDK v5's tools parameter
  * 
- * This is an alternative that returns the tools in the exact format expected by ai.generateText()
+ * This returns the tools in the exact format expected by ai.generateText() and ai.streamText()
  * 
  * @param client - The MCP client instance (must be connected)
  * @param options - Optional configuration including provider tokens for server-side usage
- * @returns Tools object ready to pass to generateText({ tools: ... })
+ * @returns Tools object ready to pass to generateText({ tools: ... }) or streamText({ tools: ... })
  * 
  * @example
  * ```typescript
