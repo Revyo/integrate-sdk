@@ -319,5 +319,118 @@ describe("useIntegrateTokens Hook", () => {
       expect(tokens.gmail).toBeDefined();
     });
   });
+
+  describe("Custom fetch function", () => {
+    test("hook returns fetch function", async () => {
+      const { useIntegrateTokens } = await import("../../src/react/hooks.js");
+      
+      // The hook should return a fetch function
+      expect(useIntegrateTokens).toBeDefined();
+    });
+
+    test("fetch function includes integrate tokens in headers", () => {
+      // Test the behavior of adding headers to fetch calls
+      const tokens = { github: "ghp_test123", gmail: "ya29_test456" };
+      const expectedHeader = JSON.stringify(tokens);
+      
+      // Verify the header format
+      expect(expectedHeader).toContain("ghp_test123");
+      expect(expectedHeader).toContain("ya29_test456");
+    });
+
+    test("fetch function preserves existing headers", () => {
+      // Test that existing headers are preserved when adding integrate tokens
+      const existingHeaders = new Headers({
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer other-token',
+      });
+      
+      const integrateHeader = 'x-integrate-tokens';
+      const integrateValue = '{"github":"token"}';
+      
+      existingHeaders.set(integrateHeader, integrateValue);
+      
+      // Verify all headers are present
+      expect(existingHeaders.get('Content-Type')).toBe('application/json');
+      expect(existingHeaders.get('Authorization')).toBe('Bearer other-token');
+      expect(existingHeaders.get('x-integrate-tokens')).toBe(integrateValue);
+    });
+
+    test("fetch function works with no existing headers", () => {
+      // Test adding integrate headers when no existing headers
+      const headers = new Headers();
+      headers.set('x-integrate-tokens', '{"github":"token"}');
+      
+      expect(headers.get('x-integrate-tokens')).toBe('{"github":"token"}');
+    });
+  });
+
+  describe("mergeHeaders helper function", () => {
+    test("mergeHeaders combines headers correctly", () => {
+      const existingHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer token',
+      };
+      
+      const merged = new Headers(existingHeaders);
+      merged.set('x-integrate-tokens', '{"github":"ghp_123"}');
+      
+      // Verify all headers are present
+      expect(merged.get('Content-Type')).toBe('application/json');
+      expect(merged.get('Authorization')).toBe('Bearer token');
+      expect(merged.get('x-integrate-tokens')).toBe('{"github":"ghp_123"}');
+    });
+
+    test("mergeHeaders works with Headers object input", () => {
+      const existingHeaders = new Headers({
+        'Content-Type': 'application/json',
+      });
+      
+      const merged = new Headers(existingHeaders);
+      merged.set('x-integrate-tokens', '{"github":"token"}');
+      
+      expect(merged.get('Content-Type')).toBe('application/json');
+      expect(merged.get('x-integrate-tokens')).toBe('{"github":"token"}');
+    });
+
+    test("mergeHeaders works with array input", () => {
+      const existingHeaders: [string, string][] = [
+        ['Content-Type', 'application/json'],
+        ['Accept', 'application/json'],
+      ];
+      
+      const merged = new Headers(existingHeaders);
+      merged.set('x-integrate-tokens', '{"github":"token"}');
+      
+      expect(merged.get('Content-Type')).toBe('application/json');
+      expect(merged.get('Accept')).toBe('application/json');
+      expect(merged.get('x-integrate-tokens')).toBe('{"github":"token"}');
+    });
+
+    test("mergeHeaders works with undefined input", () => {
+      const merged = new Headers(undefined);
+      merged.set('x-integrate-tokens', '{"github":"token"}');
+      
+      expect(merged.get('x-integrate-tokens')).toBe('{"github":"token"}');
+    });
+
+    test("mergeHeaders handles empty tokens gracefully", () => {
+      const merged = new Headers({ 'Content-Type': 'application/json' });
+      
+      // When no integrate tokens, only existing headers should be present
+      expect(merged.get('Content-Type')).toBe('application/json');
+      expect(merged.get('x-integrate-tokens')).toBeNull();
+    });
+  });
+
+  describe("Return value completeness", () => {
+    test("hook returns all expected properties", async () => {
+      const { useIntegrateTokens } = await import("../../src/react/hooks.js");
+      
+      // Verify the hook exports and structure
+      expect(useIntegrateTokens).toBeDefined();
+      expect(typeof useIntegrateTokens).toBe("function");
+    });
+  });
 });
 

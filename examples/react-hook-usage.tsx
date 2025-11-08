@@ -26,9 +26,38 @@ const client = createMCPClient({
 });
 
 /**
- * Example 1: Basic usage with Vercel AI SDK's useChat
+ * Example 1a: Using custom fetch with Vercel AI SDK's useChat (RECOMMENDED)
  */
-export function ChatComponent() {
+export function ChatComponentWithFetch() {
+  // Get custom fetch function that automatically includes tokens
+  const { fetch: fetchWithTokens, isLoading } = useIntegrateTokens(client);
+
+  // Pass the custom fetch to useChat - tokens are included automatically!
+  // const chat = useChat({
+  //   api: '/api/chat',
+  //   fetch: fetchWithTokens, // ✅ Tokens automatically included
+  // });
+
+  return (
+    <div>
+      <h1>AI Chat with Integrations (Custom Fetch)</h1>
+      
+      {isLoading ? (
+        <p>Loading tokens...</p>
+      ) : (
+        <div>
+          <p>✅ Tokens loaded and ready</p>
+          {/* Your chat UI here */}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Example 1b: Using headers (backward compatible)
+ */
+export function ChatComponentWithHeaders() {
   // Get tokens and formatted headers from the hook
   const { tokens, headers, isLoading } = useIntegrateTokens(client);
 
@@ -43,7 +72,7 @@ export function ChatComponent() {
 
   return (
     <div>
-      <h1>AI Chat with Integrations</h1>
+      <h1>AI Chat with Integrations (Headers)</h1>
       
       {isLoading ? (
         <p>Loading tokens...</p>
@@ -64,9 +93,67 @@ export function ChatComponent() {
 }
 
 /**
- * Example 2: Manual fetch with tokens
+ * Example 2a: Manual fetch with custom fetch function (RECOMMENDED)
  */
-export function ManualFetchComponent() {
+export function ManualFetchWithCustomFetch() {
+  const { fetch: fetchWithTokens } = useIntegrateTokens(client);
+
+  const handleFetch = async () => {
+    // Just use fetchWithTokens like regular fetch - tokens are included automatically!
+    const response = await fetchWithTokens('/api/data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: 'Get my GitHub repositories',
+      }),
+    });
+
+    const data = await response.json();
+    console.log('Response:', data);
+  };
+
+  return (
+    <button onClick={handleFetch}>
+      Fetch Data (Custom Fetch)
+    </button>
+  );
+}
+
+/**
+ * Example 2b: Manual fetch with mergeHeaders helper
+ */
+export function ManualFetchWithMergeHeaders() {
+  const { mergeHeaders } = useIntegrateTokens(client);
+
+  const handleFetch = async () => {
+    // Use mergeHeaders to combine your headers with integrate tokens
+    const response = await fetch('/api/data', {
+      method: 'POST',
+      headers: mergeHeaders({
+        'Content-Type': 'application/json',
+      }),
+      body: JSON.stringify({
+        query: 'Get my GitHub repositories',
+      }),
+    });
+
+    const data = await response.json();
+    console.log('Response:', data);
+  };
+
+  return (
+    <button onClick={handleFetch}>
+      Fetch Data (Merge Headers)
+    </button>
+  );
+}
+
+/**
+ * Example 2c: Manual fetch with headers spreading (backward compatible)
+ */
+export function ManualFetchWithSpreadHeaders() {
   const { headers } = useIntegrateTokens(client);
 
   const handleFetch = async () => {
@@ -87,7 +174,7 @@ export function ManualFetchComponent() {
 
   return (
     <button onClick={handleFetch}>
-      Fetch Data
+      Fetch Data (Spread Headers)
     </button>
   );
 }
@@ -122,10 +209,10 @@ export function TokenMonitor() {
 }
 
 /**
- * Example 4: Complete application with auth flow
+ * Example 4: Complete application with auth flow (using custom fetch)
  */
 export function CompleteExample() {
-  const { tokens, headers, isLoading } = useIntegrateTokens(client);
+  const { tokens, fetch: fetchWithTokens, isLoading } = useIntegrateTokens(client);
 
   const handleConnectGitHub = async () => {
     try {
@@ -147,7 +234,7 @@ export function CompleteExample() {
 
   // const chat = useChat({
   //   api: '/api/chat',
-  //   headers,
+  //   fetch: fetchWithTokens, // Use custom fetch - cleaner and more reliable!
   // });
 
   return (
@@ -313,13 +400,40 @@ This file demonstrates various ways to use the useIntegrateTokens() hook.
 KEY POINTS:
 1. Create MCP client outside of components (module level)
 2. Pass client to useIntegrateTokens(client)
-3. Spread headers into fetch/useChat options
+3. ✨ NEW: Use custom fetch or mergeHeaders for cleaner code
 4. Hook automatically updates when tokens change
 
-USAGE:
+RETURN VALUES:
 - tokens: Raw token object { github: 'token', gmail: 'token' }
 - headers: Formatted headers { 'x-integrate-tokens': '...' }
 - isLoading: Boolean indicating if tokens are being loaded
+- fetch: ✨ Custom fetch with tokens automatically included
+- mergeHeaders: ✨ Helper to merge headers with tokens
+
+RECOMMENDED APPROACHES:
+
+1. With useChat (Vercel AI SDK):
+   const { fetch: fetchWithTokens } = useIntegrateTokens(client);
+   const chat = useChat({ api: '/api/chat', fetch: fetchWithTokens });
+
+2. With manual fetch:
+   const { fetch: fetchWithTokens } = useIntegrateTokens(client);
+   await fetchWithTokens('/api/data', { method: 'POST', ... });
+
+3. Merging headers:
+   const { mergeHeaders } = useIntegrateTokens(client);
+   await fetch('/api/data', { headers: mergeHeaders({ 'Content-Type': 'application/json' }) });
+
+MIGRATION GUIDE:
+
+❌ OLD WAY (fragile):
+   window.fetch = (url, options) => {
+     // Override global fetch - not recommended!
+   }
+
+✅ NEW WAY (clean):
+   const { fetch: fetchWithTokens } = useIntegrateTokens(client);
+   const chat = useChat({ fetch: fetchWithTokens });
 
 See examples above for complete implementations.
 =============================================================================

@@ -5,7 +5,7 @@
  * in client-side applications.
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import type { MCPClient } from "../client.js";
 
 /**
@@ -27,6 +27,18 @@ export interface UseIntegrateTokensResult {
    * Whether tokens are currently being loaded
    */
   isLoading: boolean;
+  
+  /**
+   * Custom fetch function with integrate tokens automatically included
+   * Use this with libraries that accept a custom fetch function (like Vercel AI SDK's useChat)
+   */
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+  
+  /**
+   * Helper function to merge integrate headers with existing headers
+   * Useful for manual fetch calls where you need to combine headers
+   */
+  mergeHeaders: (existingHeaders?: HeadersInit) => Headers;
 }
 
 /**
@@ -159,10 +171,45 @@ export function useIntegrateTokens(
     };
   }, [tokens]);
 
+  // Custom fetch function that automatically includes integrate tokens
+  const fetchWithHeaders = useCallback(
+    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const mergedHeaders = new Headers(init?.headers);
+      
+      // Add integrate tokens header if available
+      if (headers['x-integrate-tokens']) {
+        mergedHeaders.set('x-integrate-tokens', headers['x-integrate-tokens']);
+      }
+      
+      return fetch(input, {
+        ...init,
+        headers: mergedHeaders,
+      });
+    },
+    [headers]
+  );
+
+  // Helper function to merge integrate headers with existing headers
+  const mergeHeaders = useCallback(
+    (existingHeaders?: HeadersInit): Headers => {
+      const merged = new Headers(existingHeaders);
+      
+      // Add integrate tokens header if available
+      if (headers['x-integrate-tokens']) {
+        merged.set('x-integrate-tokens', headers['x-integrate-tokens']);
+      }
+      
+      return merged;
+    },
+    [headers]
+  );
+
   return {
     tokens,
     headers,
     isLoading,
+    fetch: fetchWithHeaders,
+    mergeHeaders,
   };
 }
 
