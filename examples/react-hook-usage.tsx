@@ -3,6 +3,23 @@
  * 
  * This example shows how to use the useIntegrateTokens() hook
  * with Vercel AI SDK's useChat hook for seamless integration.
+ * 
+ * ⚠️ IMPORTANT - Next.js App Router / SSR Users:
+ * 
+ * The useIntegrateTokens() hook is SSR-SAFE and automatically handles
+ * server-side rendering by returning safe fallback values. You can call
+ * it in any client component without worrying about "Invalid hook call" errors.
+ * 
+ * Key features:
+ * - Returns safe fallbacks during SSR (isLoading=false, no tokens)
+ * - Handles null/undefined client gracefully
+ * - Must be called unconditionally at component top level (standard React rule)
+ * - Works with Next.js App Router's 'use client' directive
+ * 
+ * For Next.js App Router, make sure to:
+ * 1. Add 'use client' directive to your component file
+ * 2. Call useIntegrateTokens() unconditionally at the top of your component
+ * 3. The hook will handle the rest (SSR safety, token loading, etc.)
  */
 
 import { createMCPClient, githubPlugin, gmailPlugin } from "../src/index.js";
@@ -27,9 +44,16 @@ const client = createMCPClient({
 
 /**
  * Example 1a: Using custom fetch with Vercel AI SDK's useChat (RECOMMENDED)
+ * 
+ * ⚠️ For Next.js App Router: Add 'use client' directive to this file
+ * 
+ * The hook is SSR-safe and will return safe fallbacks during server-side
+ * rendering. Always call it unconditionally at the top of your component.
  */
 export function ChatComponentWithFetch() {
-  // Get custom fetch function that automatically includes tokens
+  // ✅ Hook called unconditionally at top level - SSR-safe
+  // During SSR: returns { fetch: globalThis.fetch, isLoading: false, tokens: {}, ... }
+  // On client: returns actual tokens and custom fetch
   const { fetch: fetchWithTokens, isLoading } = useIntegrateTokens(client);
 
   // Pass the custom fetch to useChat - tokens are included automatically!
@@ -335,6 +359,93 @@ export function MultiClientExample() {
         <h3>Gmail Client</h3>
         <p>Tokens: {Object.keys(gmailTokens.tokens).join(", ")}</p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Example 6: Next.js App Router with 'use client' (SSR-SAFE)
+ * 
+ * This demonstrates proper usage in Next.js App Router.
+ * The hook handles SSR gracefully without "Invalid hook call" errors.
+ */
+'use client'; // Required for Next.js App Router
+
+import { useState } from 'react';
+
+export function NextJsAppRouterExample() {
+  // ✅ Hook is SSR-safe - works during both server and client rendering
+  // On server: returns safe fallbacks { fetch: globalThis.fetch, tokens: {}, isLoading: false }
+  // On client: returns actual tokens and custom fetch
+  const { fetch: fetchWithTokens, tokens, isLoading } = useIntegrateTokens(client);
+  const [response, setResponse] = useState<string>('');
+
+  const handleSend = async () => {
+    // fetchWithTokens is safe to call immediately - includes tokens automatically
+    const res = await fetchWithTokens('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Hello from Next.js!' }),
+    });
+    const data = await res.json();
+    setResponse(data.message);
+  };
+
+  return (
+    <div>
+      <h2>Next.js App Router Example</h2>
+      <p>Connected: {Object.keys(tokens).join(', ') || 'None'}</p>
+      {isLoading && <p>Loading tokens...</p>}
+      <button onClick={handleSend}>Send Message</button>
+      {response && <p>Response: {response}</p>}
+    </div>
+  );
+}
+
+/**
+ * Example 7: Handling null/undefined client (lazy initialization)
+ * 
+ * The hook gracefully handles null/undefined clients by returning
+ * safe fallbacks with isLoading=true until the client is ready.
+ */
+'use client';
+
+import { useEffect } from 'react';
+
+export function LazyClientExample() {
+  const [lazyClient, setLazyClient] = useState<ReturnType<typeof createMCPClient> | null>(null);
+
+  // ✅ Hook handles null client - returns safe fallback with isLoading=true
+  const { fetch: fetchWithTokens, tokens, isLoading } = useIntegrateTokens(lazyClient);
+
+  useEffect(() => {
+    // Initialize client lazily (e.g., after user action or condition)
+    const initClient = async () => {
+      const newClient = createMCPClient({
+        plugins: [
+          githubPlugin({
+            clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || '',
+            scopes: ['repo'],
+          }),
+        ],
+      });
+      setLazyClient(newClient);
+    };
+
+    initClient();
+  }, []);
+
+  if (!lazyClient || isLoading) {
+    return <div>Initializing client...</div>;
+  }
+
+  return (
+    <div>
+      <h2>Lazy Client Example</h2>
+      <p>Tokens: {Object.keys(tokens).join(', ')}</p>
+      <button onClick={() => fetchWithTokens('/api/test')}>
+        Make Request
+      </button>
     </div>
   );
 }
