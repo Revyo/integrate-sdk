@@ -5,7 +5,7 @@
  * in client-side applications.
  */
 
-import * as React from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import type { MCPClient } from "../client.js";
 
 /**
@@ -60,22 +60,17 @@ function getSafeFallback(): UseIntegrateTokensResult {
  * @internal
  */
 function isReactHooksAvailable(): boolean {
-  // Check 1: React module exists
-  if (!React || typeof React !== 'object') {
+  // Check 1: React hooks functions exist
+  if (!useState || !useEffect || !useMemo || !useCallback) {
     return false;
   }
 
-  // Check 2: React hooks functions exist
-  if (!React.useState || !React.useEffect || !React.useMemo || !React.useCallback) {
-    return false;
-  }
-
-  // Check 3: We're in a browser environment (not SSR)
+  // Check 2: We're in a browser environment (not SSR)
   if (typeof window === 'undefined') {
     return false;
   }
 
-  // Check 4: Document exists (ensures we're past the initial module loading phase)
+  // Check 3: Document exists (ensures we're past the initial module loading phase)
   if (typeof document === 'undefined') {
     return false;
   }
@@ -164,10 +159,10 @@ export function useIntegrateTokens(
   }
 
   // Now safe to use React hooks (we've verified React is available)
-  const [tokens, setTokens] = React.useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [tokens, setTokens] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     try {
       // Get initial tokens
       const updateTokens = () => {
@@ -215,7 +210,7 @@ export function useIntegrateTokens(
   }, [client]);
 
   // Memoize headers to avoid recreating on every render
-  const headers = React.useMemo((): Record<string, string> => {
+  const headers = useMemo((): Record<string, string> => {
     if (Object.keys(tokens).length === 0) {
       return {};
     }
@@ -225,7 +220,7 @@ export function useIntegrateTokens(
   }, [tokens]);
 
   // Custom fetch function that automatically includes integrate tokens
-  const fetchWithHeaders = React.useCallback(
+  const fetchWithHeaders = useCallback(
     async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       const mergedHeaders = new Headers(init?.headers);
       
@@ -243,7 +238,7 @@ export function useIntegrateTokens(
   );
 
   // Helper function to merge integrate headers with existing headers
-  const mergeHeaders = React.useCallback(
+  const mergeHeaders = useCallback(
     (existingHeaders?: HeadersInit): Headers => {
       const merged = new Headers(existingHeaders);
       
