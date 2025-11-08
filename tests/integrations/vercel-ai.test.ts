@@ -3,6 +3,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+import { z } from "zod";
 import { createMCPClient } from "../../src/client.js";
 import { createSimplePlugin } from "../../src/plugins/generic.js";
 import {
@@ -14,7 +15,7 @@ import type { MCPTool } from "../../src/protocol/messages.js";
 
 describe("Vercel AI SDK Integration", () => {
   describe("convertMCPToolToVercelAI", () => {
-    test("converts MCP tool to Vercel AI format", async () => {
+    test("converts MCP tool to Vercel AI format with Zod schema", async () => {
       const mockTool: MCPTool = {
         name: "test_tool",
         description: "A test tool",
@@ -43,7 +44,13 @@ describe("Vercel AI SDK Integration", () => {
 
       expect(vercelTool).toBeDefined();
       expect(vercelTool.description).toBe("A test tool");
-      expect(vercelTool.parameters).toEqual(mockTool.inputSchema);
+      // Verify it's a Zod schema
+      expect(vercelTool.inputSchema).toBeDefined();
+      expect(vercelTool.inputSchema._def).toBeDefined();
+      expect(vercelTool.inputSchema._def.typeName).toBe("ZodObject");
+      // Test that the schema can parse valid input
+      const result = vercelTool.inputSchema.safeParse({ input: "test" });
+      expect(result.success).toBe(true);
       expect(vercelTool.execute).toBeFunction();
     });
 
@@ -68,9 +75,11 @@ describe("Vercel AI SDK Integration", () => {
       const vercelTool = convertMCPToolToVercelAI(mockTool, client);
 
       expect(vercelTool.description).toBe("Execute test_tool");
+      // Verify it returns a Zod object schema even with no properties
+      expect(vercelTool.inputSchema._def.typeName).toBe("ZodObject");
     });
 
-    test("preserves complex JSON schema", async () => {
+    test("converts complex JSON schema to Zod", async () => {
       const complexSchema = {
         type: "object",
         properties: {
@@ -107,7 +116,23 @@ describe("Vercel AI SDK Integration", () => {
 
       const vercelTool = convertMCPToolToVercelAI(mockTool, client);
 
-      expect(vercelTool.parameters).toEqual(complexSchema);
+      // Verify it's a Zod object schema
+      expect(vercelTool.inputSchema._def.typeName).toBe("ZodObject");
+      
+      // Test with valid data
+      const validData = {
+        name: "John",
+        age: 30,
+        tags: ["tag1", "tag2"],
+        metadata: { created: "2023-01-01" },
+      };
+      const result = vercelTool.inputSchema.safeParse(validData);
+      expect(result.success).toBe(true);
+      
+      // Test that required fields are enforced
+      const invalidData = { tags: ["tag1"] }; // missing required name and age
+      const invalidResult = vercelTool.inputSchema.safeParse(invalidData);
+      expect(invalidResult.success).toBe(false);
     });
   });
 
@@ -164,7 +189,7 @@ describe("Vercel AI SDK Integration", () => {
 
       for (const [name, tool] of Object.entries(vercelTools)) {
         expect(tool.description).toBeString();
-        expect(tool.parameters).toBeDefined();
+        expect(tool.inputSchema).toBeDefined();
         expect(tool.execute).toBeFunction();
       }
     });
@@ -283,8 +308,8 @@ describe("Vercel AI SDK Integration", () => {
     });
   });
 
-  describe("Schema normalization", () => {
-    test("handles type: 'None' schema", async () => {
+  describe("Schema normalization to Zod", () => {
+    test("handles type: 'None' schema and converts to z.object()", async () => {
       const client = createMCPClient({
         singleton: false,
         plugins: [
@@ -310,9 +335,11 @@ describe("Vercel AI SDK Integration", () => {
 
       const tools = await getVercelAITools(client);
       
-      // Should normalize to proper object schema
-      expect(tools["test_tool"].parameters.type).toBe("object");
-      expect(tools["test_tool"].parameters.properties).toBeDefined();
+      // Should normalize to proper Zod object schema
+      expect(tools["test_tool"].inputSchema._def.typeName).toBe("ZodObject");
+      // Should be able to parse with the id property
+      const result = tools["test_tool"].inputSchema.safeParse({ id: "123" });
+      expect(result.success).toBe(true);
     });
 
     test("handles missing type in schema", async () => {
@@ -341,9 +368,10 @@ describe("Vercel AI SDK Integration", () => {
 
       const tools = await getVercelAITools(client);
       
-      // Should add type: "object"
-      expect(tools["test_tool"].parameters.type).toBe("object");
-      expect(tools["test_tool"].parameters.properties.name).toBeDefined();
+      // Should convert to Zod object schema
+      expect(tools["test_tool"].inputSchema._def.typeName).toBe("ZodObject");
+      const result = tools["test_tool"].inputSchema.safeParse({ name: "test" });
+      expect(result.success).toBe(true);
     });
 
     test("handles null or invalid schema", async () => {
@@ -369,12 +397,14 @@ describe("Vercel AI SDK Integration", () => {
 
       const tools = await getVercelAITools(client);
       
-      // Should provide safe default schema
-      expect(tools["test_tool"].parameters.type).toBe("object");
-      expect(tools["test_tool"].parameters.properties).toEqual({});
+      // Should provide safe default Zod empty object schema
+      expect(tools["test_tool"].inputSchema._def.typeName).toBe("ZodObject");
+      // Empty object should accept empty input
+      const result = tools["test_tool"].inputSchema.safeParse({});
+      expect(result.success).toBe(true);
     });
 
-    test("preserves valid object schema", async () => {
+    test("converts valid object schema to Zod correctly", async () => {
       const client = createMCPClient({
         singleton: false,
         plugins: [
@@ -406,8 +436,20 @@ describe("Vercel AI SDK Integration", () => {
 
       const tools = await getVercelAITools(client);
       
-      // Should preserve the valid schema as-is
-      expect(tools["test_tool"].parameters).toEqual(validSchema);
+      // Should convert to Zod schema
+      expect(tools["test_tool"].inputSchema._def.typeName).toBe("ZodObject");
+      
+      // Test valid data
+      const validData = { title: "Test", count: 5 };
+      expect(tools["test_tool"].inputSchema.safeParse(validData).success).toBe(true);
+      
+      // Test missing required field
+      const invalidData = { count: 5 };
+      expect(tools["test_tool"].inputSchema.safeParse(invalidData).success).toBe(false);
+      
+      // Test optional field (count is not required)
+      const partialData = { title: "Test" };
+      expect(tools["test_tool"].inputSchema.safeParse(partialData).success).toBe(true);
     });
   });
 

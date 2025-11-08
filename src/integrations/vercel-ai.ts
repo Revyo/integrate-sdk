@@ -4,6 +4,7 @@
  * Helper functions to convert MCP tools to Vercel AI SDK v5 format
  */
 
+import { z } from "zod";
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
 
@@ -13,7 +14,7 @@ import type { MCPTool } from "../protocol/messages.js";
  */
 export interface VercelAITool {
   description?: string;
-  parameters: any; // JSON Schema or Zod schema for tool parameters
+  inputSchema: z.ZodType<any>; // Zod schema for tool parameters
   execute: (args: any, options?: any) => Promise<any>;
 }
 
@@ -49,39 +50,154 @@ function getProviderForTool(client: MCPClient<any>, toolName: string): string | 
 }
 
 /**
- * Normalize JSON Schema to ensure it's valid for Vercel AI SDK
- * Handles edge cases like type: "None" or missing type
+ * Convert a JSON Schema property to a Zod schema
+ * @internal
  */
-function normalizeSchema(schema: any): any {
+function jsonSchemaPropertyToZod(propSchema: any): z.ZodType<any> {
+  if (!propSchema || typeof propSchema !== 'object') {
+    return z.any();
+  }
+
+  const type = propSchema.type;
+
+  switch (type) {
+    case 'string':
+      let stringSchema = z.string();
+      if (propSchema.description) {
+        stringSchema = stringSchema.describe(propSchema.description);
+      }
+      if (propSchema.minLength !== undefined) {
+        stringSchema = stringSchema.min(propSchema.minLength);
+      }
+      if (propSchema.maxLength !== undefined) {
+        stringSchema = stringSchema.max(propSchema.maxLength);
+      }
+      if (propSchema.pattern) {
+        stringSchema = stringSchema.regex(new RegExp(propSchema.pattern));
+      }
+      if (propSchema.enum) {
+        return z.enum(propSchema.enum as [string, ...string[]]);
+      }
+      return stringSchema;
+
+    case 'number':
+    case 'integer':
+      let numberSchema = type === 'integer' ? z.number().int() : z.number();
+      if (propSchema.description) {
+        numberSchema = numberSchema.describe(propSchema.description);
+      }
+      if (propSchema.minimum !== undefined) {
+        numberSchema = numberSchema.min(propSchema.minimum);
+      }
+      if (propSchema.maximum !== undefined) {
+        numberSchema = numberSchema.max(propSchema.maximum);
+      }
+      return numberSchema;
+
+    case 'boolean':
+      let boolSchema = z.boolean();
+      if (propSchema.description) {
+        boolSchema = boolSchema.describe(propSchema.description);
+      }
+      return boolSchema;
+
+    case 'array':
+      let arraySchema = z.array(
+        propSchema.items
+          ? jsonSchemaPropertyToZod(propSchema.items)
+          : z.any()
+      );
+      if (propSchema.description) {
+        arraySchema = arraySchema.describe(propSchema.description);
+      }
+      if (propSchema.minItems !== undefined) {
+        arraySchema = arraySchema.min(propSchema.minItems);
+      }
+      if (propSchema.maxItems !== undefined) {
+        arraySchema = arraySchema.max(propSchema.maxItems);
+      }
+      return arraySchema;
+
+    case 'object':
+      if (propSchema.properties && typeof propSchema.properties === 'object') {
+        const shape: Record<string, z.ZodType<any>> = {};
+        for (const [key, value] of Object.entries(propSchema.properties)) {
+          shape[key] = jsonSchemaPropertyToZod(value);
+        }
+        let objSchema = z.object(shape);
+        if (propSchema.description) {
+          objSchema = objSchema.describe(propSchema.description);
+        }
+        return objSchema;
+      }
+      return z.record(z.any());
+
+    case 'null':
+      return z.null();
+
+    default:
+      return z.any();
+  }
+}
+
+/**
+ * Convert JSON Schema to Zod schema for Vercel AI SDK v5
+ * Handles edge cases like missing schemas, type: "None", or invalid types
+ * Always returns a valid Zod object schema
+ * @internal
+ */
+function jsonSchemaToZod(schema: any): z.ZodObject<any> {
+  // Handle missing, null, or invalid schemas
   if (!schema || typeof schema !== 'object') {
-    return {
-      type: 'object',
-      properties: {},
-      additionalProperties: false,
-    };
+    return z.object({});
   }
 
-  // If type is "None" or null, convert to empty object schema
+  // Handle type: "None", null, or undefined
   if (schema.type === 'None' || schema.type === null || schema.type === undefined) {
-    return {
-      type: 'object',
-      properties: schema.properties || {},
-      additionalProperties: schema.additionalProperties ?? false,
-      required: schema.required || [],
-    };
+    // If there are properties, convert them
+    if (schema.properties && typeof schema.properties === 'object') {
+      const shape: Record<string, z.ZodType<any>> = {};
+      const required = schema.required || [];
+
+      for (const [key, value] of Object.entries(schema.properties)) {
+        let propSchema = jsonSchemaPropertyToZod(value);
+        // Make optional if not in required array
+        if (!required.includes(key)) {
+          propSchema = propSchema.optional();
+        }
+        shape[key] = propSchema;
+      }
+
+      return z.object(shape);
+    }
+    // No properties, return empty object
+    return z.object({});
   }
 
-  // Ensure type is "object" for Vercel AI SDK
+  // Ensure type is "object"
   if (schema.type !== 'object') {
-    return {
-      type: 'object',
-      properties: {},
-      additionalProperties: false,
-    };
+    return z.object({});
   }
 
-  // Schema looks valid, return as-is
-  return schema;
+  // Valid object schema - convert properties
+  if (schema.properties && typeof schema.properties === 'object') {
+    const shape: Record<string, z.ZodType<any>> = {};
+    const required = schema.required || [];
+
+    for (const [key, value] of Object.entries(schema.properties)) {
+      let propSchema = jsonSchemaPropertyToZod(value);
+      // Make optional if not in required array
+      if (!required.includes(key)) {
+        propSchema = propSchema.optional();
+      }
+      shape[key] = propSchema;
+    }
+
+    return z.object(shape);
+  }
+
+  // Object type with no properties
+  return z.object({});
 }
 
 /**
@@ -99,7 +215,7 @@ export function convertMCPToolToVercelAI(
 ): VercelAITool {
   return {
     description: mcpTool.description || `Execute ${mcpTool.name}`,
-    parameters: normalizeSchema(mcpTool.inputSchema), // Normalize schema for AI SDK
+    inputSchema: jsonSchemaToZod(mcpTool.inputSchema), // Convert JSON Schema to Zod
     execute: async (args: Record<string, unknown>) => {
       // If provider tokens are provided, inject the appropriate token
       if (options?.providerTokens) {
