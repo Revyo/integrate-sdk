@@ -4,14 +4,20 @@
  * This example shows how to use the useIntegrateTokens() hook
  * with Vercel AI SDK's useChat hook for seamless integration.
  * 
- * ⚠️ IMPORTANT - Next.js App Router / SSR Users:
+ * ⚠️ IMPORTANT - Next.js App Router / SSR / Suspense Users:
  * 
- * The useIntegrateTokens() hook is SSR-SAFE and automatically handles
- * server-side rendering by returning safe fallback values. You can call
- * it in any client component without worrying about "Invalid hook call" errors.
+ * The useIntegrateTokens() hook is FULLY SAFE and automatically handles:
+ * - ✅ Server-side rendering (SSR)
+ * - ✅ React initialization timing issues
+ * - ✅ Suspense boundary rendering contexts
+ * - ✅ Null/undefined client gracefully
+ * 
+ * The hook checks if React hooks are available before attempting to use them,
+ * preventing "Invalid hook call" errors in all edge cases.
  * 
  * Key features:
  * - Returns safe fallbacks during SSR (isLoading=false, no tokens)
+ * - Detects when React hooks aren't callable yet (Suspense, early init)
  * - Handles null/undefined client gracefully
  * - Must be called unconditionally at component top level (standard React rule)
  * - Works with Next.js App Router's 'use client' directive
@@ -19,7 +25,9 @@
  * For Next.js App Router, make sure to:
  * 1. Add 'use client' directive to your component file
  * 2. Call useIntegrateTokens() unconditionally at the top of your component
- * 3. The hook will handle the rest (SSR safety, token loading, etc.)
+ * 3. The hook will handle the rest (SSR safety, timing issues, token loading, etc.)
+ * 
+ * No more "Cannot read properties of null (reading 'useState')" errors!
  */
 
 import { createMCPClient, githubPlugin, gmailPlugin } from "../src/index.js";

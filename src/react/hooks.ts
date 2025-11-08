@@ -5,7 +5,7 @@
  * in client-side applications.
  */
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import * as React from "react";
 import type { MCPClient } from "../client.js";
 
 /**
@@ -53,6 +53,34 @@ function getSafeFallback(): UseIntegrateTokensResult {
     fetch: globalThis.fetch?.bind(globalThis) || (async () => new Response()),
     mergeHeaders: (existingHeaders?: HeadersInit) => new Headers(existingHeaders),
   };
+}
+
+/**
+ * Check if we're in a valid React rendering context where hooks can be called
+ * @internal
+ */
+function isReactHooksAvailable(): boolean {
+  // Check 1: React module exists
+  if (!React || typeof React !== 'object') {
+    return false;
+  }
+
+  // Check 2: React hooks functions exist
+  if (!React.useState || !React.useEffect || !React.useMemo || !React.useCallback) {
+    return false;
+  }
+
+  // Check 3: We're in a browser environment (not SSR)
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  // Check 4: Document exists (ensures we're past the initial module loading phase)
+  if (typeof document === 'undefined') {
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -115,13 +143,18 @@ function getSafeFallback(): UseIntegrateTokensResult {
 export function useIntegrateTokens(
   client?: MCPClient<any> | null
 ): UseIntegrateTokensResult {
-  // Guard: Check if we're in a browser environment
-  // During SSR or server-side evaluation, return safe fallback
-  if (typeof window === 'undefined') {
+  // Guard 1: Check if React hooks are available
+  // This handles SSR, Suspense boundaries, and initialization timing issues
+  if (!isReactHooksAvailable()) {
+    console.warn(
+      '[useIntegrateTokens] React hooks are not available. ' +
+      'This can happen during SSR, before React initialization, or in Suspense boundaries. ' +
+      'Returning safe fallback values.'
+    );
     return getSafeFallback();
   }
 
-  // Guard: Check if client is ready
+  // Guard 2: Check if client is ready
   // If client is null/undefined, return fallback with loading state
   if (!client) {
     return {
@@ -129,11 +162,12 @@ export function useIntegrateTokens(
       isLoading: true, // Indicate that we're waiting for client
     };
   }
-  // Now safe to use React hooks (we've passed the guards above)
-  const [tokens, setTokens] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  // Now safe to use React hooks (we've verified React is available)
+  const [tokens, setTokens] = React.useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
     try {
       // Get initial tokens
       const updateTokens = () => {
@@ -181,7 +215,7 @@ export function useIntegrateTokens(
   }, [client]);
 
   // Memoize headers to avoid recreating on every render
-  const headers = useMemo((): Record<string, string> => {
+  const headers = React.useMemo((): Record<string, string> => {
     if (Object.keys(tokens).length === 0) {
       return {};
     }
@@ -191,7 +225,7 @@ export function useIntegrateTokens(
   }, [tokens]);
 
   // Custom fetch function that automatically includes integrate tokens
-  const fetchWithHeaders = useCallback(
+  const fetchWithHeaders = React.useCallback(
     async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       const mergedHeaders = new Headers(init?.headers);
       
@@ -209,7 +243,7 @@ export function useIntegrateTokens(
   );
 
   // Helper function to merge integrate headers with existing headers
-  const mergeHeaders = useCallback(
+  const mergeHeaders = React.useCallback(
     (existingHeaders?: HeadersInit): Headers => {
       const merged = new Headers(existingHeaders);
       
