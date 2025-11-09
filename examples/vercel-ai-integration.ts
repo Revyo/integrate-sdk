@@ -32,6 +32,7 @@ async function main() {
   console.log("✅ Connected to MCP server");
 
   // 2. Convert MCP tools to Vercel AI SDK format
+  // Tools now use Zod schemas for type safety and validation
   const tools = getVercelAITools(mcpClient);
 
   console.log(`\n📋 Available tools for AI: ${Object.keys(tools).join(", ")}\n`);

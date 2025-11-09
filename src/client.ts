@@ -976,6 +976,40 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   }
 
   /**
+   * Get all provider tokens
+   * Returns a map of provider names to access tokens
+   * Useful for server-side usage where you need to pass tokens from client to server
+   * 
+   * @returns Record of provider names to access tokens
+   * 
+   * @example
+   * ```typescript
+   * // Client-side: Get all tokens to send to server
+   * const tokens = client.getAllProviderTokens();
+   * // { github: 'ghp_...', gmail: 'ya29...' }
+   * 
+   * // Send to server
+   * await fetch('/api/ai', {
+   *   method: 'POST',
+   *   headers: {
+   *     'x-integrate-tokens': JSON.stringify(tokens)
+   *   },
+   *   body: JSON.stringify({ prompt: 'Create a GitHub issue' })
+   * });
+   * ```
+   */
+  getAllProviderTokens(): Record<string, string> {
+    const tokens: Record<string, string> = {};
+    const allTokens = this.oauthManager.getAllProviderTokens();
+    
+    for (const [provider, tokenData] of allTokens.entries()) {
+      tokens[provider] = tokenData.accessToken;
+    }
+    
+    return tokens;
+  }
+
+  /**
    * Manually trigger re-authentication for a specific provider
    * Useful if you want to proactively refresh tokens
    */

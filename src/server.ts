@@ -129,14 +129,19 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
   // Register config globally for singleton handlers
   globalServerConfig = { providers };
 
-  // Create the client instance
-  const client = new MCPClient(config);
+  // Create the client instance with lazy connection (same as client-side)
+  const clientConfig = {
+    ...config,
+    connectionMode: config.connectionMode || 'lazy',
+    singleton: config.singleton ?? true,
+  };
+  const client = new MCPClient(clientConfig);
 
   // Create route handlers with the provider configuration
   const { POST, GET } = createOAuthRouteHandlers({ providers });
 
   return {
-    /** Server-side MCP client instance */
+    /** Server-side MCP client instance with auto-connection */
     client,
     
     /** OAuth POST handler - export this from your route file */

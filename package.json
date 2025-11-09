@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.4.9",
+  "version": "0.5.5",
   "description": "Type-safe TypeScript SDK for MCP Client with plugin-based OAuth provider configuration",
   "type": "module",
   "main": "./dist/index.js",
@@ -26,17 +26,22 @@
     "./oauth": {
       "import": "./dist/oauth.js",
       "types": "./dist/oauth.d.ts"
+    },
+    "./react": {
+      "import": "./dist/react.js",
+      "types": "./dist/react.d.ts"
     }
   },
   "files": [
     "dist",
     "index.ts",
     "server.ts",
-    "oauth.ts"
+    "oauth.ts",
+    "react.ts"
   ],
   "scripts": {
     "prep": "bun run type-check && bun run build",
-    "build": "bun build index.ts server.ts oauth.ts --outdir dist --target node --format esm && bun run build:types",
+    "build": "bun build index.ts server.ts oauth.ts react.ts --outdir dist --target node --format esm --external react && bun run build:types",
     "build:types": "tsc --emitDeclarationOnly --declaration --declarationMap",
     "dev": "bun --watch src/index.ts",
     "type-check": "tsc --noEmit",
@@ -56,13 +61,24 @@
   ],
   "author": "",
   "license": "MIT",
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/react": "^18.3.0",
+    "react": "^19.2.0",
     "simple-git-hooks": "^2.13.1",
     "typescript": "^5.3.3"
   },
   "peerDependencies": {
-    "typescript": ">=5.0.0"
+    "typescript": ">=5.0.0",
+    "react": ">=19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "simple-git-hooks": {
     "pre-commit": "./scripts/check-version.sh"
