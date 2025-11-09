@@ -391,6 +391,189 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
         },
       };
     },
+
+    /**
+     * Create unified catch-all route handler
+     * 
+     * This is the simplest way to set up OAuth routes - create a single catch-all
+     * route file that handles ALL OAuth actions including provider redirects.
+     * 
+     * @param redirectConfig - Configuration for OAuth redirect behavior
+     * @returns Object with POST and GET handlers for Next.js catch-all routes
+     * 
+     * @example
+     * ```typescript
+     * // app/api/integrate/[...all]/route.ts
+     * import { createNextOAuthHandler } from 'integrate-sdk';
+     * 
+     * const handler = createNextOAuthHandler({
+     *   providers: {
+     *     github: {
+     *       clientId: process.env.GITHUB_CLIENT_ID!,
+     *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+     *     },
+     *   },
+     * });
+     * 
+     * export const { POST, GET } = handler.createCatchAllRoutes({
+     *   redirectUrl: '/',
+     * });
+     * ```
+     * 
+     * This single route file handles:
+     * - POST /api/integrate/oauth/authorize - Get authorization URL
+     * - POST /api/integrate/oauth/callback - Exchange code for token
+     * - GET /api/integrate/oauth/callback - Provider OAuth redirect
+     * - GET /api/integrate/oauth/status - Check authorization status
+     * - POST /api/integrate/oauth/disconnect - Disconnect provider
+     */
+    createCatchAllRoutes(redirectConfig?: {
+      /** URL to redirect to after OAuth callback (default: '/') */
+      redirectUrl?: string;
+      /** URL to redirect to on OAuth error (default: '/auth-error') */
+      errorRedirectUrl?: string;
+    }) {
+      const defaultRedirectUrl = redirectConfig?.redirectUrl || '/';
+      const errorRedirectUrl = redirectConfig?.errorRedirectUrl || '/auth-error';
+
+      return {
+        /**
+         * POST handler for authorize, callback, and disconnect actions
+         */
+        async POST(
+          req: NextRequest,
+          context: { params: { all: string[] } | Promise<{ all: string[] }> }
+        ): Promise<NextResponse> {
+          // Handle both Next.js 14 (sync params) and Next.js 15+ (async params)
+          const params = context.params instanceof Promise ? await context.params : context.params;
+          const segments = params.all || [];
+
+          // Routes: /api/integrate/oauth/[action]
+          if (segments.length === 2 && segments[0] === 'oauth') {
+            const action = segments[1];
+
+            if (action === 'authorize') {
+              return handlers.authorize(req);
+            }
+
+            if (action === 'callback') {
+              return handlers.callback(req);
+            }
+
+            if (action === 'disconnect') {
+              return handlers.disconnect(req);
+            }
+
+            return Response.json(
+              { error: `Unknown action: ${action}` },
+              { status: 404 }
+            );
+          }
+
+          return Response.json(
+            { error: `Invalid route: /${segments.join('/')}` },
+            { status: 404 }
+          );
+        },
+
+        /**
+         * GET handler for status action and OAuth provider redirects
+         */
+        async GET(
+          req: NextRequest,
+          context: { params: { all: string[] } | Promise<{ all: string[] }> }
+        ): Promise<NextResponse> {
+          // Handle both Next.js 14 (sync params) and Next.js 15+ (async params)
+          const params = context.params instanceof Promise ? await context.params : context.params;
+          const segments = params.all || [];
+
+          // Routes: /api/integrate/oauth/[action]
+          if (segments.length === 2 && segments[0] === 'oauth') {
+            const action = segments[1];
+
+            // Status check
+            if (action === 'status') {
+              return handlers.status(req);
+            }
+
+            // OAuth provider redirect callback
+            if (action === 'callback') {
+              const { searchParams } = new URL(req.url);
+              
+              const code = searchParams.get('code');
+              const state = searchParams.get('state');
+              const error = searchParams.get('error');
+              const errorDescription = searchParams.get('error_description');
+
+              // Handle OAuth error
+              if (error) {
+                const errorMsg = errorDescription || error;
+                console.error('[OAuth Redirect] Error:', errorMsg);
+                
+                return Response.redirect(
+                  new URL(`${errorRedirectUrl}?error=${encodeURIComponent(errorMsg)}`, req.url)
+                );
+              }
+
+              // Validate required parameters
+              if (!code || !state) {
+                console.error('[OAuth Redirect] Missing code or state parameter');
+                
+                return Response.redirect(
+                  new URL(`${errorRedirectUrl}?error=${encodeURIComponent('Invalid OAuth callback')}`, req.url)
+                );
+              }
+
+              // Extract returnUrl from state parameter (with fallbacks)
+              let returnUrl = defaultRedirectUrl;
+              
+              try {
+                // Try to parse state to extract returnUrl
+                const { parseState } = await import('../oauth/pkce.js');
+                const stateData = parseState(state);
+                if (stateData.returnUrl) {
+                  returnUrl = stateData.returnUrl;
+                }
+              } catch (e) {
+                // If parsing fails, try to use referrer as fallback
+                try {
+                  const referrer = req.headers?.get?.('referer') || req.headers?.get?.('referrer');
+                  if (referrer) {
+                    const referrerUrl = new URL(referrer);
+                    const currentUrl = new URL(req.url);
+                    
+                    // Only use referrer if it's from the same origin (security)
+                    if (referrerUrl.origin === currentUrl.origin) {
+                      returnUrl = referrerUrl.pathname + referrerUrl.search;
+                    }
+                  }
+                } catch {
+                  // If referrer parsing fails, use default
+                  // (already set to defaultRedirectUrl)
+                }
+              }
+
+              // Redirect to the return URL with OAuth params in the hash
+              // Using hash to avoid sending sensitive params to the server
+              const targetUrl = new URL(returnUrl, req.url);
+              targetUrl.hash = `oauth_callback=${encodeURIComponent(JSON.stringify({ code, state }))}`;
+              
+              return Response.redirect(targetUrl);
+            }
+
+            return Response.json(
+              { error: `Unknown action: ${action}` },
+              { status: 404 }
+            );
+          }
+
+          return Response.json(
+            { error: `Invalid route: /${segments.join('/')}` },
+            { status: 404 }
+          );
+        },
+      };
+    },
   };
 
   return handlers;

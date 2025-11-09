@@ -12,12 +12,13 @@ The Integrate SDK uses OAuth API routes to securely handle authorization without
 **Security**: OAuth client secrets must never be exposed in the browser. By routing OAuth requests through your server, credentials stay secure in environment variables.
 
 **Flow**:
+
 1. **Browser SDK** → Calls your API route
 2. **Your API Route** → Adds OAuth secrets from env vars → Forwards to MCP server
 3. **MCP Server** → Returns authorization URL or access token
 4. **Your API Route** → Returns response to browser (SDK stores token in localStorage)
 
-## Quick Setup (3 Steps!)
+## Quick Setup (3 Steps!) ⚡️
 
 ### Next.js App Router
 
@@ -35,93 +36,94 @@ GMAIL_CLIENT_ID=your_gmail_client_id
 GMAIL_CLIENT_SECRET=your_gmail_client_secret
 ```
 
-#### 2. Create OAuth API Route
+#### 2. Create Server Configuration
 
-Create `app/api/integrate/oauth/[action]/route.ts`:
+Define your providers once in `lib/integrate-server.ts`:
 
 ```typescript
-import { createNextOAuthHandler } from 'integrate-sdk';
+import {
+  createMCPServer,
+  githubPlugin,
+  gmailPlugin,
+} from "integrate-sdk/server";
 
-const handler = createNextOAuthHandler({
-  providers: {
-    github: {
+export const { client: serverClient } = createMCPServer({
+  plugins: [
+    githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    },
-    gmail: {
+      scopes: ["repo", "user"],
+    }),
+    gmailPlugin({
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-    },
-  },
+      scopes: ["gmail.readonly"],
+    }),
+  ],
 });
-
-// This single line handles ALL OAuth actions (authorize, callback, status)
-export const { POST, GET } = handler.createRoutes();
 ```
 
-This automatically handles:
+#### 3. Create Single Catch-All OAuth Route
+
+Create `app/api/integrate/[...all]/route.ts`:
+
+```typescript
+import { createCatchAllRoutes } from "integrate-sdk/server";
+
+// That's it! Just import and export - uses config from step 2
+export const { POST, GET } = createCatchAllRoutes({
+  redirectUrl: "/dashboard", // Where to redirect after OAuth
+});
+```
+
+**That's it!** This single route file handles:
+
 - `POST /api/integrate/oauth/authorize` - Get authorization URL
-- `POST /api/integrate/oauth/callback` - Exchange code for token
+- `POST /api/integrate/oauth/callback` - Exchange code for token (client)
+- `GET /api/integrate/oauth/callback` - Provider OAuth redirect
 - `GET /api/integrate/oauth/status` - Check authorization status
 - `POST /api/integrate/oauth/disconnect` - Revoke provider authorization
 
-#### 3. Create OAuth Redirect Handler
+**Important**: Make sure to configure your OAuth provider's redirect URL:
 
-Create `app/oauth/callback/route.ts`:
-
-```typescript
-import { createOAuthRedirectHandler } from 'integrate-sdk';
-
-export const GET = createOAuthRedirectHandler({
-  redirectUrl: '/dashboard', // Where to redirect after OAuth
-});
-```
-
-**That's it!** This handler automatically:
-- Extracts OAuth parameters (code, state, error) from the URL
-- Handles errors and redirects to error page
-- Redirects to your configured URL with OAuth data
-- Works with both popup and redirect OAuth modes
-
-**Important**: Make sure to configure your OAuth provider's redirect URL to point to this callback route:
-- **Development**: `http://localhost:3000/oauth/callback`
-- **Production**: `https://yourapp.com/oauth/callback`
+- **Development**: `http://localhost:3000/api/integrate/oauth/callback`
+- **Production**: `https://yourapp.com/api/integrate/oauth/callback`
 
 Add this URL in your OAuth provider's settings (e.g., GitHub OAuth App settings, Google Cloud Console).
 
 #### 4. Use SDK in Client Components
 
 ```typescript
-'use client';
+"use client";
 
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
-import { useState } from 'react';
+import { createMCPClient, githubPlugin } from "integrate-sdk";
+import { useState } from "react";
 
 export default function GitHubIntegration() {
   const [client] = useState(() =>
     createMCPClient({
       plugins: [
         githubPlugin({
-          scopes: ['repo', 'user'],
+          scopes: ["repo", "user"],
         }),
       ],
-      oauthFlow: { mode: 'popup' },
+      oauthFlow: { mode: "popup" },
       // API routes are at /api/integrate/oauth by default
     })
   );
 
   const handleAuthorize = async () => {
     try {
-      await client.authorize('github');
-      console.log('Authorized!');
+      await client.authorize("github");
+      console.log("Authorized!");
     } catch (error) {
-      console.error('Authorization failed:', error);
+      console.error("Authorization failed:", error);
     }
   };
 
   const handleGetRepos = async () => {
-    const repos = await client.github.listRepos({ username: 'octocat' });
-    console.log('Repos:', repos);
+    const repos = await client.github.listRepos({ username: "octocat" });
+    console.log("Repos:", repos);
   };
 
   return (
@@ -149,8 +151,9 @@ GMAIL_CLIENT_SECRET=your_gmail_client_secret
 #### 2. Create OAuth Route
 
 **`app/routes/api/integrate/oauth/[action].ts`**:
+
 ```typescript
-import { createTanStackOAuthHandler } from 'integrate-sdk';
+import { createTanStackOAuthHandler } from "integrate-sdk";
 
 const handler = createTanStackOAuthHandler({
   providers: {
@@ -166,7 +169,7 @@ const handler = createTanStackOAuthHandler({
 });
 
 export const POST = handler.authorize; // Handles authorize and callback
-export const GET = handler.status;     // Handles status
+export const GET = handler.status; // Handles status
 ```
 
 ## Configuration Options
@@ -177,12 +180,13 @@ If your routes are mounted at a different path:
 
 ```typescript
 const client = createMCPClient({
-  plugins: [githubPlugin({ scopes: ['repo'] })],
-  oauthApiBase: '/api/my-custom-path/oauth', // Custom path
+  plugins: [githubPlugin({ scopes: ["repo"] })],
+  oauthApiBase: "/api/my-custom-path/oauth", // Custom path
 });
 ```
 
 The SDK will call:
+
 - `POST /api/my-custom-path/oauth/authorize`
 - `POST /api/my-custom-path/oauth/callback`
 - `GET /api/my-custom-path/oauth/status`
@@ -226,7 +230,7 @@ const handler = createNextOAuthHandler({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'https://yourapp.com/custom/callback',
+      redirectUri: "https://yourapp.com/custom/callback",
     },
   },
 });
@@ -234,13 +238,49 @@ const handler = createNextOAuthHandler({
 export const { POST, GET } = handler.createRoutes();
 ```
 
-## Advanced: Separate Route Files
+## Alternative Setups
 
-If you prefer separate routes for each action, you can use the individual handlers:
+### Option 1: Separate Route Files (Old Method)
+
+If you prefer the old method with separate route files for each action:
+
+**`app/api/integrate/oauth/[action]/route.ts`**:
+
+```typescript
+import { createNextOAuthHandler } from "integrate-sdk";
+
+const handler = createNextOAuthHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+  },
+});
+
+export const { POST, GET } = handler.createRoutes();
+```
+
+**`app/oauth/callback/route.ts`**:
+
+```typescript
+import { createOAuthRedirectHandler } from "integrate-sdk";
+
+export const GET = createOAuthRedirectHandler({
+  redirectUrl: "/dashboard",
+});
+```
+
+This requires 2 separate route files instead of 1.
+
+### Option 2: Individual Action Routes
+
+For maximum control, you can create separate routes for each action:
 
 **`app/api/integrate/oauth/authorize/route.ts`**:
+
 ```typescript
-import { createNextOAuthHandler } from 'integrate-sdk';
+import { createNextOAuthHandler } from "integrate-sdk";
 
 const handler = createNextOAuthHandler({
   providers: {
@@ -255,8 +295,9 @@ export const POST = handler.authorize;
 ```
 
 **`app/api/integrate/oauth/callback/route.ts`**:
+
 ```typescript
-import { createNextOAuthHandler } from 'integrate-sdk';
+import { createNextOAuthHandler } from "integrate-sdk";
 
 const handler = createNextOAuthHandler({
   providers: {
@@ -271,8 +312,9 @@ export const POST = handler.callback;
 ```
 
 **`app/api/integrate/oauth/status/route.ts`**:
+
 ```typescript
-import { createNextOAuthHandler } from 'integrate-sdk';
+import { createNextOAuthHandler } from "integrate-sdk";
 
 const handler = createNextOAuthHandler({
   providers: {
@@ -286,11 +328,31 @@ const handler = createNextOAuthHandler({
 export const GET = handler.status;
 ```
 
+**`app/api/integrate/oauth/disconnect/route.ts`**:
+
+```typescript
+import { createNextOAuthHandler } from "integrate-sdk";
+
+const handler = createNextOAuthHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+  },
+});
+
+export const POST = handler.disconnect;
+```
+
+This requires 4+ separate route files and is not recommended unless you have specific needs for custom logic per action.
+
 ## Security Best Practices
 
 ### 1. Never Commit Secrets
 
 Add to `.gitignore`:
+
 ```
 .env
 .env.local
@@ -300,6 +362,7 @@ Add to `.gitignore`:
 ### 2. Use HTTPS in Production
 
 Always use HTTPS for OAuth redirects:
+
 ```typescript
 redirectUri: 'https://yourapp.com/oauth/callback', // ✅ HTTPS
 // NOT: 'http://yourapp.com/oauth/callback' // ❌ HTTP
@@ -310,10 +373,7 @@ redirectUri: 'https://yourapp.com/oauth/callback', // ✅ HTTPS
 Add validation at startup:
 
 ```typescript
-const requiredEnvVars = [
-  'GITHUB_CLIENT_ID',
-  'GITHUB_CLIENT_SECRET',
-];
+const requiredEnvVars = ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"];
 
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
@@ -333,6 +393,7 @@ Create separate OAuth applications for development and production environments.
 **Cause**: The provider you're trying to authorize isn't in your OAuth handler configuration.
 
 **Solution**: Add the provider to your handler:
+
 ```typescript
 providers: {
   github: { // ✅ Provider configured
@@ -346,7 +407,8 @@ providers: {
 
 **Cause**: OAuth credentials are missing or invalid.
 
-**Solution**: 
+**Solution**:
+
 1. Check environment variables are set
 2. Verify credentials in OAuth provider dashboard
 3. Restart dev server after changing `.env`
@@ -355,14 +417,25 @@ providers: {
 
 **Cause**: Route file not in correct location.
 
-**Solution**: Verify file structure:
+**Solution**: Verify file structure for catch-all route:
+
+```
+app/
+  api/
+    integrate/
+      [...all]/
+        route.ts     ← Single catch-all file handles everything!
+```
+
+Or for the older [action] route:
+
 ```
 app/
   api/
     integrate/
       oauth/
         [action]/
-          route.ts     ← Single file handles everything!
+          route.ts
 ```
 
 ## API Reference
@@ -372,19 +445,60 @@ app/
 ```typescript
 interface OAuthHandlerConfig {
   /** OAuth configurations by provider */
-  providers: Record<string, {
-    clientId: string;
-    clientSecret: string;
-    redirectUri?: string;
-  }>;
+  providers: Record<
+    string,
+    {
+      clientId: string;
+      clientSecret: string;
+      redirectUri?: string;
+    }
+  >;
 }
 ```
 
 **Note**: The MCP server URL (`https://mcp.integrate.dev/api/v1/mcp`) is managed by Integrate and hardcoded in the SDK. You don't need to configure it.
 
+### createCatchAllRoutes()
+
+**Recommended**: Returns an object with POST and GET handlers for Next.js catch-all routes:
+
+```typescript
+const handler = createNextOAuthHandler(config);
+const { POST, GET } = handler.createCatchAllRoutes({
+  redirectUrl: "/dashboard",
+  errorRedirectUrl: "/auth-error",
+});
+```
+
+**Config**:
+
+```typescript
+interface CatchAllRoutesConfig {
+  /** URL to redirect to after successful OAuth (default: '/') */
+  redirectUrl?: string;
+  /** URL to redirect to on OAuth error (default: '/auth-error') */
+  errorRedirectUrl?: string;
+}
+```
+
+**Routes handled**:
+
+- `POST /api/integrate/oauth/authorize` - Get authorization URL
+- `POST /api/integrate/oauth/callback` - Exchange code for token (client call)
+- `GET /api/integrate/oauth/callback` - Provider OAuth redirect
+- `GET /api/integrate/oauth/status` - Check authorization status
+- `POST /api/integrate/oauth/disconnect` - Revoke provider authorization
+
+**Benefits**:
+
+- ✅ Single route file instead of 2 separate files
+- ✅ Simpler setup and maintenance
+- ✅ All OAuth logic in one place
+- ✅ Works with both popup and redirect OAuth flows
+
 ### createRoutes()
 
-Returns an object with POST and GET handlers for Next.js dynamic routes:
+**Alternative**: Returns an object with POST and GET handlers for Next.js dynamic routes:
 
 ```typescript
 const handler = createNextOAuthHandler(config);
@@ -392,19 +506,28 @@ const { POST, GET } = handler.createRoutes();
 ```
 
 **Routes handled**:
+
 - `POST /api/integrate/oauth/authorize` - Get authorization URL
 - `POST /api/integrate/oauth/callback` - Exchange code for token
 - `GET /api/integrate/oauth/status` - Check authorization status
+- `POST /api/integrate/oauth/disconnect` - Revoke provider authorization
+
+**Note**: This method requires a separate OAuth redirect handler file. Use `createCatchAllRoutes()` for a simpler setup.
 
 ### createOAuthRedirectHandler()
+
+**Note**: Not needed when using `createCatchAllRoutes()` - only needed with `createRoutes()`.
 
 Creates a redirect handler that processes OAuth callbacks and forwards to your app.
 
 ```typescript
-function createOAuthRedirectHandler(config?: OAuthRedirectConfig): (req: NextRequest) => Promise<NextResponse>
+function createOAuthRedirectHandler(
+  config?: OAuthRedirectConfig
+): (req: NextRequest) => Promise<NextResponse>;
 ```
 
 **OAuthRedirectConfig**:
+
 ```typescript
 interface OAuthRedirectConfig {
   /** URL to redirect to after successful OAuth (default: '/') */
@@ -415,17 +538,19 @@ interface OAuthRedirectConfig {
 ```
 
 **Example**:
+
 ```typescript
 // app/oauth/callback/route.ts
-import { createOAuthRedirectHandler } from 'integrate-sdk';
+import { createOAuthRedirectHandler } from "integrate-sdk";
 
 export const GET = createOAuthRedirectHandler({
-  redirectUrl: '/dashboard',
-  errorRedirectUrl: '/auth-failed',
+  redirectUrl: "/dashboard",
+  errorRedirectUrl: "/auth-failed",
 });
 ```
 
 **What it does**:
+
 - Receives OAuth callback from provider (code, state, error)
 - Validates parameters
 - Redirects to your configured URL with OAuth data in hash fragment
@@ -433,6 +558,7 @@ export const GET = createOAuthRedirectHandler({
 - Handles errors gracefully
 
 **How it works**:
+
 1. OAuth provider → `GET /oauth/callback?code=...&state=...`
 2. Handler extracts parameters
 3. Redirects to `/dashboard#oauth_callback={"code":"...","state":"..."}`
