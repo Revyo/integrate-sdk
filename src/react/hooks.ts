@@ -1,11 +1,10 @@
 /**
  * React hooks for integrate-sdk
  * 
- * Provides React hooks for managing provider tokens and headers
- * in client-side applications.
+ * Provides React hooks for managing provider tokens in client-side applications.
  */
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect } from "react";
 import type { MCPClient } from "../client.js";
 
 /**
@@ -18,27 +17,9 @@ export interface UseIntegrateTokensResult {
   tokens: Record<string, string>;
   
   /**
-   * Headers object ready to spread into fetch/useChat options
-   * Includes 'x-integrate-tokens' header with JSON-stringified tokens
-   */
-  headers: Record<string, string>;
-  
-  /**
    * Whether tokens are currently being loaded
    */
   isLoading: boolean;
-  
-  /**
-   * Custom fetch function with integrate tokens automatically included
-   * Use this with libraries that accept a custom fetch function (like Vercel AI SDK's useChat)
-   */
-  fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-  
-  /**
-   * Helper function to merge integrate headers with existing headers
-   * Useful for manual fetch calls where you need to combine headers
-   */
-  mergeHeaders: (existingHeaders?: HeadersInit) => Headers;
 }
 
 /**
@@ -48,10 +29,7 @@ export interface UseIntegrateTokensResult {
 function getSafeFallback(): UseIntegrateTokensResult {
   return {
     tokens: {},
-    headers: {},
     isLoading: false,
-    fetch: globalThis.fetch?.bind(globalThis) || (async () => new Response()),
-    mergeHeaders: (existingHeaders?: HeadersInit) => new Headers(existingHeaders),
   };
 }
 
@@ -61,7 +39,7 @@ function getSafeFallback(): UseIntegrateTokensResult {
  */
 function isReactHooksAvailable(): boolean {
   // Check 1: React hooks functions exist
-  if (!useState || !useEffect || !useMemo || !useCallback) {
+  if (!useState || !useEffect) {
     return false;
   }
 
@@ -79,59 +57,42 @@ function isReactHooksAvailable(): boolean {
 }
 
 /**
- * React hook to access integrate-sdk provider tokens and headers
+ * React hook to access integrate-sdk provider token status
  * 
  * Automatically listens for authentication events and updates when tokens change.
- * Returns tokens and formatted headers ready to pass to API requests.
+ * Use this hook to display connection status in your UI.
+ * 
+ * **For automatic token injection**, use `useIntegrateAI()` instead.
  * 
  * **Note:** This hook must be called inside a React component. It will return safe
  * fallback values during SSR or if the client is not ready.
  * 
  * @param client - MCP client instance created with createMCPClient() (optional)
- * @returns Object with tokens, headers, loading state, fetch function, and mergeHeaders helper
+ * @returns Object with tokens and loading state
  * 
  * @example
  * ```tsx
  * import { createMCPClient, githubPlugin } from 'integrate-sdk';
  * import { useIntegrateTokens } from 'integrate-sdk/react';
- * import { useChat } from 'ai/react';
  * 
  * const client = createMCPClient({
  *   plugins: [githubPlugin({ clientId: '...' })],
  * });
  * 
- * function ChatComponent() {
- *   const { fetch: fetchWithTokens, isLoading } = useIntegrateTokens(client);
+ * function ConnectionStatus() {
+ *   const { tokens, isLoading } = useIntegrateTokens(client);
  *   
- *   const chat = useChat({
- *     api: '/api/chat',
- *     fetch: fetchWithTokens, // Tokens automatically included
- *   });
+ *   if (isLoading) return <div>Loading...</div>;
  *   
- *   return <div>Chat UI here</div>;
- * }
- * ```
- * 
- * @example
- * ```tsx
- * // With mergeHeaders helper
- * import { createMCPClient } from 'integrate-sdk';
- * 
- * const client = createMCPClient({ plugins: [...] });
- * 
- * function MyComponent() {
- *   const { mergeHeaders } = useIntegrateTokens(client);
- *   
- *   const fetchData = async () => {
- *     const response = await fetch('/api/data', {
- *       method: 'POST',
- *       headers: mergeHeaders({ 'Content-Type': 'application/json' }),
- *       body: JSON.stringify({ query: 'example' }),
- *     });
- *     return response.json();
- *   };
- *   
- *   return <button onClick={fetchData}>Fetch</button>;
+ *   return (
+ *     <div>
+ *       {Object.keys(tokens).length > 0 ? (
+ *         <span>Connected: {Object.keys(tokens).join(', ')}</span>
+ *       ) : (
+ *         <span>Not connected</span>
+ *       )}
+ *     </div>
+ *   );
  * }
  * ```
  */
@@ -209,55 +170,191 @@ export function useIntegrateTokens(
     }
   }, [client]);
 
-  // Memoize headers to avoid recreating on every render
-  const headers = useMemo((): Record<string, string> => {
-    if (Object.keys(tokens).length === 0) {
-      return {};
-    }
-    return {
-      'x-integrate-tokens': JSON.stringify(tokens),
-    };
-  }, [tokens]);
-
-  // Custom fetch function that automatically includes integrate tokens
-  const fetchWithHeaders = useCallback(
-    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      const mergedHeaders = new Headers(init?.headers);
-      
-      // Add integrate tokens header if available
-      if (headers['x-integrate-tokens']) {
-        mergedHeaders.set('x-integrate-tokens', headers['x-integrate-tokens']);
-      }
-      
-      return fetch(input, {
-        ...init,
-        headers: mergedHeaders,
-      });
-    },
-    [headers]
-  );
-
-  // Helper function to merge integrate headers with existing headers
-  const mergeHeaders = useCallback(
-    (existingHeaders?: HeadersInit): Headers => {
-      const merged = new Headers(existingHeaders);
-      
-      // Add integrate tokens header if available
-      if (headers['x-integrate-tokens']) {
-        merged.set('x-integrate-tokens', headers['x-integrate-tokens']);
-      }
-      
-      return merged;
-    },
-    [headers]
-  );
-
   return {
     tokens,
-    headers,
     isLoading,
-    fetch: fetchWithHeaders,
-    mergeHeaders,
   };
+}
+
+/**
+ * Options for useIntegrateAI hook
+ */
+export interface UseIntegrateAIOptions {
+  /**
+   * URL pattern to intercept for token injection
+   * Default: /\/api\/chat/
+   * Can be a string (uses .includes()) or RegExp
+   */
+  apiPattern?: string | RegExp;
+  
+  /**
+   * Enable debug logging
+   * Default: false
+   */
+  debug?: boolean;
+}
+
+/**
+ * Global fetch interceptor for Vercel AI SDK
+ * 
+ * Automatically injects integrate provider tokens into all AI SDK requests.
+ * Call this once at your app root (layout/provider) to enable automatic token
+ * injection for all `useChat` calls in your application.
+ * 
+ * **Note:** This installs a global `window.fetch` interceptor that only affects
+ * requests matching the `apiPattern`. All other requests pass through unchanged.
+ * 
+ * @param client - MCP client instance created with createMCPClient() (optional)
+ * @param options - Configuration options for the interceptor
+ * 
+ * @example
+ * ```tsx
+ * // app/layout.tsx or app/providers.tsx
+ * 'use client';
+ * 
+ * import { createMCPClient, githubPlugin } from 'integrate-sdk';
+ * import { useIntegrateAI } from 'integrate-sdk/react';
+ * 
+ * const client = createMCPClient({
+ *   plugins: [
+ *     githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID }),
+ *   ],
+ * });
+ * 
+ * export function Providers({ children }) {
+ *   // Install global interceptor once
+ *   useIntegrateAI(client);
+ *   
+ *   return <>{children}</>;
+ * }
+ * 
+ * // Now any component can use useChat without manual token management
+ * function ChatPage() {
+ *   const chat = useChat(); // ✅ Tokens automatically included!
+ *   return <div>...</div>;
+ * }
+ * ```
+ * 
+ * @example
+ * ```tsx
+ * // With custom API pattern and debug logging
+ * useIntegrateAI(client, {
+ *   apiPattern: /\/(api|chat)\//, // Match /api/ or /chat/
+ *   debug: true, // Log intercepted requests
+ * });
+ * ```
+ */
+export function useIntegrateAI(
+  client?: MCPClient<any> | null,
+  options: UseIntegrateAIOptions = {}
+): void {
+  const { apiPattern = /\/api\/chat/, debug = false } = options;
+
+  useEffect(() => {
+    // Skip if no client or not in browser
+    if (!client || typeof window === 'undefined') {
+      if (debug && !client) {
+        console.warn('[useIntegrateAI] No client provided, skipping interceptor setup');
+      }
+      return;
+    }
+
+    // Store original fetch
+    const originalFetch = window.fetch;
+
+    // Get initial tokens
+    let currentTokens: Record<string, string> = {};
+    try {
+      currentTokens = client.getAllProviderTokens();
+      if (debug) {
+        console.log('[useIntegrateAI] Initial tokens loaded:', Object.keys(currentTokens));
+      }
+    } catch (error) {
+      console.error('[useIntegrateAI] Failed to get initial tokens:', error);
+    }
+
+    // Update tokens on auth events
+    const updateTokens = () => {
+      try {
+        currentTokens = client.getAllProviderTokens();
+        if (debug) {
+          console.log('[useIntegrateAI] Tokens updated:', Object.keys(currentTokens));
+        }
+      } catch (error) {
+        console.error('[useIntegrateAI] Failed to update tokens:', error);
+      }
+    };
+
+    const handleLogout = () => {
+      currentTokens = {};
+      if (debug) {
+        console.log('[useIntegrateAI] Tokens cleared (logout)');
+      }
+    };
+
+    // Register event listeners
+    client.on('auth:complete', updateTokens);
+    client.on('auth:disconnect', updateTokens);
+    client.on('auth:logout', handleLogout);
+
+    // Install global fetch interceptor
+    const interceptedFetch = async (
+      input: RequestInfo | URL,
+      init?: RequestInit
+    ): Promise<Response> => {
+      // Get URL string from various input types
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+          ? input.href
+          : (input as Request).url;
+
+      // Check if this request matches the API pattern
+      const shouldIntercept =
+        typeof apiPattern === 'string'
+          ? url.includes(apiPattern)
+          : apiPattern.test(url);
+
+      if (shouldIntercept && Object.keys(currentTokens).length > 0) {
+        if (debug) {
+          console.log('[useIntegrateAI] Intercepting request to:', url);
+          console.log('[useIntegrateAI] Injecting tokens:', Object.keys(currentTokens));
+        }
+
+        // Clone init and add tokens header
+        const headers = new Headers(init?.headers);
+        headers.set('x-integrate-tokens', JSON.stringify(currentTokens));
+
+        return originalFetch(input, {
+          ...init,
+          headers,
+        });
+      }
+
+      // Pass through other requests unchanged
+      return originalFetch(input, init);
+    };
+
+    // Assign the intercepted fetch
+    window.fetch = interceptedFetch as typeof window.fetch;
+
+    if (debug) {
+      console.log('[useIntegrateAI] Global fetch interceptor installed');
+      console.log('[useIntegrateAI] Pattern:', apiPattern);
+    }
+
+    // Cleanup: restore original fetch and remove listeners
+    return () => {
+      window.fetch = originalFetch;
+      client.off('auth:complete', updateTokens);
+      client.off('auth:disconnect', updateTokens);
+      client.off('auth:logout', handleLogout);
+
+      if (debug) {
+        console.log('[useIntegrateAI] Global fetch interceptor removed');
+      }
+    };
+  }, [client, apiPattern, debug]);
 }
 

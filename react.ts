@@ -4,6 +4,6 @@
  * @packageDocumentation
  */
 
-export { useIntegrateTokens } from "./src/react/hooks.js";
-export type { UseIntegrateTokensResult } from "./src/react/hooks.js";
+export { useIntegrateTokens, useIntegrateAI } from "./src/react/hooks.js";
+export type { UseIntegrateTokensResult, UseIntegrateAIOptions } from "./src/react/hooks.js";
 

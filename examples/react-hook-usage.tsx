@@ -1,48 +1,27 @@
 /**
- * React Hook Usage Example
+ * React Hooks Usage Examples
  * 
- * This example shows how to use the useIntegrateTokens() hook
- * with Vercel AI SDK's useChat hook for seamless integration.
- * 
- * ⚠️ IMPORTANT - Next.js App Router / SSR / Suspense Users:
- * 
- * The useIntegrateTokens() hook is FULLY SAFE and automatically handles:
- * - ✅ Server-side rendering (SSR)
- * - ✅ React initialization timing issues
- * - ✅ Suspense boundary rendering contexts
- * - ✅ Null/undefined client gracefully
- * 
- * The hook checks if React hooks are available before attempting to use them,
- * preventing "Invalid hook call" errors in all edge cases.
- * 
- * Key features:
- * - Returns safe fallbacks during SSR (isLoading=false, no tokens)
- * - Detects when React hooks aren't callable yet (Suspense, early init)
- * - Handles null/undefined client gracefully
- * - Must be called unconditionally at component top level (standard React rule)
- * - Works with Next.js App Router's 'use client' directive
- * 
- * For Next.js App Router, make sure to:
- * 1. Add 'use client' directive to your component file
- * 2. Call useIntegrateTokens() unconditionally at the top of your component
- * 3. The hook will handle the rest (SSR safety, timing issues, token loading, etc.)
- * 
- * No more "Cannot read properties of null (reading 'useState')" errors!
+ * This file demonstrates how to use integrate-sdk React hooks
+ * with Vercel AI SDK for seamless token management.
  */
 
 import { createMCPClient, githubPlugin, gmailPlugin } from "../src/index.js";
-import { useIntegrateTokens } from "../react.js";
-// In a real app, you'd import from 'ai/react'
-// import { useChat } from 'ai/react';
+import { useIntegrateAI, useIntegrateTokens } from "../react.js";
+// In a real app, you'd import from 'integrate-sdk' and 'integrate-sdk/react'
 
 /**
- * Step 1: Create the MCP client outside of your component
- * This should be done at the module level, not inside a component
+ * RECOMMENDED PATTERN: Global AI Interceptor
+ * 
+ * Use useIntegrateAI() once at your app root to automatically inject
+ * tokens into all AI SDK requests. No manual token management needed!
  */
+
+// Create MCP client (do this at module level or in a provider)
 const client = createMCPClient({
   plugins: [
     githubPlugin({
       clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || "your-client-id",
+      scopes: ["repo", "user"],
     }),
     gmailPlugin({
       clientId: process.env.NEXT_PUBLIC_GMAIL_CLIENT_ID || "your-client-id",
@@ -51,264 +30,149 @@ const client = createMCPClient({
 });
 
 /**
- * Example 1a: Using custom fetch with Vercel AI SDK's useChat (RECOMMENDED)
+ * Example 1: App Root / Layout (REQUIRED)
  * 
- * ⚠️ For Next.js App Router: Add 'use client' directive to this file
- * 
- * The hook is SSR-safe and will return safe fallbacks during server-side
- * rendering. Always call it unconditionally at the top of your component.
+ * Call useIntegrateAI() once at your app root to install the global interceptor.
+ * This makes ALL useChat calls automatically include tokens.
  */
-export function ChatComponentWithFetch() {
-  // ✅ Hook called unconditionally at top level - SSR-safe
-  // During SSR: returns { fetch: globalThis.fetch, isLoading: false, tokens: {}, ... }
-  // On client: returns actual tokens and custom fetch
-  const { fetch: fetchWithTokens, isLoading } = useIntegrateTokens(client);
+'use client';
 
-  // Pass the custom fetch to useChat - tokens are included automatically!
-  // const chat = useChat({
-  //   api: '/api/chat',
-  //   fetch: fetchWithTokens, // ✅ Tokens automatically included
-  // });
+import { useChat } from '@ai-sdk/react';
+
+export function RootLayout({ children }: { children: React.ReactNode }) {
+  // ✅ Install global fetch interceptor once
+  // This affects all API calls matching /api/chat in your entire app
+  useIntegrateAI(client);
+  
+  return <>{children}</>;
+}
+
+/**
+ * Example 2: Chat Page (SIMPLE!)
+ * 
+ * Now any component can use useChat without worrying about tokens.
+ * The global interceptor handles everything automatically.
+ */
+export function ChatPage() {
+  // ✅ No need to pass custom fetch or headers!
+  // Tokens are automatically injected by useIntegrateAI
+  const chat = useChat();
 
   return (
     <div>
-      <h1>AI Chat with Integrations (Custom Fetch)</h1>
+      <div>
+        {chat.messages.map((message) => (
+          <div key={message.id}>
+            <strong>{message.role}:</strong> {message.content}
+          </div>
+        ))}
+      </div>
       
-      {isLoading ? (
-        <p>Loading tokens...</p>
-      ) : (
-        <div>
-          <p>✅ Tokens loaded and ready</p>
-          {/* Your chat UI here */}
-        </div>
-      )}
+      <form onSubmit={chat.handleSubmit}>
+        <input
+          value={chat.input}
+          onChange={chat.handleInputChange}
+          placeholder="Type a message..."
+        />
+        <button type="submit" disabled={chat.isLoading}>
+          Send
+        </button>
+      </form>
     </div>
   );
 }
 
 /**
- * Example 1b: Using headers (backward compatible)
+ * Example 3: Connection Status Display
+ * 
+ * Use useIntegrateTokens() to display which providers are connected.
+ * This hook only returns tokens and isLoading for UI purposes.
  */
-export function ChatComponentWithHeaders() {
-  // Get tokens and formatted headers from the hook
-  const { tokens, headers, isLoading } = useIntegrateTokens(client);
-
-  // Pass headers to useChat - they will be sent with every request
-  // const chat = useChat({
-  //   api: '/api/chat',
-  //   headers, // Includes x-integrate-tokens header automatically
-  // });
-
-  // Example of what the headers look like:
-  // { "x-integrate-tokens": "{\"github\":\"ghp_...\",\"gmail\":\"ya29...\"}" }
-
-  return (
-    <div>
-      <h1>AI Chat with Integrations (Headers)</h1>
-      
-      {isLoading ? (
-        <p>Loading tokens...</p>
-      ) : (
-        <div>
-          <p>Connected providers: {Object.keys(tokens).join(", ")}</p>
-          
-          {/* Your chat UI here */}
-          {/* <div>
-            {chat.messages.map(message => (
-              <div key={message.id}>{message.content}</div>
-            ))}
-          </div> */}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Example 2a: Manual fetch with custom fetch function (RECOMMENDED)
- */
-export function ManualFetchWithCustomFetch() {
-  const { fetch: fetchWithTokens } = useIntegrateTokens(client);
-
-  const handleFetch = async () => {
-    // Just use fetchWithTokens like regular fetch - tokens are included automatically!
-    const response = await fetchWithTokens('/api/data', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: 'Get my GitHub repositories',
-      }),
-    });
-
-    const data = await response.json();
-    console.log('Response:', data);
-  };
-
-  return (
-    <button onClick={handleFetch}>
-      Fetch Data (Custom Fetch)
-    </button>
-  );
-}
-
-/**
- * Example 2b: Manual fetch with mergeHeaders helper
- */
-export function ManualFetchWithMergeHeaders() {
-  const { mergeHeaders } = useIntegrateTokens(client);
-
-  const handleFetch = async () => {
-    // Use mergeHeaders to combine your headers with integrate tokens
-    const response = await fetch('/api/data', {
-      method: 'POST',
-      headers: mergeHeaders({
-        'Content-Type': 'application/json',
-      }),
-      body: JSON.stringify({
-        query: 'Get my GitHub repositories',
-      }),
-    });
-
-    const data = await response.json();
-    console.log('Response:', data);
-  };
-
-  return (
-    <button onClick={handleFetch}>
-      Fetch Data (Merge Headers)
-    </button>
-  );
-}
-
-/**
- * Example 2c: Manual fetch with headers spreading (backward compatible)
- */
-export function ManualFetchWithSpreadHeaders() {
-  const { headers } = useIntegrateTokens(client);
-
-  const handleFetch = async () => {
-    const response = await fetch('/api/data', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers, // Spread headers to include x-integrate-tokens
-      },
-      body: JSON.stringify({
-        query: 'Get my GitHub repositories',
-      }),
-    });
-
-    const data = await response.json();
-    console.log('Response:', data);
-  };
-
-  return (
-    <button onClick={handleFetch}>
-      Fetch Data (Spread Headers)
-    </button>
-  );
-}
-
-/**
- * Example 3: Monitoring token changes
- */
-export function TokenMonitor() {
+export function ConnectionStatus() {
   const { tokens, isLoading } = useIntegrateTokens(client);
 
-  // The hook automatically updates when auth events occur:
-  // - When user authorizes a provider (auth:complete)
-  // - When user disconnects a provider (auth:disconnect)
-  // - When user logs out (auth:logout)
+  if (isLoading) {
+    return <div>Loading authentication status...</div>;
+  }
+
+  const connectedProviders = Object.keys(tokens);
 
   return (
     <div>
-      <h2>Token Status</h2>
-      {isLoading ? (
-        <p>Loading...</p>
+      {connectedProviders.length > 0 ? (
+        <div>
+          <strong>Connected:</strong> {connectedProviders.join(', ')}
+        </div>
       ) : (
-        <ul>
-          {Object.entries(tokens).map(([provider, token]) => (
-            <li key={provider}>
-              {provider}: {token ? '✓ Connected' : '✗ Not connected'}
-            </li>
-          ))}
-        </ul>
+        <div>
+          <em>No providers connected</em>
+        </div>
       )}
     </div>
   );
 }
 
 /**
- * Example 4: Complete application with auth flow (using custom fetch)
+ * Example 4: Authentication Buttons + Status
+ * 
+ * Complete example showing auth buttons and connection status together.
  */
-export function CompleteExample() {
-  const { tokens, fetch: fetchWithTokens, isLoading } = useIntegrateTokens(client);
+export function AuthenticatedChat() {
+  const { tokens, isLoading } = useIntegrateTokens(client);
+  const chat = useChat(); // ✅ Tokens auto-injected by useIntegrateAI
 
   const handleConnectGitHub = async () => {
     try {
       await client.authorize('github');
-      // Hook will automatically update tokens after auth completes
     } catch (error) {
-      console.error('Failed to connect GitHub:', error);
+      console.error('GitHub auth failed:', error);
     }
   };
 
-  const handleDisconnectGitHub = async () => {
+  const handleConnectGmail = async () => {
     try {
-      await client.disconnectProvider('github');
-      // Hook will automatically update tokens after disconnect
+      await client.authorize('gmail');
     } catch (error) {
-      console.error('Failed to disconnect GitHub:', error);
+      console.error('Gmail auth failed:', error);
     }
   };
-
-  // const chat = useChat({
-  //   api: '/api/chat',
-  //   fetch: fetchWithTokens, // Use custom fetch - cleaner and more reliable!
-  // });
 
   return (
     <div className="max-w-2xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">AI Chat with GitHub Integration</h1>
-      
-      {/* Connection status */}
-      <div className="mb-4 p-4 bg-gray-100 rounded">
-        <h2 className="font-bold mb-2">Connection Status</h2>
+      <h1>AI Chat with GitHub & Gmail</h1>
+
+      {/* Connection Status */}
+      <div className="mb-4 p-3 bg-gray-100 rounded">
+        <h2 className="font-bold mb-2">Account Connections</h2>
         {isLoading ? (
           <p>Loading...</p>
         ) : (
           <div className="space-y-2">
+            {/* GitHub */}
             {tokens.github ? (
-              <div className="flex items-center justify-between">
-                <span>✓ GitHub Connected</span>
-                <button
-                  onClick={handleDisconnectGitHub}
-                  className="px-3 py-1 bg-red-500 text-white rounded"
-                >
-                  Disconnect
-                </button>
-              </div>
+              <div>✅ GitHub Connected</div>
             ) : (
-              <div className="flex items-center justify-between">
-                <span>✗ GitHub Not Connected</span>
-                <button
-                  onClick={handleConnectGitHub}
-                  className="px-3 py-1 bg-gray-800 text-white rounded"
-                >
-                  Connect GitHub
-                </button>
-              </div>
+              <button onClick={handleConnectGitHub} className="btn">
+                Connect GitHub
+              </button>
+            )}
+
+            {/* Gmail */}
+            {tokens.gmail ? (
+              <div>✅ Gmail Connected</div>
+            ) : (
+              <button onClick={handleConnectGmail} className="btn">
+                Connect Gmail
+              </button>
             )}
           </div>
         )}
       </div>
 
-      {/* Chat interface */}
-      {/* <div className="space-y-4">
+      {/* Chat Interface */}
+      <div className="space-y-4">
         <div className="space-y-2">
-          {chat.messages.map(message => (
+          {chat.messages.map((message) => (
             <div
               key={message.id}
               className={`p-3 rounded ${
@@ -319,156 +183,114 @@ export function CompleteExample() {
             </div>
           ))}
         </div>
-        
+
         <form onSubmit={chat.handleSubmit} className="flex gap-2">
           <input
             value={chat.input}
             onChange={chat.handleInputChange}
-            placeholder="Ask AI to use GitHub..."
+            placeholder="Ask AI to use GitHub or Gmail..."
             className="flex-1 p-2 border rounded"
           />
           <button
             type="submit"
             disabled={chat.isLoading}
-            className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
+            className="px-4 py-2 bg-blue-600 text-white rounded"
           >
             Send
           </button>
         </form>
-      </div> */}
+      </div>
     </div>
   );
 }
 
 /**
- * Example 5: Using with multiple clients (advanced)
+ * Example 5: Custom API Pattern
+ * 
+ * You can customize which URLs get token injection.
  */
-const clientA = createMCPClient({
-  singleton: false, // Disable singleton to create separate instance
-  plugins: [githubPlugin({ clientId: "client-a" })],
-});
+export function CustomPatternExample() {
+  // Intercept both /api/ and /chat/ endpoints
+  useIntegrateAI(client, {
+    apiPattern: /\/(api|chat)\//,
+  });
 
-const clientB = createMCPClient({
-  singleton: false,
-  plugins: [gmailPlugin({ clientId: "client-b" })],
-});
+  return <div>Global interceptor active for /api/ and /chat/</div>;
+}
 
-export function MultiClientExample() {
-  const githubTokens = useIntegrateTokens(clientA);
-  const gmailTokens = useIntegrateTokens(clientB);
+/**
+ * Example 6: Debug Mode
+ * 
+ * Enable debug logging to see what's being intercepted.
+ */
+export function DebugExample() {
+  useIntegrateAI(client, {
+    debug: true, // Logs all intercepted requests
+  });
+
+  return <div>Check console for debug logs</div>;
+}
+
+/**
+ * Example 7: Multiple Chat Components
+ * 
+ * All chat components automatically get tokens without any extra work.
+ */
+export function MultiChatExample() {
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <ChatComponent title="Chat 1" />
+      <ChatComponent title="Chat 2" />
+    </div>
+  );
+}
+
+function ChatComponent({ title }: { title: string }) {
+  // ✅ Each useChat call automatically includes tokens
+  const chat = useChat();
 
   return (
-    <div>
-      <div>
-        <h3>GitHub Client</h3>
-        <p>Tokens: {Object.keys(githubTokens.tokens).join(", ")}</p>
-      </div>
-      <div>
-        <h3>Gmail Client</h3>
-        <p>Tokens: {Object.keys(gmailTokens.tokens).join(", ")}</p>
-      </div>
+    <div className="border p-4 rounded">
+      <h3 className="font-bold mb-2">{title}</h3>
+      {/* Chat UI */}
     </div>
   );
 }
 
 /**
- * Example 6: Next.js App Router with 'use client' (SSR-SAFE)
+ * Example 8: Lazy Client Initialization
  * 
- * This demonstrates proper usage in Next.js App Router.
- * The hook handles SSR gracefully without "Invalid hook call" errors.
+ * You can pass null/undefined to useIntegrateAI and it won't crash.
+ * Useful for lazy initialization patterns.
  */
-'use client'; // Required for Next.js App Router
+export function LazyInitExample() {
+  const [mcpClient, setMcpClient] = React.useState<typeof client | null>(null);
 
-import { useState } from 'react';
-
-export function NextJsAppRouterExample() {
-  // ✅ Hook is SSR-safe - works during both server and client rendering
-  // On server: returns safe fallbacks { fetch: globalThis.fetch, tokens: {}, isLoading: false }
-  // On client: returns actual tokens and custom fetch
-  const { fetch: fetchWithTokens, tokens, isLoading } = useIntegrateTokens(client);
-  const [response, setResponse] = useState<string>('');
-
-  const handleSend = async () => {
-    // fetchWithTokens is safe to call immediately - includes tokens automatically
-    const res = await fetchWithTokens('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: 'Hello from Next.js!' }),
+  React.useEffect(() => {
+    // Initialize client lazily
+    const newClient = createMCPClient({
+      plugins: [githubPlugin({ clientId: '...' })],
     });
-    const data = await res.json();
-    setResponse(data.message);
-  };
-
-  return (
-    <div>
-      <h2>Next.js App Router Example</h2>
-      <p>Connected: {Object.keys(tokens).join(', ') || 'None'}</p>
-      {isLoading && <p>Loading tokens...</p>}
-      <button onClick={handleSend}>Send Message</button>
-      {response && <p>Response: {response}</p>}
-    </div>
-  );
-}
-
-/**
- * Example 7: Handling null/undefined client (lazy initialization)
- * 
- * The hook gracefully handles null/undefined clients by returning
- * safe fallbacks with isLoading=true until the client is ready.
- */
-'use client';
-
-import { useEffect } from 'react';
-
-export function LazyClientExample() {
-  const [lazyClient, setLazyClient] = useState<ReturnType<typeof createMCPClient> | null>(null);
-
-  // ✅ Hook handles null client - returns safe fallback with isLoading=true
-  const { fetch: fetchWithTokens, tokens, isLoading } = useIntegrateTokens(lazyClient);
-
-  useEffect(() => {
-    // Initialize client lazily (e.g., after user action or condition)
-    const initClient = async () => {
-      const newClient = createMCPClient({
-        plugins: [
-          githubPlugin({
-            clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || '',
-            scopes: ['repo'],
-          }),
-        ],
-      });
-      setLazyClient(newClient);
-    };
-
-    initClient();
+    setMcpClient(newClient);
   }, []);
 
-  if (!lazyClient || isLoading) {
-    return <div>Initializing client...</div>;
+  // ✅ Safe to pass null - hook handles it gracefully
+  useIntegrateAI(mcpClient);
+
+  if (!mcpClient) {
+    return <div>Initializing...</div>;
   }
 
-  return (
-    <div>
-      <h2>Lazy Client Example</h2>
-      <p>Tokens: {Object.keys(tokens).join(', ')}</p>
-      <button onClick={() => fetchWithTokens('/api/test')}>
-        Make Request
-      </button>
-    </div>
-  );
+  return <div>Client ready!</div>;
 }
 
-// =============================================================================
-// SERVER-SIDE API ROUTE
-// =============================================================================
-
 /**
- * Example API route that receives and uses the tokens
+ * SERVER-SIDE API ROUTE EXAMPLE
  * 
  * File: app/api/chat/route.ts
  */
 export const serverRouteExample = `
-import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
 import { getVercelAITools } from 'integrate-sdk';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
@@ -479,82 +301,96 @@ const { client: serverClient } = createMCPServer({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
     }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+    }),
   ],
 });
 
 export async function POST(req: Request) {
-  // Extract tokens from headers (sent by useIntegrateTokens hook)
+  // 1. Extract tokens from headers (sent by useIntegrateAI)
   const tokensHeader = req.headers.get('x-integrate-tokens');
   
   if (!tokensHeader) {
     return Response.json({ error: 'Missing tokens' }, { status: 401 });
   }
 
+  // 2. Parse provider tokens
   const providerTokens = JSON.parse(tokensHeader);
+  // { github: 'ghp_...', gmail: 'ya29_...' }
   
-  // Get tools with user's tokens
-  const tools = await getVercelAITools(serverClient, { providerTokens });
+  // 3. Get tools with user's tokens
+  const tools = getVercelAITools(serverClient, { providerTokens });
   
-  // Parse request
+  // 4. Parse request
   const { messages } = await req.json();
   
-  // Stream response with tools
+  // 5. Stream response with tools
   const result = await streamText({
     model: openai('gpt-4'),
     messages,
-    tools,
+    tools, // Tools will use the user's tokens!
   });
   
-  return result.toAIStreamResponse();
+  return result.toDataStreamResponse();
 }
 `;
 
 console.log(`
 =============================================================================
-REACT HOOK USAGE EXAMPLES
+REACT HOOKS USAGE - SIMPLIFIED PATTERN
 =============================================================================
 
-This file demonstrates various ways to use the useIntegrateTokens() hook.
+STEP 1: Install Global Interceptor (Once, at App Root)
+-------------------------------------------------------
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { useIntegrateAI } from 'integrate-sdk/react';
 
-KEY POINTS:
-1. Create MCP client outside of components (module level)
-2. Pass client to useIntegrateTokens(client)
-3. ✨ NEW: Use custom fetch or mergeHeaders for cleaner code
-4. Hook automatically updates when tokens change
+const client = createMCPClient({
+  plugins: [githubPlugin({ clientId: '...' })],
+});
 
-RETURN VALUES:
-- tokens: Raw token object { github: 'token', gmail: 'token' }
-- headers: Formatted headers { 'x-integrate-tokens': '...' }
-- isLoading: Boolean indicating if tokens are being loaded
-- fetch: ✨ Custom fetch with tokens automatically included
-- mergeHeaders: ✨ Helper to merge headers with tokens
+export function RootLayout({ children }) {
+  useIntegrateAI(client); // ✅ That's it! One line.
+  return <>{children}</>;
+}
 
-RECOMMENDED APPROACHES:
+STEP 2: Use Vercel AI SDK Normally
+-----------------------------------
+import { useChat } from '@ai-sdk/react';
 
-1. With useChat (Vercel AI SDK):
-   const { fetch: fetchWithTokens } = useIntegrateTokens(client);
-   const chat = useChat({ api: '/api/chat', fetch: fetchWithTokens });
+export function ChatPage() {
+  const chat = useChat(); // ✅ Tokens auto-injected!
+  return <div>...</div>;
+}
 
-2. With manual fetch:
-   const { fetch: fetchWithTokens } = useIntegrateTokens(client);
-   await fetchWithTokens('/api/data', { method: 'POST', ... });
+STEP 3: Show Connection Status (Optional)
+------------------------------------------
+import { useIntegrateTokens } from 'integrate-sdk/react';
 
-3. Merging headers:
-   const { mergeHeaders } = useIntegrateTokens(client);
-   await fetch('/api/data', { headers: mergeHeaders({ 'Content-Type': 'application/json' }) });
+export function Status() {
+  const { tokens, isLoading } = useIntegrateTokens(client);
+  return <div>Connected: {Object.keys(tokens).join(', ')}</div>;
+}
 
-MIGRATION GUIDE:
+KEY BENEFITS:
+-------------
+✅ Zero boilerplate - one hook call at app root
+✅ Works everywhere - all useChat calls automatically include tokens
+✅ No manual header management - completely automatic
+✅ Clean separation - useIntegrateAI for injection, useIntegrateTokens for status
+✅ SSR-safe - handles server-side rendering gracefully
 
-❌ OLD WAY (fragile):
-   window.fetch = (url, options) => {
-     // Override global fetch - not recommended!
-   }
+MIGRATION FROM OLD PATTERN:
+----------------------------
+OLD (Manual):
+  const { fetch: fetchWithTokens } = useIntegrateTokens(client);
+  const chat = useChat({ fetch: fetchWithTokens });
 
-✅ NEW WAY (clean):
-   const { fetch: fetchWithTokens } = useIntegrateTokens(client);
-   const chat = useChat({ fetch: fetchWithTokens });
+NEW (Automatic):
+  useIntegrateAI(client); // At app root
+  const chat = useChat(); // Anywhere in your app
 
-See examples above for complete implementations.
 =============================================================================
 `);
-

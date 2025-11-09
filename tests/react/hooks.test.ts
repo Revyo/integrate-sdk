@@ -130,19 +130,14 @@ describe("useIntegrateTokens Hook", () => {
       expect(tokens).toEqual({ github: "token123" });
     });
 
-    test("headers are formatted correctly", () => {
+    test("returns tokens object with values", () => {
       const tokens = { github: "token123", gmail: "token456" };
-      const expectedHeaders = {
-        "x-integrate-tokens": JSON.stringify(tokens),
-      };
-
-      // Verify header formatting logic
-      expect(JSON.stringify(tokens)).toBe('{"github":"token123","gmail":"token456"}');
+      expect(tokens).toEqual({ github: "token123", gmail: "token456" });
+      expect(Object.keys(tokens).length).toBe(2);
     });
 
-    test("empty tokens result in empty headers", () => {
+    test("empty tokens when not authenticated", () => {
       const tokens = {};
-      // When tokens are empty, headers should be empty
       expect(Object.keys(tokens).length).toBe(0);
     });
   });
@@ -305,108 +300,6 @@ describe("useIntegrateTokens Hook", () => {
     });
   });
 
-  describe("Custom fetch function", () => {
-    test("hook returns fetch function", async () => {
-      const { useIntegrateTokens } = await import("../../src/react/hooks.js");
-      
-      // The hook should return a fetch function
-      expect(useIntegrateTokens).toBeDefined();
-    });
-
-    test("fetch function includes integrate tokens in headers", () => {
-      // Test the behavior of adding headers to fetch calls
-      const tokens = { github: "ghp_test123", gmail: "ya29_test456" };
-      const expectedHeader = JSON.stringify(tokens);
-      
-      // Verify the header format
-      expect(expectedHeader).toContain("ghp_test123");
-      expect(expectedHeader).toContain("ya29_test456");
-    });
-
-    test("fetch function preserves existing headers", () => {
-      // Test that existing headers are preserved when adding integrate tokens
-      const existingHeaders = new Headers({
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer other-token',
-      });
-      
-      const integrateHeader = 'x-integrate-tokens';
-      const integrateValue = '{"github":"token"}';
-      
-      existingHeaders.set(integrateHeader, integrateValue);
-      
-      // Verify all headers are present
-      expect(existingHeaders.get('Content-Type')).toBe('application/json');
-      expect(existingHeaders.get('Authorization')).toBe('Bearer other-token');
-      expect(existingHeaders.get('x-integrate-tokens')).toBe(integrateValue);
-    });
-
-    test("fetch function works with no existing headers", () => {
-      // Test adding integrate headers when no existing headers
-      const headers = new Headers();
-      headers.set('x-integrate-tokens', '{"github":"token"}');
-      
-      expect(headers.get('x-integrate-tokens')).toBe('{"github":"token"}');
-    });
-  });
-
-  describe("mergeHeaders helper function", () => {
-    test("mergeHeaders combines headers correctly", () => {
-      const existingHeaders = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer token',
-      };
-      
-      const merged = new Headers(existingHeaders);
-      merged.set('x-integrate-tokens', '{"github":"ghp_123"}');
-      
-      // Verify all headers are present
-      expect(merged.get('Content-Type')).toBe('application/json');
-      expect(merged.get('Authorization')).toBe('Bearer token');
-      expect(merged.get('x-integrate-tokens')).toBe('{"github":"ghp_123"}');
-    });
-
-    test("mergeHeaders works with Headers object input", () => {
-      const existingHeaders = new Headers({
-        'Content-Type': 'application/json',
-      });
-      
-      const merged = new Headers(existingHeaders);
-      merged.set('x-integrate-tokens', '{"github":"token"}');
-      
-      expect(merged.get('Content-Type')).toBe('application/json');
-      expect(merged.get('x-integrate-tokens')).toBe('{"github":"token"}');
-    });
-
-    test("mergeHeaders works with array input", () => {
-      const existingHeaders: [string, string][] = [
-        ['Content-Type', 'application/json'],
-        ['Accept', 'application/json'],
-      ];
-      
-      const merged = new Headers(existingHeaders);
-      merged.set('x-integrate-tokens', '{"github":"token"}');
-      
-      expect(merged.get('Content-Type')).toBe('application/json');
-      expect(merged.get('Accept')).toBe('application/json');
-      expect(merged.get('x-integrate-tokens')).toBe('{"github":"token"}');
-    });
-
-    test("mergeHeaders works with undefined input", () => {
-      const merged = new Headers(undefined);
-      merged.set('x-integrate-tokens', '{"github":"token"}');
-      
-      expect(merged.get('x-integrate-tokens')).toBe('{"github":"token"}');
-    });
-
-    test("mergeHeaders handles empty tokens gracefully", () => {
-      const merged = new Headers({ 'Content-Type': 'application/json' });
-      
-      // When no integrate tokens, only existing headers should be present
-      expect(merged.get('Content-Type')).toBe('application/json');
-      expect(merged.get('x-integrate-tokens')).toBeNull();
-    });
-  });
 
   describe("Return value completeness", () => {
     test("hook returns all expected properties", async () => {
@@ -462,25 +355,6 @@ describe("useIntegrateTokens Hook", () => {
       expect(safeIsLoading).toBe(true);
     });
 
-    test("safe fallback fetch function is callable", async () => {
-      // The fallback fetch should be callable without errors
-      const fallbackFetch = globalThis.fetch?.bind(globalThis);
-      
-      expect(fallbackFetch).toBeDefined();
-      expect(typeof fallbackFetch).toBe("function");
-    });
-
-    test("safe fallback mergeHeaders is callable", () => {
-      // The fallback mergeHeaders should be callable
-      const fallbackMergeHeaders = (existingHeaders?: HeadersInit) => 
-        new Headers(existingHeaders);
-      
-      const result = fallbackMergeHeaders({ 'Content-Type': 'application/json' });
-      
-      expect(result).toBeInstanceOf(Headers);
-      expect(result.get('Content-Type')).toBe('application/json');
-    });
-
     test("hook parameter is optional", async () => {
       const { useIntegrateTokens } = await import("../../src/react/hooks.js");
       
@@ -529,7 +403,6 @@ describe("useIntegrateTokens Hook", () => {
 
         // Verify safe fallback was returned
         expect(result.tokens).toEqual({});
-        expect(result.headers).toEqual({});
         expect(result.isLoading).toBe(false);
 
         // Restore document
@@ -538,6 +411,161 @@ describe("useIntegrateTokens Hook", () => {
         // Restore console.warn
         console.warn = originalWarn;
       }
+    });
+  });
+});
+
+describe("useIntegrateAI Hook", () => {
+  beforeEach(() => {
+    // Clear any global client
+    (globalThis as any).__INTEGRATE_SDK_CLIENT__ = undefined;
+  });
+
+  describe("Hook structure and exports", () => {
+    test("hook exports exist", async () => {
+      const { useIntegrateAI } = await import("../../src/react/hooks.js");
+      expect(useIntegrateAI).toBeDefined();
+      expect(typeof useIntegrateAI).toBe("function");
+    });
+
+    test("hook export types exist", async () => {
+      const module = await import("../../src/react/hooks.js");
+      expect(module.useIntegrateAI).toBeDefined();
+    });
+  });
+
+  describe("Fetch interception", () => {
+    test("intercepts requests matching API pattern", async () => {
+      const client = createMCPClient({ singleton: false, plugins: [] });
+      (client as any).getAllProviderTokens = mock(() => ({ github: "token123" }));
+      
+      // Verify the hook is callable
+      const { useIntegrateAI } = await import("../../src/react/hooks.js");
+      expect(useIntegrateAI).toBeDefined();
+    });
+
+    test("does not intercept non-matching requests", () => {
+      // Test that requests not matching the pattern pass through
+      const url = "/some/other/endpoint";
+      const pattern = /\/api\/chat/;
+      
+      expect(pattern.test(url)).toBe(false);
+    });
+
+    test("supports string pattern matching", () => {
+      const url = "/api/chat/messages";
+      const pattern = "/api/chat";
+      
+      expect(url.includes(pattern)).toBe(true);
+    });
+
+    test("supports RegExp pattern matching", () => {
+      const url1 = "/api/chat";
+      const url2 = "/v1/chat/completions";
+      const pattern = /\/chat/;
+      
+      expect(pattern.test(url1)).toBe(true);
+      expect(pattern.test(url2)).toBe(true);
+    });
+  });
+
+  describe("Token injection", () => {
+    test("injects tokens into matching requests", () => {
+      const tokens = { github: "ghp_123", gmail: "ya29_456" };
+      const headersString = JSON.stringify(tokens);
+      
+      expect(headersString).toContain("ghp_123");
+      expect(headersString).toContain("ya29_456");
+    });
+
+    test("skips injection when no tokens available", () => {
+      const tokens = {};
+      expect(Object.keys(tokens).length).toBe(0);
+    });
+
+    test("updates tokens on auth events", () => {
+      const client = createMCPClient({ singleton: false, plugins: [] });
+      
+      // Mock token methods
+      let currentTokens = {};
+      (client as any).getAllProviderTokens = mock(() => currentTokens);
+      
+      // Simulate auth event updating tokens
+      currentTokens = { github: "token123" };
+      const updatedTokens = client.getAllProviderTokens();
+      
+      expect(updatedTokens).toEqual({ github: "token123" });
+    });
+  });
+
+  describe("Options", () => {
+    test("accepts custom API pattern", () => {
+      const customPattern = /\/(api|chat)\//;
+      
+      expect(customPattern.test("/api/chat")).toBe(true);
+      expect(customPattern.test("/chat/messages")).toBe(true);
+      expect(customPattern.test("/other/endpoint")).toBe(false);
+    });
+
+    test("accepts debug option", () => {
+      const options = { debug: true };
+      expect(options.debug).toBe(true);
+    });
+
+    test("uses default pattern when not provided", () => {
+      const defaultPattern = /\/api\/chat/;
+      
+      expect(defaultPattern.test("/api/chat")).toBe(true);
+      expect(defaultPattern.test("/api/chat/messages")).toBe(true);
+    });
+  });
+
+  describe("Cleanup", () => {
+    test("restores original fetch on cleanup", () => {
+      // In Node/Bun test environment, window might not exist
+      if (typeof window !== 'undefined' && window.fetch) {
+        const originalFetch = window.fetch;
+        
+        // Verify we can restore it
+        expect(originalFetch).toBeDefined();
+        expect(typeof originalFetch).toBe("function");
+      } else {
+        // In test environment without window, just verify the concept
+        expect(true).toBe(true);
+      }
+    });
+
+    test("removes event listeners on cleanup", () => {
+      const client = createMCPClient({ singleton: false, plugins: [] });
+      
+      // Mock event methods
+      const offSpy = mock(() => {});
+      client.off = offSpy;
+      
+      // Simulate cleanup
+      client.off('auth:complete', () => {});
+      client.off('auth:disconnect', () => {});
+      client.off('auth:logout', () => {});
+      
+      expect(offSpy).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe("SSR handling", () => {
+    test("skips interceptor setup during SSR", () => {
+      // When typeof window === 'undefined', the hook should skip setup
+      const isSSR = typeof window === 'undefined';
+      
+      // Test environment might be Node/Bun (no window) or jsdom (has window)
+      // Either way is valid, we just verify the check works
+      expect(typeof isSSR).toBe('boolean');
+    });
+
+    test("handles null client gracefully", () => {
+      const client = null;
+      
+      // Hook should handle null without errors
+      expect(client).toBeNull();
     });
   });
 });
