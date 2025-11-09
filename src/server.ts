@@ -22,7 +22,7 @@ let globalServerConfig: {
 
 /**
  * Auto-detect base URL from environment variables
- * Checks VERCEL_URL, NEXTAUTH_URL, and falls back to localhost
+ * Checks INTEGRATE_URL, VERCEL_URL, and falls back to localhost
  * 
  * @returns Default redirect URI based on environment
  */
@@ -31,17 +31,17 @@ function getDefaultRedirectUri(): string {
   if (typeof window !== 'undefined') {
     return `${window.location.origin}/oauth/callback`;
   }
-  
+
+  // Integrate URL (primary option)
+  if (process.env.INTEGRATE_URL) {
+    return `${process.env.INTEGRATE_URL}/oauth/callback`;
+  }
+
   // Vercel deployment
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}/oauth/callback`;
   }
-  
-  // NextAuth URL or custom base URL
-  if (process.env.NEXTAUTH_URL) {
-    return `${process.env.NEXTAUTH_URL}/oauth/callback`;
-  }
-  
+
   // Development fallback
   return 'http://localhost:3000/oauth/callback';
 }
@@ -53,16 +53,17 @@ function getDefaultRedirectUri(): string {
  * Use this in your server configuration file (e.g., lib/integrate-server.ts)
  * 
  * The redirectUri can be specified globally and will be used for all plugins.
- * If not provided, it will auto-detect from VERCEL_URL or NEXTAUTH_URL.
+ * If not provided, it will auto-detect from INTEGRATE_URL or VERCEL_URL
  * 
  * @example
  * ```typescript
  * // lib/integrate-server.ts (server-side only!)
  * import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
  * 
+ * // With explicit redirectUri
  * export const { client: serverClient } = createMCPServer({
- *   redirectUri: process.env.VERCEL_URL 
- *     ? `https://${process.env.VERCEL_URL}/oauth/callback`
+ *   redirectUri: process.env.INTEGRATE_URL 
+ *     ? `${process.env.INTEGRATE_URL}/oauth/callback`
  *     : 'http://localhost:3000/oauth/callback',
  *   plugins: [
  *     githubPlugin({
@@ -74,6 +75,17 @@ function getDefaultRedirectUri(): string {
  *       clientId: process.env.GMAIL_CLIENT_ID!,
  *       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
  *       scopes: ['gmail.readonly'],
+ *     }),
+ *   ],
+ * });
+ * 
+ * // Or omit redirectUri to use auto-detection from environment variables
+ * export const { client: serverClient } = createMCPServer({
+ *   plugins: [
+ *     githubPlugin({
+ *       clientId: process.env.GITHUB_CLIENT_ID!,
+ *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+ *       scopes: ['repo', 'user'],
  *     }),
  *   ],
  * });
@@ -103,16 +115,17 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
     redirectUri?: string;
   }> = {};
 
-  for (const plugin of config.plugins) {
+  // Update plugins with default redirectUri where needed
+  const updatedPlugins = config.plugins.map(plugin => {
     if (plugin.oauth) {
       const { clientId, clientSecret, redirectUri: pluginRedirectUri } = plugin.oauth;
-      
+
       if (!clientId || !clientSecret) {
         console.warn(
           `Warning: Plugin "${plugin.id}" is missing OAuth credentials. ` +
           `Provide clientId and clientSecret in the plugin configuration.`
         );
-        continue;
+        return plugin;
       }
 
       // Use plugin-specific redirectUri, fall back to global config, then auto-detect
@@ -123,8 +136,18 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
         clientSecret,
         redirectUri,
       };
+
+      // Update plugin with resolved redirectUri
+      return {
+        ...plugin,
+        oauth: {
+          ...plugin.oauth,
+          redirectUri,
+        },
+      };
     }
-  }
+    return plugin;
+  }) as unknown as TPlugins;
 
   // Register config globally for singleton handlers
   globalServerConfig = { providers };
@@ -132,6 +155,7 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
   // Create the client instance with lazy connection (same as client-side)
   const clientConfig = {
     ...config,
+    plugins: updatedPlugins,
     connectionMode: config.connectionMode || 'lazy',
     singleton: config.singleton ?? true,
   };
@@ -143,10 +167,10 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
   return {
     /** Server-side MCP client instance with auto-connection */
     client,
-    
+
     /** OAuth POST handler - export this from your route file */
     POST,
-    
+
     /** OAuth GET handler - export this from your route file */
     GET,
   };
@@ -193,7 +217,7 @@ export const POST = async (
       { status: 500 }
     );
   }
-  
+
   const handler = createNextOAuthHandler(globalServerConfig);
   const routes = handler.createRoutes();
   return routes.POST(req, context);
@@ -222,7 +246,7 @@ export const GET = async (
       { status: 500 }
     );
   }
-  
+
   const handler = createNextOAuthHandler(globalServerConfig);
   const routes = handler.createRoutes();
   return routes.GET(req, context);

@@ -31,13 +31,13 @@ export type ReauthHandler = (context: ReauthContext) => Promise<boolean> | boole
 export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
   /** Array of plugins to enable */
   plugins: TPlugins;
-  
+
   /** Optional HTTP headers to include in requests */
   headers?: Record<string, string>;
-  
+
   /** Request timeout in milliseconds (default: 30000) */
   timeout?: number;
-  
+
   /** Client information */
   clientInfo?: {
     name: string;
@@ -183,12 +183,31 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
   /**
    * Global OAuth redirect URI for all providers
    * Used as fallback when individual plugins don't specify their own redirectUri
-   * If not provided, will auto-detect from VERCEL_URL or NEXTAUTH_URL
+   * 
+   * **Server-side (createMCPServer):** If not provided, auto-detects from environment:
+   * - INTEGRATE_URL (primary)
+   * - VERCEL_URL
+   * - Falls back to 'http://localhost:3000/oauth/callback'
+   * 
+   * **Client-side (createMCPClient):** If not provided, auto-detects from:
+   * - window.location.origin + oauthApiBase + '/callback'
+   * - Example: 'http://localhost:3000/api/integrate/oauth/callback'
    * 
    * @example
    * ```typescript
+   * // Explicit redirectUri (server-side)
    * createMCPServer({
    *   redirectUri: 'https://myapp.com/oauth/callback',
+   *   plugins: [...]
+   * })
+   * 
+   * // Auto-detection (server-side) - uses process.env.INTEGRATE_URL
+   * createMCPServer({
+   *   plugins: [...]
+   * })
+   * 
+   * // Auto-detection (client-side) - uses window.location.origin
+   * createMCPClient({
    *   plugins: [...]
    * })
    * ```
@@ -206,6 +225,6 @@ export type InferEnabledTools<TPlugins extends readonly MCPPlugin[]> =
  * Helper type to create a tools object type from plugin array
  */
 export type InferToolsObject<TPlugins extends readonly MCPPlugin[]> = {
-  [K in TPlugins[number] as K["id"]]: K["tools"];
+  [K in TPlugins[number]as K["id"]]: K["tools"];
 };
 

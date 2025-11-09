@@ -25,8 +25,8 @@ import type { GitHubPluginClient } from "./plugins/github-client.js";
 import type { GmailPluginClient } from "./plugins/gmail-client.js";
 import type { ServerPluginClient } from "./plugins/server-client.js";
 import { OAuthManager } from "./oauth/manager.js";
-import type { 
-  AuthStatus, 
+import type {
+  AuthStatus,
   OAuthCallbackParams,
   OAuthEventHandler,
   AuthStartedEvent,
@@ -117,13 +117,13 @@ type PluginIds<TPlugins extends readonly MCPPlugin[]> = ExtractPluginId<TPlugins
 /**
  * Check if a specific plugin ID exists in the plugin array
  */
-type HasPluginId<TPlugins extends readonly MCPPlugin[], Id extends string> = 
+type HasPluginId<TPlugins extends readonly MCPPlugin[], Id extends string> =
   Id extends PluginIds<TPlugins> ? true : false;
 
 /**
  * Plugin namespace type mapping - only includes properties for configured plugins
  */
-type PluginNamespaces<TPlugins extends readonly MCPPlugin[]> = 
+type PluginNamespaces<TPlugins extends readonly MCPPlugin[]> =
   (HasPluginId<TPlugins, "github"> extends true ? { github: GitHubPluginClient } : {}) &
   (HasPluginId<TPlugins, "gmail"> extends true ? { gmail: GmailPluginClient } : {});
 
@@ -148,13 +148,13 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   private eventEmitter: SimpleEventEmitter = new SimpleEventEmitter();
 
   // Plugin namespaces - dynamically typed based on configured plugins
-  public readonly github!: PluginNamespaces<TPlugins> extends { github: GitHubPluginClient } 
-    ? GitHubPluginClient 
+  public readonly github!: PluginNamespaces<TPlugins> extends { github: GitHubPluginClient }
+    ? GitHubPluginClient
     : never;
-  public readonly gmail!: PluginNamespaces<TPlugins> extends { gmail: GmailPluginClient } 
-    ? GmailPluginClient 
+  public readonly gmail!: PluginNamespaces<TPlugins> extends { gmail: GmailPluginClient }
+    ? GmailPluginClient
     : never;
-  
+
   // Server namespace - always available for server-level tools
   public readonly server!: ServerPluginClient;
 
@@ -165,7 +165,24 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       timeout: config.timeout,
     });
 
-    this.plugins = config.plugins;
+    // Determine OAuth API base and default redirect URI
+    const oauthApiBase = config.oauthApiBase || '/api/integrate/oauth';
+    const defaultRedirectUri = this.getDefaultRedirectUri(oauthApiBase);
+
+    // Clone plugins and inject default redirectUri if not set
+    this.plugins = config.plugins.map(plugin => {
+      if (plugin.oauth && !plugin.oauth.redirectUri) {
+        return {
+          ...plugin,
+          oauth: {
+            ...plugin.oauth,
+            redirectUri: defaultRedirectUri,
+          },
+        };
+      }
+      return plugin;
+    }) as unknown as TPlugins;
+
     this.clientInfo = config.clientInfo || {
       name: "integrate-sdk",
       version: "0.1.0",
@@ -176,7 +193,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
 
     // Initialize OAuth manager
     this.oauthManager = new OAuthManager(
-      config.oauthApiBase || '/api/integrate/oauth',
+      oauthApiBase,
       config.oauthFlow
     );
 
@@ -184,7 +201,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     const providers = this.plugins
       .filter(p => p.oauth)
       .map(p => p.oauth!.provider);
-    
+
     this.oauthManager.loadAllProviderTokens(providers);
 
     // Collect all enabled tool names from plugins
@@ -192,7 +209,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       for (const toolName of plugin.tools) {
         this.enabledToolNames.add(toolName);
       }
-      
+
       // Initialize auth state for plugins with OAuth based on whether we have a token
       if (plugin.oauth) {
         const hasToken = this.oauthManager.getProviderToken(plugin.oauth.provider) !== undefined;
@@ -207,6 +224,27 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
 
     // Initialize plugins
     this.initializePlugins();
+  }
+
+  /**
+   * Get default redirect URI for OAuth flows
+   * Uses window.location.origin + OAuth API base path
+   * 
+   * @param oauthApiBase - The OAuth API base path (e.g., '/api/integrate/oauth')
+   * @returns Default redirect URI
+   */
+  private getDefaultRedirectUri(oauthApiBase: string): string {
+    // Only works in browser environment
+    if (typeof window === 'undefined' || !window.location) {
+      // Server-side fallback (shouldn't happen for client SDK)
+      return 'http://localhost:3000/oauth/callback';
+    }
+
+    // Construct redirect URI from window.location.origin + OAuth API base path
+    const origin = window.location.origin;
+    // Normalize the API base path and append '/callback'
+    const normalizedPath = oauthApiBase.replace(/\/$/, ''); // Remove trailing slash if present
+    return `${origin}${normalizedPath}/callback`;
   }
 
   /**
@@ -230,7 +268,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
 
     // Start connection
     this.connecting = this.connect();
-    
+
     try {
       await this.connecting;
     } finally {
@@ -304,7 +342,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
         MCPMethod.TOOLS_CALL,
         params
       );
-      
+
       return response;
     } catch (error) {
       // For server tools, we don't have provider info, so just parse the error
@@ -446,7 +484,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
         MCPMethod.TOOLS_CALL,
         params
       );
-      
+
       return response;
     } catch (error) {
       // For server tools, we don't have provider info, so just parse the error
@@ -501,12 +539,12 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
         MCPMethod.TOOLS_CALL,
         params
       );
-      
+
       // Mark provider as authenticated on success
       if (provider) {
         this.authState.set(provider, { authenticated: true });
       }
-      
+
       return response;
     } catch (error) {
       // Parse the error to determine if it's an auth error
@@ -683,29 +721,29 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   async disconnectProvider(provider: string): Promise<void> {
     // Verify the provider exists in plugins
     const plugin = this.plugins.find(p => p.oauth?.provider === provider);
-    
+
     if (!plugin?.oauth) {
       throw new Error(`No OAuth configuration found for provider: ${provider}`);
     }
-    
+
     try {
       // Make server-side call to disconnect the provider
       await this.oauthManager.disconnectProvider(provider);
-      
+
       // Reset authentication state for this provider only
       this.authState.set(provider, { authenticated: false });
-      
+
       // Emit disconnect event for this provider
       this.eventEmitter.emit('auth:disconnect', { provider });
     } catch (error) {
       // Emit error event
-      this.eventEmitter.emit('auth:error', { 
-        provider, 
-        error: error as Error 
+      this.eventEmitter.emit('auth:error', {
+        provider,
+        error: error as Error
       });
       throw error;
     }
-    
+
     // Note: We don't clear the session token since other providers may still be using it
     // The session on the server side will still exist for other providers
   }
@@ -727,20 +765,20 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   async logout(): Promise<void> {
     // Clear session token from storage and manager
     this.clearSessionToken();
-    
+
     // Clear all pending OAuth flows
     this.oauthManager.clearAllPendingAuths();
-    
+
     // Reset authentication state for all providers
     this.authState.clear();
-    
+
     // Re-initialize auth state as unauthenticated
     for (const plugin of this.plugins) {
       if (plugin.oauth) {
         this.authState.set(plugin.oauth.provider, { authenticated: false });
       }
     }
-    
+
     // Emit logout event
     this.eventEmitter.emit('auth:logout', {});
   }
@@ -827,7 +865,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    */
   async authorizedProviders(): Promise<string[]> {
     const authorized: string[] = [];
-    
+
     // Check each plugin with OAuth config
     for (const plugin of this.plugins) {
       if (plugin.oauth) {
@@ -837,7 +875,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
         }
       }
     }
-    
+
     return authorized;
   }
 
@@ -877,7 +915,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    */
   async authorize(provider: string, options?: { returnUrl?: string }): Promise<void> {
     const plugin = this.plugins.find(p => p.oauth?.provider === provider);
-    
+
     if (!plugin?.oauth) {
       const error = new Error(`No OAuth configuration found for provider: ${provider}`);
       this.eventEmitter.emit('auth:error', { provider, error });
@@ -892,11 +930,11 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
 
       // Get the provider token after authorization
       const tokenData = this.oauthManager.getProviderToken(provider);
-      
+
       if (tokenData) {
         // Emit auth:complete event
-        this.eventEmitter.emit('auth:complete', { 
-          provider, 
+        this.eventEmitter.emit('auth:complete', {
+          provider,
           accessToken: tokenData.accessToken,
           expiresAt: tokenData.expiresAt
         });
@@ -932,21 +970,21 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   async handleOAuthCallback(params: OAuthCallbackParams): Promise<void> {
     try {
       const result = await this.oauthManager.handleCallback(params.code, params.state);
-      
+
       // Update auth state for this specific provider
       this.authState.set(result.provider, { authenticated: true });
-      
+
       // Emit auth:complete event for the provider
-      this.eventEmitter.emit('auth:complete', { 
-        provider: result.provider, 
+      this.eventEmitter.emit('auth:complete', {
+        provider: result.provider,
         accessToken: result.accessToken,
         expiresAt: result.expiresAt
       });
     } catch (error) {
       // Emit error event (we don't know which provider, so use generic)
-      this.eventEmitter.emit('auth:error', { 
-        provider: 'unknown', 
-        error: error as Error 
+      this.eventEmitter.emit('auth:error', {
+        provider: 'unknown',
+        error: error as Error
       });
       throw error;
     }
@@ -1001,11 +1039,11 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   getAllProviderTokens(): Record<string, string> {
     const tokens: Record<string, string> = {};
     const allTokens = this.oauthManager.getAllProviderTokens();
-    
+
     for (const [provider, tokenData] of allTokens.entries()) {
       tokens[provider] = tokenData.accessToken;
     }
-    
+
     return tokens;
   }
 
@@ -1052,7 +1090,7 @@ function registerCleanupHandlers() {
   const cleanup = async () => {
     const clients = Array.from(cleanupClients);
     cleanupClients.clear();
-    
+
     await Promise.all(
       clients.map(async (client) => {
         try {
@@ -1148,11 +1186,11 @@ export function createMCPClient<TPlugins extends readonly MCPPlugin[]>(
   if (useSingleton) {
     const cacheKey = generateCacheKey(config);
     const existing = clientCache.get(cacheKey);
-    
+
     if (existing && existing.isConnected()) {
       return existing as MCPClient<TPlugins>;
     }
-    
+
     // Remove stale entry if exists
     if (existing) {
       clientCache.delete(cacheKey);
@@ -1162,7 +1200,7 @@ export function createMCPClient<TPlugins extends readonly MCPPlugin[]>(
     // Create new instance
     const client = new MCPClient(config);
     clientCache.set(cacheKey, client);
-    
+
     if (autoCleanup) {
       cleanupClients.add(client);
       registerCleanupHandlers();
@@ -1185,7 +1223,7 @@ export function createMCPClient<TPlugins extends readonly MCPPlugin[]>(
   } else {
     // Non-singleton: create fresh instance
     const client = new MCPClient(config);
-    
+
     if (autoCleanup) {
       cleanupClients.add(client);
       registerCleanupHandlers();
@@ -1219,24 +1257,24 @@ function processOAuthCallbackFromHash(client: MCPClient<any>): void {
 
   try {
     const hash = window.location.hash;
-    
+
     // Check if hash contains oauth_callback parameter
     if (hash && hash.includes('oauth_callback=')) {
       // Parse the hash
       const hashParams = new URLSearchParams(hash.substring(1));
       const oauthCallbackData = hashParams.get('oauth_callback');
-      
+
       if (oauthCallbackData) {
         // Decode and parse the callback data
         const callbackParams = JSON.parse(decodeURIComponent(oauthCallbackData));
-        
+
         // Validate that we have code and state
         if (callbackParams.code && callbackParams.state) {
           // Process the callback asynchronously
           client.handleOAuthCallback(callbackParams).catch((error) => {
             console.error('Failed to process OAuth callback:', error);
           });
-          
+
           // Clean up URL hash
           window.history.replaceState(null, '', window.location.pathname + window.location.search);
         }
@@ -1262,7 +1300,7 @@ function processOAuthCallbackFromHash(client: MCPClient<any>): void {
 export async function clearClientCache(): Promise<void> {
   const clients = Array.from(clientCache.values());
   clientCache.clear();
-  
+
   await Promise.all(
     clients.map(async (client) => {
       try {
