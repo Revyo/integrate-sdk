@@ -31,12 +31,12 @@
  * Step 2: Create single catch-all route file
  * File: app/api/integrate/[...all]/route.ts
  * 
- * This is literally all you need! Just import createCatchAllRoutes
+ * This is literally all you need! Just import toNextJsHandler
  * and it automatically uses the config from your server setup.
  */
-// import { createCatchAllRoutes } from 'integrate-sdk/server';
+// import { toNextJsHandler } from 'integrate-sdk/server';
 //
-// export const { POST, GET } = createCatchAllRoutes({
+// export const { POST, GET } = toNextJsHandler({
 //   redirectUrl: '/dashboard',
 //   errorRedirectUrl: '/auth-error',
 // });

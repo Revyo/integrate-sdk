@@ -68,10 +68,10 @@ export const { client: serverClient } = createMCPServer({
 Create `app/api/integrate/[...all]/route.ts`:
 
 ```typescript
-import { createCatchAllRoutes } from "integrate-sdk/server";
+import { toNextJsHandler } from "integrate-sdk/server";
 
 // That's it! Just import and export - uses config from step 2
-export const { POST, GET } = createCatchAllRoutes({
+export const { POST, GET } = toNextJsHandler({
   redirectUrl: "/dashboard", // Where to redirect after OAuth
 });
 ```
@@ -458,13 +458,13 @@ interface OAuthHandlerConfig {
 
 **Note**: The MCP server URL (`https://mcp.integrate.dev/api/v1/mcp`) is managed by Integrate and hardcoded in the SDK. You don't need to configure it.
 
-### createCatchAllRoutes()
+### toNextJsHandler()
 
 **Recommended**: Returns an object with POST and GET handlers for Next.js catch-all routes:
 
 ```typescript
 const handler = createNextOAuthHandler(config);
-const { POST, GET } = handler.createCatchAllRoutes({
+const { POST, GET } = handler.toNextJsHandler({
   redirectUrl: "/dashboard",
   errorRedirectUrl: "/auth-error",
 });
@@ -512,11 +512,11 @@ const { POST, GET } = handler.createRoutes();
 - `GET /api/integrate/oauth/status` - Check authorization status
 - `POST /api/integrate/oauth/disconnect` - Revoke provider authorization
 
-**Note**: This method requires a separate OAuth redirect handler file. Use `createCatchAllRoutes()` for a simpler setup.
+**Note**: This method requires a separate OAuth redirect handler file. Use `toNextJsHandler()` for a simpler setup.
 
 ### createOAuthRedirectHandler()
 
-**Note**: Not needed when using `createCatchAllRoutes()` - only needed with `createRoutes()`.
+**Note**: Not needed when using `toNextJsHandler()` - only needed with `createRoutes()`.
 
 Creates a redirect handler that processes OAuth callbacks and forwards to your app.
 

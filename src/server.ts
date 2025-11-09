@@ -277,14 +277,14 @@ export const GET = async (
  * });
  * 
  * // app/api/integrate/[...all]/route.ts
- * import { createCatchAllRoutes } from 'integrate-sdk/server';
+ * import { toNextJsHandler } from 'integrate-sdk/server';
  * 
- * export const { POST, GET } = createCatchAllRoutes({
+ * export const { POST, GET } = toNextJsHandler({
  *   redirectUrl: '/dashboard',
  * });
  * ```
  */
-export function createCatchAllRoutes(redirectConfig?: {
+export function toNextJsHandler(redirectConfig?: {
   redirectUrl?: string;
   errorRedirectUrl?: string;
 }) {
@@ -302,9 +302,9 @@ export function createCatchAllRoutes(redirectConfig?: {
         { status: 500 }
       );
     }
-    
+
     const handler = createNextOAuthHandler(globalServerConfig);
-    const routes = handler.createCatchAllRoutes(redirectConfig);
+    const routes = handler.toNextJsHandler(redirectConfig);
     return routes.POST(req, context);
   };
 
@@ -322,9 +322,9 @@ export function createCatchAllRoutes(redirectConfig?: {
         { status: 500 }
       );
     }
-    
+
     const handler = createNextOAuthHandler(globalServerConfig);
-    const routes = handler.createCatchAllRoutes(redirectConfig);
+    const routes = handler.toNextJsHandler(redirectConfig);
     return routes.GET(req, context);
   };
 

@@ -11,7 +11,7 @@ import {
   type CallbackRequest,
 } from "../../src/adapters/base-handler";
 import { createNextOAuthHandler } from "../../src/adapters/nextjs";
-import { createMCPServer, createCatchAllRoutes } from "../../src/server";
+import { createMCPServer, toNextJsHandler } from "../../src/server";
 
 describe("OAuthHandler", () => {
   let config: OAuthHandlerConfig;
@@ -206,13 +206,13 @@ describe("OAuthHandler", () => {
         expect(options?.headers?.["Content-Type"]).toBe("application/json");
 
         const body = JSON.parse(options?.body);
-        
+
         // Verify all required OAuth parameters are present
         expect(body.provider).toBe("github");
         expect(body.code).toBe("auth-code-123");
         expect(body.code_verifier).toBe("verifier-123");
         expect(body.state).toBe("state-123");
-        
+
         // Verify all three OAuth credentials are sent
         expect(body.client_id).toBe("github-client-id");
         expect(body.client_secret).toBe("github-client-secret");
@@ -238,7 +238,7 @@ describe("OAuthHandler", () => {
       };
 
       await handler.handleCallback(request);
-      
+
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
@@ -453,7 +453,7 @@ describe("Next.js Catch-All Route Handler", () => {
     handler = createNextOAuthHandler(config);
   });
 
-  describe("createCatchAllRoutes", () => {
+  describe("toNextJsHandler", () => {
     it("should handle POST /oauth/authorize", async () => {
       const mockFetch = mock(async () => ({
         ok: true,
@@ -464,7 +464,7 @@ describe("Next.js Catch-All Route Handler", () => {
 
       global.fetch = mockFetch;
 
-      const routes = handler.createCatchAllRoutes();
+      const routes = handler.toNextJsHandler();
       const mockRequest = {
         json: async () => ({
           provider: "github",
@@ -494,7 +494,7 @@ describe("Next.js Catch-All Route Handler", () => {
 
       global.fetch = mockFetch;
 
-      const routes = handler.createCatchAllRoutes();
+      const routes = handler.toNextJsHandler();
       const mockRequest = {
         json: async () => ({
           provider: "github",
@@ -522,7 +522,7 @@ describe("Next.js Catch-All Route Handler", () => {
 
       global.fetch = mockFetch;
 
-      const routes = handler.createCatchAllRoutes();
+      const routes = handler.toNextJsHandler();
       const mockRequest = {
         json: async () => ({ provider: "github" }),
         headers: {
@@ -551,7 +551,7 @@ describe("Next.js Catch-All Route Handler", () => {
 
       global.fetch = mockFetch;
 
-      const routes = handler.createCatchAllRoutes();
+      const routes = handler.toNextJsHandler();
       const mockRequest = {
         nextUrl: {
           searchParams: new URLSearchParams("provider=github"),
@@ -572,7 +572,7 @@ describe("Next.js Catch-All Route Handler", () => {
     });
 
     it("should handle GET /oauth/callback (provider redirect)", async () => {
-      const routes = handler.createCatchAllRoutes({
+      const routes = handler.toNextJsHandler({
         redirectUrl: "/dashboard",
       });
 
@@ -592,7 +592,7 @@ describe("Next.js Catch-All Route Handler", () => {
     });
 
     it("should handle GET /oauth/callback with error parameter", async () => {
-      const routes = handler.createCatchAllRoutes({
+      const routes = handler.toNextJsHandler({
         errorRedirectUrl: "/auth-error",
       });
 
@@ -613,7 +613,7 @@ describe("Next.js Catch-All Route Handler", () => {
     });
 
     it("should return 404 for unknown POST action", async () => {
-      const routes = handler.createCatchAllRoutes();
+      const routes = handler.toNextJsHandler();
       const mockRequest = {
         json: async () => ({}),
       } as any;
@@ -627,7 +627,7 @@ describe("Next.js Catch-All Route Handler", () => {
     });
 
     it("should return 404 for unknown GET action", async () => {
-      const routes = handler.createCatchAllRoutes();
+      const routes = handler.toNextJsHandler();
       const mockRequest = {
         nextUrl: {
           searchParams: new URLSearchParams(),
@@ -643,7 +643,7 @@ describe("Next.js Catch-All Route Handler", () => {
     });
 
     it("should return 404 for invalid route path", async () => {
-      const routes = handler.createCatchAllRoutes();
+      const routes = handler.toNextJsHandler();
       const mockRequest = {
         json: async () => ({}),
       } as any;
@@ -666,7 +666,7 @@ describe("Next.js Catch-All Route Handler", () => {
 
       global.fetch = mockFetch;
 
-      const routes = handler.createCatchAllRoutes();
+      const routes = handler.toNextJsHandler();
       const mockRequest = {
         json: async () => ({
           provider: "github",
@@ -678,7 +678,7 @@ describe("Next.js Catch-All Route Handler", () => {
       } as any;
 
       // Simulate Next.js 15+ async params
-      const context = { 
+      const context = {
         params: Promise.resolve({ all: ["oauth", "authorize"] })
       };
       const response = await routes.POST(mockRequest, context);
@@ -688,7 +688,7 @@ describe("Next.js Catch-All Route Handler", () => {
     });
 
     it("should use default redirect URLs when not configured", async () => {
-      const routes = handler.createCatchAllRoutes();
+      const routes = handler.toNextJsHandler();
 
       const mockRequest = {
         url: "https://app.com/api/integrate/oauth/callback?code=code-123&state=eyJzdGF0ZSI6InN0YXRlLTEyMyJ9",
@@ -708,7 +708,7 @@ describe("Next.js Catch-All Route Handler", () => {
   });
 });
 
-describe("Server-Side createCatchAllRoutes", () => {
+describe("Server-Side toNextJsHandler", () => {
   beforeAll(() => {
     // Mock window to be undefined so createMCPServer thinks it's server-side
     (global as any).window = undefined;
@@ -745,7 +745,7 @@ describe("Server-Side createCatchAllRoutes", () => {
     });
 
     // Create catch-all routes using the global config
-    const routes = createCatchAllRoutes({
+    const routes = toNextJsHandler({
       redirectUrl: "/dashboard",
     });
 
@@ -778,7 +778,7 @@ describe("Server-Side createCatchAllRoutes", () => {
 
     global.fetch = mockFetch;
 
-    const routes = createCatchAllRoutes();
+    const routes = toNextJsHandler();
     const mockRequest = {
       json: async () => ({
         provider: "github",
@@ -796,7 +796,7 @@ describe("Server-Side createCatchAllRoutes", () => {
   });
 
   it("should handle GET /oauth/callback (provider redirect)", async () => {
-    const routes = createCatchAllRoutes({
+    const routes = toNextJsHandler({
       redirectUrl: "/dashboard",
     });
 
@@ -826,7 +826,7 @@ describe("Server-Side createCatchAllRoutes", () => {
 
     global.fetch = mockFetch;
 
-    const routes = createCatchAllRoutes();
+    const routes = toNextJsHandler();
     const mockRequest = {
       nextUrl: {
         searchParams: new URLSearchParams("provider=github"),

@@ -32,10 +32,10 @@ export const { client: serverClient } = createMCPServer({
 // =============================================================================
 // Single catch-all route that handles ALL OAuth operations
 
-import { createCatchAllRoutes } from 'integrate-sdk/server';
+import { toNextJsHandler } from 'integrate-sdk/server';
 
 // That's it! Just import and export - automatically uses config from lib/integrate-server.ts
-export const { POST, GET } = createCatchAllRoutes({
+export const { POST, GET } = toNextJsHandler({
   redirectUrl: '/dashboard',        // Where to redirect after OAuth success
   errorRedirectUrl: '/auth-error',  // Where to redirect on OAuth error
 });
@@ -119,12 +119,14 @@ export function GitHubConnect() {
 
   return (
     <div>
-      {authorized ? (
-        <button onClick={handleCreateIssue}>Create Issue</button>
+    {
+      authorized?(
+        <button onClick = { handleCreateIssue } > Create Issue</ button >
       ) : (
-        <button onClick={handleAuthorize}>Connect GitHub</button>
-      )}
-    </div>
+    <button onClick= { handleAuthorize } > Connect GitHub </button>
+      )
+}
+</div>
   );
 }
 
@@ -184,5 +186,5 @@ export function GitHubConnect() {
  * Production:   https://yourapp.com/api/integrate/oauth/callback
  */
 
-export {};
+export { };
 

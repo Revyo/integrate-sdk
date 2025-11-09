@@ -415,7 +415,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
      *   },
      * });
      * 
-     * export const { POST, GET } = handler.createCatchAllRoutes({
+     * export const { POST, GET } = handler.toNextJsHandler({
      *   redirectUrl: '/',
      * });
      * ```
@@ -427,7 +427,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
      * - GET /api/integrate/oauth/status - Check authorization status
      * - POST /api/integrate/oauth/disconnect - Disconnect provider
      */
-    createCatchAllRoutes(redirectConfig?: {
+    toNextJsHandler(redirectConfig?: {
       /** URL to redirect to after OAuth callback (default: '/') */
       redirectUrl?: string;
       /** URL to redirect to on OAuth error (default: '/auth-error') */
@@ -499,7 +499,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
             // OAuth provider redirect callback
             if (action === 'callback') {
               const { searchParams } = new URL(req.url);
-              
+
               const code = searchParams.get('code');
               const state = searchParams.get('state');
               const error = searchParams.get('error');
@@ -509,7 +509,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
               if (error) {
                 const errorMsg = errorDescription || error;
                 console.error('[OAuth Redirect] Error:', errorMsg);
-                
+
                 return Response.redirect(
                   new URL(`${errorRedirectUrl}?error=${encodeURIComponent(errorMsg)}`, req.url)
                 );
@@ -518,7 +518,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
               // Validate required parameters
               if (!code || !state) {
                 console.error('[OAuth Redirect] Missing code or state parameter');
-                
+
                 return Response.redirect(
                   new URL(`${errorRedirectUrl}?error=${encodeURIComponent('Invalid OAuth callback')}`, req.url)
                 );
@@ -526,7 +526,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
 
               // Extract returnUrl from state parameter (with fallbacks)
               let returnUrl = defaultRedirectUrl;
-              
+
               try {
                 // Try to parse state to extract returnUrl
                 const { parseState } = await import('../oauth/pkce.js');
@@ -541,7 +541,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
                   if (referrer) {
                     const referrerUrl = new URL(referrer);
                     const currentUrl = new URL(req.url);
-                    
+
                     // Only use referrer if it's from the same origin (security)
                     if (referrerUrl.origin === currentUrl.origin) {
                       returnUrl = referrerUrl.pathname + referrerUrl.search;
@@ -557,7 +557,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
               // Using hash to avoid sending sensitive params to the server
               const targetUrl = new URL(returnUrl, req.url);
               targetUrl.hash = `oauth_callback=${encodeURIComponent(JSON.stringify({ code, state }))}`;
-              
+
               return Response.redirect(targetUrl);
             }
 

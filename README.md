@@ -62,9 +62,9 @@ That's it! Just import and export:
 
 ```typescript
 // app/api/integrate/[...all]/route.ts
-import { createCatchAllRoutes } from "integrate-sdk/server";
+import { toNextJsHandler } from "integrate-sdk/server";
 
-export const { POST, GET } = createCatchAllRoutes({
+export const { POST, GET } = toNextJsHandler({
   redirectUrl: "/dashboard",
 });
 ```
