@@ -36,6 +36,19 @@ GMAIL_CLIENT_ID=your_gmail_client_id
 GMAIL_CLIENT_SECRET=your_gmail_client_secret
 ```
 
+⚠️ **IMPORTANT - Configure OAuth Redirect URI**:
+
+When setting up your OAuth apps, use this redirect URI:
+
+```
+http://localhost:3000/api/integrate/oauth/callback
+```
+
+- **GitHub**: Settings → Developer settings → OAuth Apps → Authorization callback URL
+- **Google/Gmail**: Google Cloud Console → Credentials → Authorized redirect URIs
+
+For production: `https://yourdomain.com/api/integrate/oauth/callback`
+
 #### 2. Create Server Configuration
 
 Define your providers once in `lib/integrate-server.ts`:

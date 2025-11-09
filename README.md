@@ -28,6 +28,19 @@ bun add integrate-sdk
 
 ## Quick Start (2 Files Only!)
 
+### 0. Configure OAuth Redirect URI
+
+⚠️ **Important**: Configure your OAuth apps with this redirect URI:
+
+```
+http://localhost:3000/api/integrate/oauth/callback
+```
+
+- **GitHub**: Settings → Developer settings → OAuth Apps → Authorization callback URL
+- **Google/Gmail**: Google Cloud Console → Credentials → Authorized redirect URIs
+
+For production, use: `https://yourdomain.com/api/integrate/oauth/callback`
+
 ### 1. Create Server Config
 
 Define your OAuth providers once:
@@ -66,7 +79,7 @@ import { serverClient } from "@/lib/integrate-server";
 import { toNextJsHandler } from "integrate-sdk/server";
 
 export const { POST, GET } = toNextJsHandler({
-  client: serverClient,  // Pass the client
+  client: serverClient, // Pass the client
   redirectUrl: "/dashboard",
 });
 ```

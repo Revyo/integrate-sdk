@@ -187,7 +187,7 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * **Server-side (createMCPServer):** If not provided, auto-detects from environment:
    * - INTEGRATE_URL (primary)
    * - VERCEL_URL
-   * - Falls back to 'http://localhost:3000/oauth/callback'
+   * - Falls back to 'http://localhost:3000/api/integrate/oauth/callback'
    * 
    * **Client-side (createMCPClient):** If not provided, auto-detects from:
    * - window.location.origin + oauthApiBase + '/callback'

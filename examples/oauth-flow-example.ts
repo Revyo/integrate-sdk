@@ -24,7 +24,7 @@ async function popupFlowExample() {
         clientId: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
         scopes: ["repo", "user"],
-        redirectUri: "http://localhost:3000/oauth/callback", // Your callback URL
+        redirectUri: "http://localhost:3000/api/integrate/oauth/callback", // Your callback URL
       }),
     ],
     oauthFlow: {
@@ -44,7 +44,7 @@ async function popupFlowExample() {
     if (!isAuthorized) {
       console.log("\nInitiating OAuth flow...");
       console.log("A popup window will open for authorization");
-      
+
       // This will:
       // 1. Open a popup with GitHub's authorization page
       // 2. User approves permissions
@@ -52,7 +52,7 @@ async function popupFlowExample() {
       // 4. Your callback page sends code back to this window
       // 5. SDK exchanges code for session token
       await client.authorize('github');
-      
+
       console.log("✓ Authorization successful!");
     }
 
@@ -79,7 +79,7 @@ async function redirectFlowExample() {
         clientId: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
         scopes: ["repo", "user"],
-        redirectUri: "http://localhost:3000/oauth/callback",
+        redirectUri: "http://localhost:3000/api/integrate/oauth/callback",
       }),
     ],
     oauthFlow: {
@@ -97,11 +97,11 @@ async function redirectFlowExample() {
   if (code && state) {
     // We're on the callback page - handle the OAuth callback
     console.log("Handling OAuth callback...");
-    
+
     try {
       await client.handleOAuthCallback({ code, state });
       console.log("✓ Authorization successful!");
-      
+
       // Save session token for future use
       const sessionToken = client.getSessionToken();
       if (sessionToken) {
@@ -111,7 +111,7 @@ async function redirectFlowExample() {
 
       // Redirect to main app or continue
       console.log("You can now use the client to call tools");
-      
+
     } catch (error) {
       console.error("OAuth callback failed:", error);
     }
@@ -123,7 +123,7 @@ async function redirectFlowExample() {
     if (!isAuthorized) {
       console.log("\nInitiating OAuth flow...");
       console.log("User will be redirected to GitHub for authorization");
-      
+
       // This will redirect the entire window to GitHub's authorization page
       // After user approves, GitHub will redirect back to your callback URL
       await client.authorize('github');
@@ -161,7 +161,7 @@ async function multipleProvidersExample() {
   // Get list of all authorized providers
   const authorizedList = await client.authorizedProviders();
   console.log("Currently authorized:", authorizedList);
-  
+
   // Check authorization status for each provider
   const githubStatus = await client.getAuthorizationStatus('github');
   const gmailStatus = await client.getAuthorizationStatus('gmail');
@@ -189,7 +189,7 @@ async function multipleProvidersExample() {
   try {
     const repos = await client.github.listOwnRepos({});
     console.log("✓ GitHub: Fetched repositories");
-    
+
     const messages = await client.gmail.listMessages({});
     console.log("✓ Gmail: Fetched messages");
   } catch (error) {
@@ -220,13 +220,13 @@ async function sessionRestorationExample() {
 
   // Check if session is still valid
   const isAuthorized = await client.isAuthorized('github');
-  
+
   if (!isAuthorized) {
     console.log("Session expired, need to re-authorize");
     await client.authorize('github');
   } else {
     console.log("✓ Session is valid, ready to use");
-    
+
     // Use the client
     const repos = await client.github.listOwnRepos({});
     console.log("✓ Successfully called GitHub API");
@@ -263,7 +263,7 @@ async function callbackPageExample() {
   </body>
   </html>
   */
-  
+
   console.log("\n\n=== Callback Page Example ===");
   console.log("See the code comment above for the callback HTML page implementation");
 }
@@ -289,7 +289,7 @@ async function customCallbackExample() {
         console.log(`Custom handler called for ${provider}`);
         console.log(`Code: ${code.substring(0, 20)}...`);
         console.log(`State: ${state}`);
-        
+
         // You can do custom processing here
         // e.g., analytics, logging, state management, etc.
       },
@@ -297,11 +297,11 @@ async function customCallbackExample() {
   });
 
   const isAuthorized = await client.isAuthorized('github');
-  
+
   if (!isAuthorized) {
     await client.authorize('github');
   }
-  
+
   console.log("✓ Authorization complete with custom handler");
 }
 
@@ -326,7 +326,7 @@ async function errorHandlingExample() {
 
   try {
     const isAuthorized = await client.isAuthorized('github');
-    
+
     if (!isAuthorized) {
       await client.authorize('github');
     }
@@ -360,9 +360,9 @@ async function errorHandlingExample() {
 async function main() {
   console.log("OAuth Flow Examples");
   console.log("===================\n");
-  
+
   // Uncomment the examples you want to run:
-  
+
   // await popupFlowExample();
   // await redirectFlowExample();
   // await multipleProvidersExample();

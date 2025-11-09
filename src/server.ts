@@ -29,21 +29,21 @@ let globalServerConfig: {
 function getDefaultRedirectUri(): string {
   // In browser context (should not happen for server SDK)
   if (typeof window !== 'undefined') {
-    return `${window.location.origin}/oauth/callback`;
+    return `${window.location.origin}/api/integrate/oauth/callback`;
   }
 
   // Integrate URL (primary option)
   if (process.env.INTEGRATE_URL) {
-    return `${process.env.INTEGRATE_URL}/oauth/callback`;
+    return `${process.env.INTEGRATE_URL}/api/integrate/oauth/callback`;
   }
 
   // Vercel deployment
   if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}/oauth/callback`;
+    return `https://${process.env.VERCEL_URL}/api/integrate/oauth/callback`;
   }
 
   // Development fallback
-  return 'http://localhost:3000/oauth/callback';
+  return 'http://localhost:3000/api/integrate/oauth/callback';
 }
 
 /**
@@ -64,7 +64,7 @@ function getDefaultRedirectUri(): string {
  * export const { client: serverClient } = createMCPServer({
  *   redirectUri: process.env.INTEGRATE_URL 
  *     ? `${process.env.INTEGRATE_URL}/oauth/callback`
- *     : 'http://localhost:3000/oauth/callback',
+ *     : 'http://localhost:3000/api/integrate/oauth/callback',
  *   plugins: [
  *     githubPlugin({
  *       clientId: process.env.GITHUB_CLIENT_ID!,

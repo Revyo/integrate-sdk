@@ -237,7 +237,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     // Only works in browser environment
     if (typeof window === 'undefined' || !window.location) {
       // Server-side fallback (shouldn't happen for client SDK)
-      return 'http://localhost:3000/oauth/callback';
+      return 'http://localhost:3000/api/integrate/oauth/callback';
     }
 
     // Construct redirect URI from window.location.origin + OAuth API base path
