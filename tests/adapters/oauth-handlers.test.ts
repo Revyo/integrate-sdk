@@ -3,13 +3,15 @@
  * Tests base handler, Next.js adapter, and TanStack Start adapter
  */
 
-import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { describe, it, expect, beforeEach, mock, beforeAll, afterAll } from "bun:test";
 import {
   OAuthHandler,
   type OAuthHandlerConfig,
   type AuthorizeRequest,
   type CallbackRequest,
 } from "../../src/adapters/base-handler";
+import { createNextOAuthHandler } from "../../src/adapters/nextjs";
+import { createMCPServer, createCatchAllRoutes } from "../../src/server";
 
 describe("OAuthHandler", () => {
   let config: OAuthHandlerConfig;
@@ -431,6 +433,420 @@ describe("OAuthHandler", () => {
       expect(githubResult.authorizationUrl).toContain("github");
       expect(gmailResult.authorizationUrl).toContain("google");
     });
+  });
+});
+
+describe("Next.js Catch-All Route Handler", () => {
+  let config: OAuthHandlerConfig;
+  let handler: ReturnType<typeof createNextOAuthHandler>;
+
+  beforeEach(() => {
+    config = {
+      providers: {
+        github: {
+          clientId: "github-client-id",
+          clientSecret: "github-client-secret",
+          redirectUri: "https://app.com/api/integrate/oauth/callback",
+        },
+      },
+    };
+    handler = createNextOAuthHandler(config);
+  });
+
+  describe("createCatchAllRoutes", () => {
+    it("should handle POST /oauth/authorize", async () => {
+      const mockFetch = mock(async () => ({
+        ok: true,
+        json: async () => ({
+          authorizationUrl: "https://github.com/login/oauth/authorize",
+        }),
+      })) as any;
+
+      global.fetch = mockFetch;
+
+      const routes = handler.createCatchAllRoutes();
+      const mockRequest = {
+        json: async () => ({
+          provider: "github",
+          scopes: ["repo"],
+          state: "state-123",
+          codeChallenge: "challenge-123",
+          codeChallengeMethod: "S256",
+        }),
+      } as any;
+
+      const context = { params: { all: ["oauth", "authorize"] } };
+      const response = await routes.POST(mockRequest, context);
+      const data = await response.json();
+
+      expect(data.authorizationUrl).toContain("github");
+    });
+
+    it("should handle POST /oauth/callback", async () => {
+      const mockFetch = mock(async () => ({
+        ok: true,
+        json: async () => ({
+          accessToken: "gho_123456",
+          tokenType: "Bearer",
+          expiresIn: 28800,
+        }),
+      })) as any;
+
+      global.fetch = mockFetch;
+
+      const routes = handler.createCatchAllRoutes();
+      const mockRequest = {
+        json: async () => ({
+          provider: "github",
+          code: "code-123",
+          codeVerifier: "verifier-123",
+          state: "state-123",
+        }),
+      } as any;
+
+      const context = { params: { all: ["oauth", "callback"] } };
+      const response = await routes.POST(mockRequest, context);
+      const data = await response.json();
+
+      expect(data.accessToken).toBe("gho_123456");
+    });
+
+    it("should handle POST /oauth/disconnect", async () => {
+      const mockFetch = mock(async () => ({
+        ok: true,
+        json: async () => ({
+          success: true,
+          provider: "github",
+        }),
+      })) as any;
+
+      global.fetch = mockFetch;
+
+      const routes = handler.createCatchAllRoutes();
+      const mockRequest = {
+        json: async () => ({ provider: "github" }),
+        headers: {
+          get: (key: string) => {
+            if (key === "authorization") return "Bearer token-123";
+            return null;
+          },
+        },
+      } as any;
+
+      const context = { params: { all: ["oauth", "disconnect"] } };
+      const response = await routes.POST(mockRequest, context);
+      const data = await response.json();
+
+      expect(data.success).toBe(true);
+    });
+
+    it("should handle GET /oauth/status", async () => {
+      const mockFetch = mock(async () => ({
+        ok: true,
+        json: async () => ({
+          authorized: true,
+          scopes: ["repo"],
+        }),
+      })) as any;
+
+      global.fetch = mockFetch;
+
+      const routes = handler.createCatchAllRoutes();
+      const mockRequest = {
+        nextUrl: {
+          searchParams: new URLSearchParams("provider=github"),
+        },
+        headers: {
+          get: (key: string) => {
+            if (key === "authorization") return "Bearer token-123";
+            return null;
+          },
+        },
+      } as any;
+
+      const context = { params: { all: ["oauth", "status"] } };
+      const response = await routes.GET(mockRequest, context);
+      const data = await response.json();
+
+      expect(data.authorized).toBe(true);
+    });
+
+    it("should handle GET /oauth/callback (provider redirect)", async () => {
+      const routes = handler.createCatchAllRoutes({
+        redirectUrl: "/dashboard",
+      });
+
+      const mockRequest = {
+        url: "https://app.com/api/integrate/oauth/callback?code=code-123&state=eyJzdGF0ZSI6InN0YXRlLTEyMyIsInJldHVyblVybCI6Ii9kYXNoYm9hcmQifQ",
+        headers: {
+          get: () => null,
+        },
+      } as any;
+
+      const context = { params: { all: ["oauth", "callback"] } };
+      const response = await routes.GET(mockRequest, context);
+
+      expect(response.status).toBe(302); // Redirect status
+      const location = response.headers.get("Location");
+      expect(location).toBeTruthy();
+    });
+
+    it("should handle GET /oauth/callback with error parameter", async () => {
+      const routes = handler.createCatchAllRoutes({
+        errorRedirectUrl: "/auth-error",
+      });
+
+      const mockRequest = {
+        url: "https://app.com/api/integrate/oauth/callback?error=access_denied&error_description=User%20denied%20access",
+        headers: {
+          get: () => null,
+        },
+      } as any;
+
+      const context = { params: { all: ["oauth", "callback"] } };
+      const response = await routes.GET(mockRequest, context);
+
+      expect(response.status).toBe(302);
+      const location = response.headers.get("Location");
+      expect(location).toContain("/auth-error");
+      expect(location).toContain("error=");
+    });
+
+    it("should return 404 for unknown POST action", async () => {
+      const routes = handler.createCatchAllRoutes();
+      const mockRequest = {
+        json: async () => ({}),
+      } as any;
+
+      const context = { params: { all: ["oauth", "unknown"] } };
+      const response = await routes.POST(mockRequest, context);
+      const data = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(data.error).toContain("Unknown action");
+    });
+
+    it("should return 404 for unknown GET action", async () => {
+      const routes = handler.createCatchAllRoutes();
+      const mockRequest = {
+        nextUrl: {
+          searchParams: new URLSearchParams(),
+        },
+      } as any;
+
+      const context = { params: { all: ["oauth", "unknown"] } };
+      const response = await routes.GET(mockRequest, context);
+      const data = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(data.error).toContain("Unknown action");
+    });
+
+    it("should return 404 for invalid route path", async () => {
+      const routes = handler.createCatchAllRoutes();
+      const mockRequest = {
+        json: async () => ({}),
+      } as any;
+
+      const context = { params: { all: ["invalid", "path"] } };
+      const response = await routes.POST(mockRequest, context);
+      const data = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(data.error).toContain("Invalid route");
+    });
+
+    it("should handle async params (Next.js 15+)", async () => {
+      const mockFetch = mock(async () => ({
+        ok: true,
+        json: async () => ({
+          authorizationUrl: "https://github.com/login/oauth/authorize",
+        }),
+      })) as any;
+
+      global.fetch = mockFetch;
+
+      const routes = handler.createCatchAllRoutes();
+      const mockRequest = {
+        json: async () => ({
+          provider: "github",
+          scopes: ["repo"],
+          state: "state-123",
+          codeChallenge: "challenge-123",
+          codeChallengeMethod: "S256",
+        }),
+      } as any;
+
+      // Simulate Next.js 15+ async params
+      const context = { 
+        params: Promise.resolve({ all: ["oauth", "authorize"] })
+      };
+      const response = await routes.POST(mockRequest, context);
+      const data = await response.json();
+
+      expect(data.authorizationUrl).toContain("github");
+    });
+
+    it("should use default redirect URLs when not configured", async () => {
+      const routes = handler.createCatchAllRoutes();
+
+      const mockRequest = {
+        url: "https://app.com/api/integrate/oauth/callback?code=code-123&state=eyJzdGF0ZSI6InN0YXRlLTEyMyJ9",
+        headers: {
+          get: () => null,
+        },
+      } as any;
+
+      const context = { params: { all: ["oauth", "callback"] } };
+      const response = await routes.GET(mockRequest, context);
+
+      expect(response.status).toBe(302);
+      const location = response.headers.get("Location");
+      // Should use default '/' redirect
+      expect(location).toBeTruthy();
+    });
+  });
+});
+
+describe("Server-Side createCatchAllRoutes", () => {
+  beforeAll(() => {
+    // Mock window to be undefined so createMCPServer thinks it's server-side
+    (global as any).window = undefined;
+  });
+
+  afterAll(() => {
+    // Clean up
+    delete (global as any).window;
+  });
+
+  it("should use global server config from createMCPServer", async () => {
+    const mockFetch = mock(async () => ({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: "https://github.com/login/oauth/authorize",
+      }),
+    })) as any;
+
+    global.fetch = mockFetch;
+
+    // Create server config (this registers global config)
+    const mockPlugin = {
+      id: "github",
+      tools: [],
+      oauth: {
+        clientId: "server-github-id",
+        clientSecret: "server-github-secret",
+        redirectUri: "https://app.com/api/integrate/oauth/callback",
+      },
+    };
+
+    createMCPServer({
+      plugins: [mockPlugin as any],
+    });
+
+    // Create catch-all routes using the global config
+    const routes = createCatchAllRoutes({
+      redirectUrl: "/dashboard",
+    });
+
+    const mockRequest = {
+      json: async () => ({
+        provider: "github",
+        scopes: ["repo"],
+        state: "state-123",
+        codeChallenge: "challenge-123",
+        codeChallengeMethod: "S256",
+      }),
+    } as any;
+
+    const context = { params: { all: ["oauth", "authorize"] } };
+    const response = await routes.POST(mockRequest, context);
+    const data = await response.json();
+
+    expect(data.authorizationUrl).toContain("github");
+  });
+
+  it("should handle POST /oauth/callback", async () => {
+    const mockFetch = mock(async () => ({
+      ok: true,
+      json: async () => ({
+        accessToken: "gho_123456",
+        tokenType: "Bearer",
+        expiresIn: 28800,
+      }),
+    })) as any;
+
+    global.fetch = mockFetch;
+
+    const routes = createCatchAllRoutes();
+    const mockRequest = {
+      json: async () => ({
+        provider: "github",
+        code: "code-123",
+        codeVerifier: "verifier-123",
+        state: "state-123",
+      }),
+    } as any;
+
+    const context = { params: { all: ["oauth", "callback"] } };
+    const response = await routes.POST(mockRequest, context);
+    const data = await response.json();
+
+    expect(data.accessToken).toBe("gho_123456");
+  });
+
+  it("should handle GET /oauth/callback (provider redirect)", async () => {
+    const routes = createCatchAllRoutes({
+      redirectUrl: "/dashboard",
+    });
+
+    const mockRequest = {
+      url: "https://app.com/api/integrate/oauth/callback?code=code-123&state=eyJzdGF0ZSI6InN0YXRlLTEyMyIsInJldHVyblVybCI6Ii9kYXNoYm9hcmQifQ",
+      headers: {
+        get: () => null,
+      },
+    } as any;
+
+    const context = { params: { all: ["oauth", "callback"] } };
+    const response = await routes.GET(mockRequest, context);
+
+    expect(response.status).toBe(302);
+    const location = response.headers.get("Location");
+    expect(location).toBeTruthy();
+  });
+
+  it("should handle async params (Next.js 15+)", async () => {
+    const mockFetch = mock(async () => ({
+      ok: true,
+      json: async () => ({
+        authorized: true,
+        scopes: ["repo"],
+      }),
+    })) as any;
+
+    global.fetch = mockFetch;
+
+    const routes = createCatchAllRoutes();
+    const mockRequest = {
+      nextUrl: {
+        searchParams: new URLSearchParams("provider=github"),
+      },
+      headers: {
+        get: (key: string) => {
+          if (key === "authorization") return "Bearer token-123";
+          return null;
+        },
+      },
+    } as any;
+
+    // Simulate Next.js 15+ async params
+    const context = {
+      params: Promise.resolve({ all: ["oauth", "status"] })
+    };
+    const response = await routes.GET(mockRequest, context);
+    const data = await response.json();
+
+    expect(data.authorized).toBe(true);
   });
 });
 

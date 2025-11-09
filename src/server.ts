@@ -252,3 +252,82 @@ export const GET = async (
   return routes.GET(req, context);
 };
 
+/**
+ * Create catch-all route handlers from the global server configuration
+ * 
+ * This is a helper function to create POST and GET handlers for catch-all routes
+ * that use the configuration from createMCPServer().
+ * 
+ * @param redirectConfig - Optional configuration for OAuth redirect behavior
+ * @returns Object with POST and GET handlers for Next.js catch-all routes
+ * 
+ * @example
+ * ```typescript
+ * // lib/integrate-server.ts
+ * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * 
+ * export const { client: serverClient } = createMCPServer({
+ *   plugins: [
+ *     githubPlugin({
+ *       clientId: process.env.GITHUB_CLIENT_ID!,
+ *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+ *       scopes: ['repo', 'user'],
+ *     }),
+ *   ],
+ * });
+ * 
+ * // app/api/integrate/[...all]/route.ts
+ * import { createCatchAllRoutes } from 'integrate-sdk/server';
+ * 
+ * export const { POST, GET } = createCatchAllRoutes({
+ *   redirectUrl: '/dashboard',
+ * });
+ * ```
+ */
+export function createCatchAllRoutes(redirectConfig?: {
+  redirectUrl?: string;
+  errorRedirectUrl?: string;
+}) {
+  /**
+   * POST handler for catch-all OAuth routes
+   * Handles authorize, callback, and disconnect actions
+   */
+  const POST = async (
+    req: any,
+    context: { params: { all: string[] } | Promise<{ all: string[] }> }
+  ) => {
+    if (!globalServerConfig) {
+      return Response.json(
+        { error: 'OAuth not configured. Call createMCPServer() in your server initialization file first.' },
+        { status: 500 }
+      );
+    }
+    
+    const handler = createNextOAuthHandler(globalServerConfig);
+    const routes = handler.createCatchAllRoutes(redirectConfig);
+    return routes.POST(req, context);
+  };
+
+  /**
+   * GET handler for catch-all OAuth routes
+   * Handles status checks and OAuth provider redirects
+   */
+  const GET = async (
+    req: any,
+    context: { params: { all: string[] } | Promise<{ all: string[] }> }
+  ) => {
+    if (!globalServerConfig) {
+      return Response.json(
+        { error: 'OAuth not configured. Call createMCPServer() in your server initialization file first.' },
+        { status: 500 }
+      );
+    }
+    
+    const handler = createNextOAuthHandler(globalServerConfig);
+    const routes = handler.createCatchAllRoutes(redirectConfig);
+    return routes.GET(req, context);
+  };
+
+  return { POST, GET };
+}
+
