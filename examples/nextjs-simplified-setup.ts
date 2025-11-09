@@ -32,13 +32,30 @@ export const { client: serverClient } = createMCPServer({
 // =============================================================================
 // Single catch-all route that handles ALL OAuth operations
 
+import { serverClient } from '@/lib/integrate-server';
 import { toNextJsHandler } from 'integrate-sdk/server';
 
-// That's it! Just import and export - automatically uses config from lib/integrate-server.ts
+// Just pass the serverClient - config is extracted automatically!
 export const { POST, GET } = toNextJsHandler({
+  client: serverClient,             // Pass the client from createMCPServer
   redirectUrl: '/dashboard',        // Where to redirect after OAuth success
   errorRedirectUrl: '/auth-error',  // Where to redirect on OAuth error
 });
+
+// Alternative: Provide config inline without importing
+// export const { POST, GET } = toNextJsHandler({
+//   config: {
+//     providers: {
+//       github: {
+//         clientId: process.env.GITHUB_CLIENT_ID!,
+//         clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+//         redirectUri: process.env.GITHUB_REDIRECT_URI,
+//       },
+//     },
+//   },
+//   redirectUrl: '/dashboard',
+//   errorRedirectUrl: '/auth-error',
+// });
 
 // This single file now handles:
 // - POST /api/integrate/oauth/authorize    → Get authorization URL

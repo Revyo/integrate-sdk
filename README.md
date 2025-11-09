@@ -62,14 +62,16 @@ That's it! Just import and export:
 
 ```typescript
 // app/api/integrate/[...all]/route.ts
+import { serverClient } from "@/lib/integrate-server";
 import { toNextJsHandler } from "integrate-sdk/server";
 
 export const { POST, GET } = toNextJsHandler({
+  client: serverClient,  // Pass the client
   redirectUrl: "/dashboard",
 });
 ```
 
-This automatically uses your config from step 1 and handles ALL OAuth operations (authorize, callback, status, disconnect) in one file!
+This imports your config from step 1 and handles ALL OAuth operations (authorize, callback, status, disconnect) in one file!
 
 ### 3. Use in Your App
 

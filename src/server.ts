@@ -161,6 +161,9 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
   };
   const client = new MCPClient(clientConfig);
 
+  // Attach OAuth config to the client for toNextJsHandler access
+  (client as any).__oauthConfig = { providers };
+
   // Create route handlers with the provider configuration
   const { POST, GET } = createOAuthRouteHandlers({ providers });
 
@@ -277,15 +280,44 @@ export const GET = async (
  * });
  * 
  * // app/api/integrate/[...all]/route.ts
+ * 
+ * // RECOMMENDED: Import serverClient from your server setup file
+ * import { serverClient } from '@/lib/integrate-server';
  * import { toNextJsHandler } from 'integrate-sdk/server';
  * 
  * export const { POST, GET } = toNextJsHandler({
+ *   client: serverClient,  // Pass the client from createMCPServer
+ *   redirectUrl: '/dashboard',
+ * });
+ * 
+ * // Alternative: Provide config inline
+ * export const { POST, GET } = toNextJsHandler({
+ *   config: {
+ *     providers: {
+ *       github: {
+ *         clientId: process.env.GITHUB_CLIENT_ID!,
+ *         clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+ *       },
+ *     },
+ *   },
  *   redirectUrl: '/dashboard',
  * });
  * ```
  */
-export function toNextJsHandler(redirectConfig?: {
+export function toNextJsHandler(options: {
+  /** Server client instance from createMCPServer (extracts config automatically) */
+  client?: any;
+  /** Custom OAuth handler config (provide inline) */
+  config?: {
+    providers: Record<string, {
+      clientId: string;
+      clientSecret: string;
+      redirectUri?: string;
+    }>;
+  };
+  /** URL to redirect to after successful OAuth */
   redirectUrl?: string;
+  /** URL to redirect to on OAuth error */
   errorRedirectUrl?: string;
 }) {
   /**
@@ -296,15 +328,20 @@ export function toNextJsHandler(redirectConfig?: {
     req: any,
     context: { params: { all: string[] } | Promise<{ all: string[] }> }
   ) => {
-    if (!globalServerConfig) {
+    // Extract config from client or use provided config
+    const config = options.config || (options.client as any)?.__oauthConfig;
+    if (!config) {
       return Response.json(
-        { error: 'OAuth not configured. Call createMCPServer() in your server initialization file first.' },
+        { error: 'OAuth not configured. You must pass either "client" (from createMCPServer) or "config" to toNextJsHandler().' },
         { status: 500 }
       );
     }
 
-    const handler = createNextOAuthHandler(globalServerConfig);
-    const routes = handler.toNextJsHandler(redirectConfig);
+    const handler = createNextOAuthHandler(config);
+    const routes = handler.toNextJsHandler({
+      redirectUrl: options.redirectUrl,
+      errorRedirectUrl: options.errorRedirectUrl,
+    });
     return routes.POST(req, context);
   };
 
@@ -316,15 +353,20 @@ export function toNextJsHandler(redirectConfig?: {
     req: any,
     context: { params: { all: string[] } | Promise<{ all: string[] }> }
   ) => {
-    if (!globalServerConfig) {
+    // Extract config from client or use provided config
+    const config = options.config || (options.client as any)?.__oauthConfig;
+    if (!config) {
       return Response.json(
-        { error: 'OAuth not configured. Call createMCPServer() in your server initialization file first.' },
+        { error: 'OAuth not configured. You must pass either "client" (from createMCPServer) or "config" to toNextJsHandler().' },
         { status: 500 }
       );
     }
 
-    const handler = createNextOAuthHandler(globalServerConfig);
-    const routes = handler.toNextJsHandler(redirectConfig);
+    const handler = createNextOAuthHandler(config);
+    const routes = handler.toNextJsHandler({
+      redirectUrl: options.redirectUrl,
+      errorRedirectUrl: options.errorRedirectUrl,
+    });
     return routes.GET(req, context);
   };
 

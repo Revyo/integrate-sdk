@@ -709,9 +709,28 @@ describe("Next.js Catch-All Route Handler", () => {
 });
 
 describe("Server-Side toNextJsHandler", () => {
+  let testClient: any;
+
   beforeAll(() => {
     // Mock window to be undefined so createMCPServer thinks it's server-side
     (global as any).window = undefined;
+
+    // Set up server config once for all tests
+    const mockPlugin = {
+      id: "github",
+      tools: [],
+      oauth: {
+        clientId: "test-github-id",
+        clientSecret: "test-github-secret",
+        redirectUri: "https://app.com/api/integrate/oauth/callback",
+      },
+    };
+
+    const { client } = createMCPServer({
+      plugins: [mockPlugin as any],
+    });
+
+    testClient = client;
   });
 
   afterAll(() => {
@@ -719,7 +738,7 @@ describe("Server-Side toNextJsHandler", () => {
     delete (global as any).window;
   });
 
-  it("should use global server config from createMCPServer", async () => {
+  it("should use imported client from createMCPServer", async () => {
     const mockFetch = mock(async () => ({
       ok: true,
       json: async () => ({
@@ -729,23 +748,9 @@ describe("Server-Side toNextJsHandler", () => {
 
     global.fetch = mockFetch;
 
-    // Create server config (this registers global config)
-    const mockPlugin = {
-      id: "github",
-      tools: [],
-      oauth: {
-        clientId: "server-github-id",
-        clientSecret: "server-github-secret",
-        redirectUri: "https://app.com/api/integrate/oauth/callback",
-      },
-    };
-
-    createMCPServer({
-      plugins: [mockPlugin as any],
-    });
-
-    // Create catch-all routes using the global config
+    // Create catch-all routes by passing client
     const routes = toNextJsHandler({
+      client: testClient,
       redirectUrl: "/dashboard",
     });
 
@@ -778,7 +783,7 @@ describe("Server-Side toNextJsHandler", () => {
 
     global.fetch = mockFetch;
 
-    const routes = toNextJsHandler();
+    const routes = toNextJsHandler({ client: testClient });
     const mockRequest = {
       json: async () => ({
         provider: "github",
@@ -797,6 +802,7 @@ describe("Server-Side toNextJsHandler", () => {
 
   it("should handle GET /oauth/callback (provider redirect)", async () => {
     const routes = toNextJsHandler({
+      client: testClient,
       redirectUrl: "/dashboard",
     });
 
@@ -826,7 +832,7 @@ describe("Server-Side toNextJsHandler", () => {
 
     global.fetch = mockFetch;
 
-    const routes = toNextJsHandler();
+    const routes = toNextJsHandler({ client: testClient });
     const mockRequest = {
       nextUrl: {
         searchParams: new URLSearchParams("provider=github"),
@@ -847,6 +853,46 @@ describe("Server-Side toNextJsHandler", () => {
     const data = await response.json();
 
     expect(data.authorized).toBe(true);
+  });
+
+  it("should allow manual config override", async () => {
+    const mockFetch = mock(async () => ({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: "https://github.com/login/oauth/authorize?client_id=manual-client-id",
+      }),
+    })) as any;
+
+    global.fetch = mockFetch;
+
+    // Use manual config instead of global server config
+    const routes = toNextJsHandler({
+      config: {
+        providers: {
+          github: {
+            clientId: "manual-client-id",
+            clientSecret: "manual-client-secret",
+            redirectUri: "https://manual.com/callback",
+          },
+        },
+      },
+      redirectUrl: "/custom-redirect",
+    });
+
+    const mockRequest = {
+      json: async () => ({
+        provider: "github",
+        scopes: ["repo", "user"],
+        redirectUri: "https://manual.com/callback",
+      }),
+    } as any;
+
+    const context = { params: { all: ["oauth", "authorize"] } };
+    const response = await routes.POST(mockRequest, context);
+    const data = await response.json();
+
+    expect(data.authorizationUrl).toContain("manual-client-id");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 });
 

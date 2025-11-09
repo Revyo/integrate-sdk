@@ -68,10 +68,12 @@ export const { client: serverClient } = createMCPServer({
 Create `app/api/integrate/[...all]/route.ts`:
 
 ```typescript
+import { serverClient } from "@/lib/integrate-server";
 import { toNextJsHandler } from "integrate-sdk/server";
 
-// That's it! Just import and export - uses config from step 2
+// Just pass the serverClient - config is extracted automatically
 export const { POST, GET } = toNextJsHandler({
+  client: serverClient, // Pass the client from step 2
   redirectUrl: "/dashboard", // Where to redirect after OAuth
 });
 ```
