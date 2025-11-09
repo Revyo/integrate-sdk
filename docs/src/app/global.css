@@ -9,10 +9,16 @@ pre[class*='shiki'],
 pre[style*='background'] {
   margin: 0 !important;
   padding: 1rem !important;
-  background: #000 !important;
   border-radius: 0 !important;
   border: none !important;
   overflow: visible !important;
+}
+
+/* Apply black background only in dark mode */
+.dark pre.shiki,
+.dark pre[class*='shiki'],
+.dark pre[style*='background'] {
+  background: #000 !important;
 }
 
 pre.shiki code,
