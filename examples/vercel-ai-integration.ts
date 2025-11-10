@@ -15,6 +15,7 @@ import {
 async function main() {
   // 1. Create and connect the MCP client
   const mcpClient = createMCPClient({
+    customerId: 'cust_example123',
     plugins: [
       githubPlugin({
         clientId: process.env.GITHUB_CLIENT_ID || "your-client-id",

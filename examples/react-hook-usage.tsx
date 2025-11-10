@@ -18,6 +18,7 @@ import { useIntegrateAI, useIntegrateTokens } from "../react.js";
 
 // Create MCP client (do this at module level or in a provider)
 const client = createMCPClient({
+  customerId: 'cust_example123',
   plugins: [
     githubPlugin({
       clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || "your-client-id",
@@ -269,6 +270,7 @@ export function LazyInitExample() {
   React.useEffect(() => {
     // Initialize client lazily
     const newClient = createMCPClient({
+      customerId: 'cust_example123',
       plugins: [githubPlugin({ clientId: '...' })],
     });
     setMcpClient(newClient);
@@ -296,6 +298,7 @@ import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
 const { client: serverClient } = createMCPServer({
+  customerId: 'cust_server_internal',
   plugins: [
     githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID!,

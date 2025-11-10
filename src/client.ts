@@ -165,6 +165,9 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       timeout: config.timeout,
     });
 
+    // Set customer ID header for usage tracking (required)
+    this.transport.setHeader('X-Customer-ID', config.customerId);
+
     // Determine OAuth API base and default redirect URI
     const oauthApiBase = config.oauthApiBase || '/api/integrate/oauth';
     const defaultRedirectUri = this.getDefaultRedirectUri(oauthApiBase);
@@ -1146,10 +1149,13 @@ function generateCacheKey<TPlugins extends readonly MCPPlugin[]>(
  * - Automatically connects on first method call
  * - Automatically cleans up on process exit
  * 
+ * **Required**: customerId must be provided for usage tracking and billing.
+ * 
  * @example
  * ```typescript
  * // Lazy connection (default) - connects automatically on first use
  * const client = createMCPClient({
+ *   customerId: 'cust_abc123', // REQUIRED for usage tracking
  *   plugins: [
  *     githubPlugin({ clientId: '...', clientSecret: '...' }),
  *   ],
@@ -1165,6 +1171,7 @@ function generateCacheKey<TPlugins extends readonly MCPPlugin[]>(
  * ```typescript
  * // Manual connection mode (original behavior)
  * const client = createMCPClient({
+ *   customerId: 'cust_abc123', // REQUIRED
  *   plugins: [githubPlugin({ ... })],
  *   connectionMode: 'manual',
  *   singleton: false,

@@ -42,6 +42,7 @@ export async function exampleNextJSAPIRoute() {
       // 3. Create server-side MCP client
       // Note: OAuth secrets come from environment variables on the server
       const { client: serverClient } = createMCPServer({
+        customerId: 'cust_server_internal',
         plugins: [
           githubPlugin({
             clientId: process.env.GITHUB_CLIENT_ID!,
@@ -130,6 +131,7 @@ export async function exampleNextJSStreamingRoute() {
 
       // 3. Create and connect MCP client
       const { client: serverClient } = createMCPServer({
+        customerId: 'cust_server_internal',
         plugins: [
           githubPlugin({
             clientId: process.env.GITHUB_CLIENT_ID!,
@@ -307,6 +309,7 @@ export async function exampleErrorHandling() {
       }
 
       const { client: serverClient } = createMCPServer({
+        customerId: 'cust_server_internal',
         plugins: [
           githubPlugin({
             clientId: process.env.GITHUB_CLIENT_ID!,

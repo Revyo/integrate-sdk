@@ -13,6 +13,7 @@ async function testConnection() {
 
   // Create a minimal client without OAuth plugins
   const client = createMCPClient({
+    customerId: 'cust_example123',
     plugins: [
       // Simple plugin that doesn't require OAuth
       createSimplePlugin({

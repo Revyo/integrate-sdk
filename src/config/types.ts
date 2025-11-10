@@ -32,6 +32,23 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
   /** Array of plugins to enable */
   plugins: TPlugins;
 
+  /**
+   * Customer ID for usage tracking (REQUIRED)
+   * Sent as X-Customer-ID header to the MCP server for tracking API usage
+   * Used by Polar.sh for usage-based billing
+   * 
+   * This field is required to ensure all usage is properly tracked and billed.
+   * 
+   * @example
+   * ```typescript
+   * createMCPClient({
+   *   customerId: 'cust_xyz789',
+   *   plugins: [...]
+   * })
+   * ```
+   */
+  customerId: string;
+
   /** Optional HTTP headers to include in requests */
   headers?: Record<string, string>;
 

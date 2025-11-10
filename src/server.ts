@@ -55,6 +55,8 @@ function getDefaultRedirectUri(): string {
  * The redirectUri can be specified globally and will be used for all plugins.
  * If not provided, it will auto-detect from INTEGRATE_URL or VERCEL_URL
  * 
+ * **Required**: customerId must be provided for usage tracking and billing.
+ * 
  * @example
  * ```typescript
  * // lib/integrate-server.ts (server-side only!)
@@ -62,6 +64,7 @@ function getDefaultRedirectUri(): string {
  * 
  * // With explicit redirectUri
  * export const { client: serverClient } = createMCPServer({
+ *   customerId: 'cust_server_internal', // REQUIRED for usage tracking
  *   redirectUri: process.env.INTEGRATE_URL 
  *     ? `${process.env.INTEGRATE_URL}/oauth/callback`
  *     : 'http://localhost:3000/api/integrate/oauth/callback',
@@ -81,6 +84,7 @@ function getDefaultRedirectUri(): string {
  * 
  * // Or omit redirectUri to use auto-detection from environment variables
  * export const { client: serverClient } = createMCPServer({
+ *   customerId: 'cust_server_internal', // REQUIRED
  *   plugins: [
  *     githubPlugin({
  *       clientId: process.env.GITHUB_CLIENT_ID!,

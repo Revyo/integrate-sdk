@@ -13,6 +13,7 @@
 // import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
 // 
 // export const { client: serverClient } = createMCPServer({
+//   customerId: 'cust_server_internal',
 //   plugins: [
 //     githubPlugin({
 //       clientId: process.env.GITHUB_CLIENT_ID!,

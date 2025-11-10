@@ -15,6 +15,7 @@ async function main() {
 
   // Just create the client - no need to call connect()!
   const client = createMCPClient({
+    customerId: 'cust_example123',
     plugins: [
       githubPlugin({
         clientId: process.env.GITHUB_CLIENT_ID,
@@ -40,6 +41,7 @@ async function main() {
   // Create another "client" with same config - gets the cached instance
   console.log("\nCreating another client with same config...");
   const client2 = createMCPClient({
+    customerId: 'cust_example123',
     plugins: [
       githubPlugin({
         clientId: process.env.GITHUB_CLIENT_ID,
@@ -80,6 +82,7 @@ async function connectionModesExample() {
   // Lazy (default): connects on first method call
   console.log("1. Lazy mode (default):");
   const lazyClient = createMCPClient({
+    customerId: 'cust_example123',
     plugins: [githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
@@ -93,6 +96,7 @@ async function connectionModesExample() {
   // Eager: connects immediately (but doesn't block)
   console.log("\n2. Eager mode:");
   const eagerClient = createMCPClient({
+    customerId: 'cust_example123',
     plugins: [githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
@@ -108,6 +112,7 @@ async function connectionModesExample() {
   // Manual: requires explicit connect() call (original behavior)
   console.log("\n3. Manual mode:");
   const manualClient = createMCPClient({
+    customerId: 'cust_example123',
     plugins: [githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
@@ -130,6 +135,7 @@ async function testingExample() {
 
   // For testing, you might want fresh instances
   const testClient1 = createMCPClient({
+    customerId: 'cust_example123',
     plugins: [githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
@@ -139,6 +145,7 @@ async function testingExample() {
   });
 
   const testClient2 = createMCPClient({
+    customerId: 'cust_example123',
     plugins: [githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,

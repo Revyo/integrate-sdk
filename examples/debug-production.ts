@@ -127,6 +127,7 @@ async function debugConnection() {
     const { createMCPClient, createSimplePlugin } = await import("../src/index.js");
     
     const client = createMCPClient({
+      customerId: 'cust_example123',
       plugins: [
         createSimplePlugin({
           id: "test",

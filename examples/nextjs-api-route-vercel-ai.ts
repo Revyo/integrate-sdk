@@ -19,6 +19,7 @@ import { createMCPServer, githubPlugin, gmailPlugin } from "../src/server.js";
 
 // Create server-side MCP client (do this once, export and reuse)
 export const { client: serverClient } = createMCPServer({
+  customerId: 'cust_server_internal',
   plugins: [
     githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID!,
