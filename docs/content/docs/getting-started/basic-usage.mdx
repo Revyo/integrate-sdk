@@ -1,13 +1,7 @@
 ---
-title: Quick Start
+title: Basic Usage
 description: Get up and running with Integrate SDK in minutes
 ---
-
-# Quick Start
-
-This guide will help you create your first integration with the Integrate SDK.
-
-## Basic Example
 
 Here's a complete example that connects to the MCP server and calls a GitHub tool:
 
@@ -18,25 +12,25 @@ import { createMCPClient, githubPlugin, gmailPlugin } from "integrate-sdk";
 const client = createMCPClient({
   plugins: [
     githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
       scopes: ["repo", "user"],
     }),
     gmailPlugin({
-      clientId: process.env.GMAIL_CLIENT_ID!,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      clientId: process.env.GMAIL_CLIENT_ID,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET,
     }),
   ],
   // OAuth flow configuration (browser only)
   oauthFlow: {
-    mode: 'popup', // or 'redirect'
+    mode: "popup", // or 'redirect' (default)
   },
 });
 
 // Check if user is authorized (browser only)
-if (!await client.isAuthorized('github')) {
+if (!(await client.isAuthorized("github"))) {
   // Initiate OAuth flow
-  await client.authorize('github');
+  await client.authorize("github");
 }
 
 // Call tools with typed methods
@@ -55,11 +49,13 @@ console.log("Issue created:", result);
 The SDK works in both browser and Node.js environments, but with different capabilities:
 
 ### Browser Environment ✅
+
 - Full OAuth authorization UI (popup/redirect)
 - Make API calls to integrated services
 - Complete session management
 
 ### Server Environment 🖥️
+
 - Make API calls with provider access tokens
 - No OAuth UI (throws error if attempted)
 - Perfect for backend API routes
@@ -67,21 +63,25 @@ The SDK works in both browser and Node.js environments, but with different capab
 ```typescript
 // Server-side usage (Node.js)
 const client = createMCPClient({
-  plugins: [githubPlugin({ /* ... */ })],
+  plugins: [
+    githubPlugin({
+      /* ... */
+    }),
+  ],
 });
 
 // Set the access token for the provider
-client.setProviderToken('github', {
+client.setProviderToken("github", {
   accessToken: userAccessToken, // From your database
-  tokenType: 'Bearer',
+  tokenType: "Bearer",
   expiresIn: 3600,
 });
 
 // ✅ API calls work fine
-const repos = await client.github.listRepos({ username: 'octocat' });
+const repos = await client.github.listRepos({ username: "octocat" });
 
 // ❌ OAuth UI throws error on server
-await client.authorize('github'); 
+await client.authorize("github");
 // Error: can only be used in browser environments
 ```
 
@@ -125,15 +125,7 @@ const client = createMCPClient({
 });
 ```
 
-### 4. Connect to the Server
-
-```typescript
-await client.connect();
-```
-
-This establishes an HTTP streaming connection to `https://mcp.integrate.dev/api/v1/mcp`.
-
-### 5. Call Tools
+### 4. Call Tools
 
 ```typescript
 // Use typed methods for built-in plugins
@@ -145,21 +137,11 @@ const result = await client.github.createIssue({
 });
 ```
 
-### 6. Disconnect
-
-```typescript
-await client.disconnect();
-```
-
-Always disconnect when you're done to clean up resources.
-
 ## List Available Tools
 
 To see what tools are available:
 
 ```typescript
-await client.connect();
-
 const tools = client.getEnabledTools();
 console.log(
   "Available tools:",
@@ -173,7 +155,6 @@ Wrap your code in try-catch blocks to handle errors:
 
 ```typescript
 try {
-  await client.connect();
   const result = await client.github.createIssue({
     owner: "owner",
     repo: "repo",
@@ -182,8 +163,6 @@ try {
   console.log("Success:", result);
 } catch (error) {
   console.error("Error:", error.message);
-} finally {
-  await client.disconnect();
 }
 ```
 

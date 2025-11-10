@@ -1,38 +1,39 @@
 ---
 title: Introduction
-description: A type-safe TypeScript SDK for connecting to the Integrate MCP server
+description: A universal TypeScript SDK for seamlessly connecting your applications to third-party integrations
 ---
 
 import { Cards, Card } from "fumadocs-ui/components/card";
 
-# Integrate SDK
+The Integrate SDK is a universal, type-safe TypeScript library that bridges your applications to third-party services through the Model Context Protocol (MCP). It provides seamless integration with services like GitHub, Gmail, Notion, and more—both in the browser and on the server—without the complexity of managing OAuth flows, API differences, or connection states.
 
-A type-safe TypeScript SDK for connecting to the Integrate MCP (Model Context Protocol) server. Access GitHub, Gmail, Notion, and other integrations through a simple, plugin-based API.
+## Why Integrate SDK?
 
-**Server:** `https://mcp.integrate.dev/api/v1/mcp`
+Building applications that connect to multiple third-party services is challenging. Each service has its own OAuth implementation, API quirks, and authentication patterns. You need to handle OAuth flows in the browser, manage tokens securely, make API calls from your backend, and deal with re-authentication when tokens expire.
 
-## What is this SDK?
+The Integrate SDK solves this by providing a unified, type-safe interface to all your integrations. You configure your OAuth credentials once, authorize users through a seamless flow (popup or redirect), and then make API calls from anywhere in your stack—whether that's client-side JavaScript, server-side API routes, or serverless functions. The SDK handles token management, streaming connections to the MCP server, and provides full TypeScript support so you know exactly what tools are available and what parameters they need.
 
-This SDK is a **client library** that connects to the Integrate MCP server to access various third-party integrations.
+## How It Works
 
-**Key concepts:**
+The SDK connects to the Integrate MCP server (`https://mcp.integrate.dev/api/v1/mcp`) using HTTP streaming with newline-delimited JSON. You bring your own OAuth app credentials for each integration you want to use—whether that's a GitHub OAuth app, Google Cloud project, or Notion integration.
 
-1. **Connect to the Integrate MCP server** - The SDK connects to `https://mcp.integrate.dev/api/v1/mcp`
-2. **Configure OAuth credentials** - You provide your own OAuth app credentials for each integration (GitHub, Gmail, etc.)
-3. **Call tools** - Execute actions like creating GitHub issues, sending emails, searching Notion pages
-4. **OAuth flow happens server-side** - The SDK sends your OAuth config to the server, which handles the actual authentication flow
+When a user authorizes your app, the OAuth flow happens through the server, which securely stores the credentials. The SDK receives a session token that it uses for all subsequent API calls. This token works everywhere: in the browser for rich user experiences, in your Next.js API routes for server-side operations, or in your Node.js backend services.
 
-**Important:** You need to create your own OAuth apps (e.g., GitHub OAuth app, Google OAuth app) and provide the credentials to the SDK. The SDK does not provide OAuth credentials.
+**Important:** You control your own OAuth applications and credentials. The SDK acts as a secure bridge, sending your OAuth configuration to the Integrate server which handles the complex authentication flows and API calls on your behalf.
 
 ## Features
 
-- 🔌 **Plugin-Based Architecture** - Enable only the integrations you need
-- 🔒 **Type-Safe** - Full TypeScript support with IntelliSense
-- 🌊 **Real-time Communication** - HTTP streaming with NDJSON
-- 🔐 **Complete OAuth Flow** - Built-in OAuth 2.0 with PKCE (popup/redirect modes)
-- 🌍 **Universal** - Works in browser and Node.js environments
-- 🛠️ **Extensible** - Configure plugins for any server-supported integration
-- 📦 **Zero Dependencies** - Lightweight implementation
+The Integrate SDK is designed to be both powerful and simple to use:
+
+- 🔌 **Plugin-Based Architecture** - Enable only the integrations you need, reducing bundle size and surface area
+- 🔒 **Type-Safe** - Full TypeScript support with IntelliSense for every tool, parameter, and response
+- 🌊 **Real-time Communication** - HTTP streaming with NDJSON for efficient, real-time data flow
+- 🔐 **Complete OAuth Flow** - Built-in OAuth 2.0 with PKCE support in both popup and redirect modes
+- 🌍 **Universal** - Works seamlessly in browsers, Node.js, Edge runtimes, and serverless environments
+- 🛠️ **Extensible** - Add any integration supported by the Integrate MCP server with simple plugin configuration
+- 📦 **Zero Dependencies** - Lightweight implementation with no external dependencies
+- 🔄 **Automatic Re-authentication** - Handle token expiration gracefully with built-in re-auth flows
+- 🎯 **Tool Discovery** - Automatically discover available tools based on your enabled plugins
 
 ## Get Started
 
@@ -69,37 +70,56 @@ This SDK is a **client library** that connects to the Integrate MCP server to ac
   />
 </Cards>
 
-## How It Works
+## The Journey of an Integration
 
-1. **Client Configuration**: You configure the SDK with plugins for the integrations you want to use (GitHub, Gmail, etc.)
-2. **User Authorization (Browser)**: Users authorize your app via OAuth 2.0 (popup or redirect flow)
-3. **Token Management**: Session tokens are managed and can be persisted across sessions
-4. **Connection**: The SDK connects to `https://mcp.integrate.dev/api/v1/mcp` using HTTP streaming (NDJSON)
-5. **Tool Discovery**: The SDK fetches available tools from the server and filters them based on your enabled plugins
-6. **Tool Calls**: When you call a tool, the SDK sends a JSON-RPC request with the session token
-7. **Server Execution**: The server executes the tool using the stored OAuth credentials
+Here's what happens when you integrate a third-party service into your application:
 
-## Browser & Server Support
+### 1. **Configuration**
 
-The SDK works in both environments with different capabilities:
+You configure the SDK with plugins for each integration you want to use—GitHub for repository management, Gmail for email, Notion for knowledge base access, and so on. Each plugin knows what OAuth credentials it needs and what tools it provides.
 
-### 🌐 Browser (Client-Side)
-- ✅ Full OAuth authorization UI (popup/redirect)
-- ✅ Make API calls
-- ✅ Session token management
-- ✅ Complete user flow
+### 2. **Authorization**
 
-### 🖥️ Node.js (Server-Side)
-- ✅ Make API calls with existing token
-- ✅ Session token management
-- ❌ OAuth UI (throws error - use browser for authorization)
-- ✅ Perfect for backend API routes
+When a user needs to connect their account, the SDK orchestrates the OAuth 2.0 flow. In the browser, this happens seamlessly through a popup or redirect. The user authorizes your app with the third-party service, and the Integrate server securely stores their credentials.
 
-**Typical pattern:** Handle OAuth in browser, pass token to backend for API calls.
+### 3. **Connection**
 
-## Server Information
+The SDK establishes a streaming connection to `https://mcp.integrate.dev/api/v1/mcp` and receives a session token. This token is your golden ticket—it represents the user's authorized connections and works anywhere in your application.
+
+### 4. **Discovery**
+
+The SDK queries the server for available tools and intelligently filters them based on your enabled plugins. With full TypeScript support, your IDE immediately knows what tools are available, what parameters they accept, and what they return.
+
+### 5. **Execution**
+
+When you call a tool—say, creating a GitHub issue or sending an email—the SDK sends a JSON-RPC request over the streaming connection. The server executes the action using the stored OAuth credentials and streams the response back to your application.
+
+### 6. **Persistence**
+
+Session tokens can be persisted across page reloads and shared between client and server. Once a user has authorized your app in the browser, your backend services can use the same token to make API calls on their behalf.
+
+## Universal by Design
+
+The SDK adapts to its environment, providing the right capabilities for each context:
+
+### 🌐 Browser Environments
+
+In the browser, the SDK provides the complete user experience. Users can authorize their accounts through intuitive popup or redirect flows. The SDK manages session tokens, makes API calls, and handles re-authentication when needed. It's perfect for building rich, interactive experiences where users directly interact with their connected services.
+
+### 🖥️ Server Environments
+
+On the server—whether that's Node.js, Edge runtimes, or serverless functions—the SDK focuses on execution. Given a valid session token (typically obtained from browser authorization and passed via cookies or headers), it makes API calls efficiently without any UI concerns. This is ideal for backend operations, scheduled jobs, or API routes that need to interact with third-party services on behalf of users.
+
+### 🔄 The Typical Pattern
+
+Most applications follow this pattern: handle OAuth authorization in the browser where users can interact with the authorization UI, then share the session token with your backend through secure HTTP-only cookies or authorization headers. Your server-side code can then make API calls using the same session token, maintaining a seamless experience across your entire stack.
+
+## Technical Details
+
+The SDK communicates with the Integrate MCP server using the Model Context Protocol:
 
 - **Endpoint:** `https://mcp.integrate.dev/api/v1/mcp`
-- **Protocol:** MCP (Model Context Protocol) over HTTP streaming
-- **Format:** Newline-delimited JSON (NDJSON)
-- **Methods:** `initialize`, `tools/list`, `tools/call`
+- **Protocol:** MCP over HTTP streaming for real-time, efficient communication
+- **Format:** Newline-delimited JSON (NDJSON) for progressive responses
+- **Methods:** `initialize`, `tools/list`, `tools/call` for complete integration lifecycle
+- **Security:** OAuth 2.0 with PKCE for secure authorization flows
