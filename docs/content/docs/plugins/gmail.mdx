@@ -27,17 +27,31 @@ import { createMCPClient, gmailPlugin } from "integrate-sdk";
 
 ### 2. Configure the Plugin
 
+The plugin automatically reads `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET` from your environment variables:
+
 ```typescript
 const client = createMCPClient({
   plugins: [
     gmailPlugin({
-      clientId: process.env.GMAIL_CLIENT_ID!,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
       scopes: [
-        // Optional
+        // Optional - defaults are provided
         "https://www.googleapis.com/auth/gmail.send",
         "https://www.googleapis.com/auth/gmail.readonly",
       ],
+    }),
+  ],
+});
+```
+
+You can override the environment variables by passing explicit values:
+
+```typescript
+const client = createMCPClient({
+  plugins: [
+    gmailPlugin({
+      clientId: process.env.CUSTOM_GMAIL_ID!,
+      clientSecret: process.env.CUSTOM_GMAIL_SECRET!,
+      scopes: ["https://www.googleapis.com/auth/gmail.send"],
     }),
   ],
 });

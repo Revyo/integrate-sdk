@@ -8,13 +8,14 @@ import type { MCPPlugin, OAuthConfig } from "./types.js";
 /**
  * GitHub plugin configuration
  * 
- * SERVER-SIDE: Include clientId and clientSecret when using createMCPServer()
+ * SERVER-SIDE: Automatically reads GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET from environment.
+ * You can override by providing explicit clientId and clientSecret values.
  * CLIENT-SIDE: Omit clientId and clientSecret when using createMCPClient()
  */
 export interface GitHubPluginConfig {
-  /** GitHub OAuth client ID (required on server, omit on client) */
+  /** GitHub OAuth client ID (defaults to GITHUB_CLIENT_ID env var) */
   clientId?: string;
-  /** GitHub OAuth client secret (required on server, omit on client) */
+  /** GitHub OAuth client secret (defaults to GITHUB_CLIENT_SECRET env var) */
   clientSecret?: string;
   /** Additional OAuth scopes (default: ['repo', 'user']) */
   scopes?: string[];
@@ -52,17 +53,34 @@ const GITHUB_TOOLS = [
 /**
  * GitHub Plugin
  * 
- * Enables GitHub integration with OAuth authentication
+ * Enables GitHub integration with OAuth authentication.
  * 
- * @example Server-side (with secrets):
+ * By default, reads GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET from environment variables.
+ * You can override these by providing explicit values in the config.
+ * 
+ * @example Server-side (minimal - uses env vars):
+ * ```typescript
+ * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * 
+ * // Automatically uses GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET from env
+ * export const { client } = createMCPServer({
+ *   plugins: [
+ *     githubPlugin({
+ *       scopes: ['repo', 'user', 'read:org'],
+ *     }),
+ *   ],
+ * });
+ * ```
+ * 
+ * @example Server-side (with explicit override):
  * ```typescript
  * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
  * 
  * export const { client } = createMCPServer({
  *   plugins: [
  *     githubPlugin({
- *       clientId: process.env.GITHUB_CLIENT_ID!,
- *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+ *       clientId: process.env.CUSTOM_GITHUB_ID!,
+ *       clientSecret: process.env.CUSTOM_GITHUB_SECRET!,
  *       scopes: ['repo', 'user', 'read:org'],
  *     }),
  *   ],
@@ -82,11 +100,11 @@ const GITHUB_TOOLS = [
  * });
  * ```
  */
-export function githubPlugin(config: GitHubPluginConfig): MCPPlugin {
+export function githubPlugin(config: GitHubPluginConfig = {}): MCPPlugin {
   const oauth: OAuthConfig = {
     provider: "github",
-    clientId: config.clientId,
-    clientSecret: config.clientSecret,
+    clientId: config.clientId ?? process.env.GITHUB_CLIENT_ID,
+    clientSecret: config.clientSecret ?? process.env.GITHUB_CLIENT_SECRET,
     scopes: config.scopes || ["repo", "user"],
     redirectUri: config.redirectUri,
     config: {

@@ -9,17 +9,13 @@ Here's a complete example that connects to the MCP server and calls a GitHub too
 import { createMCPClient, githubPlugin, gmailPlugin } from "integrate-sdk";
 
 // Create a client with plugins
+// Plugins automatically read GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
 const client = createMCPClient({
   plugins: [
     githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
       scopes: ["repo", "user"],
     }),
-    gmailPlugin({
-      clientId: process.env.GMAIL_CLIENT_ID,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET,
-    }),
+    gmailPlugin(),
   ],
   // OAuth flow configuration (browser only)
   oauthFlow: {
@@ -113,17 +109,19 @@ GMAIL_CLIENT_SECRET=your_gmail_client_secret
 
 ### 3. Create the Client
 
+Plugins automatically read credentials from standard environment variables:
+
 ```typescript
 const client = createMCPClient({
   plugins: [
     githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       scopes: ["repo", "user"],
     }),
   ],
 });
 ```
+
+The `githubPlugin` automatically looks for `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in your environment. Similarly, `gmailPlugin` looks for `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET`.
 
 ### 4. Call Tools
 

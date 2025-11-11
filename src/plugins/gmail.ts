@@ -8,13 +8,14 @@ import type { MCPPlugin, OAuthConfig } from "./types.js";
 /**
  * Gmail plugin configuration
  * 
- * SERVER-SIDE: Include clientId and clientSecret when using createMCPServer()
+ * SERVER-SIDE: Automatically reads GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET from environment.
+ * You can override by providing explicit clientId and clientSecret values.
  * CLIENT-SIDE: Omit clientId and clientSecret when using createMCPClient()
  */
 export interface GmailPluginConfig {
-  /** Google OAuth client ID (required on server, omit on client) */
+  /** Google OAuth client ID (defaults to GMAIL_CLIENT_ID env var) */
   clientId?: string;
-  /** Google OAuth client secret (required on server, omit on client) */
+  /** Google OAuth client secret (defaults to GMAIL_CLIENT_SECRET env var) */
   clientSecret?: string;
   /** Additional OAuth scopes (default: Gmail API scopes) */
   scopes?: string[];
@@ -36,17 +37,34 @@ const GMAIL_TOOLS = [
 /**
  * Gmail Plugin
  * 
- * Enables Gmail integration with OAuth authentication
+ * Enables Gmail integration with OAuth authentication.
  * 
- * @example Server-side (with secrets):
+ * By default, reads GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET from environment variables.
+ * You can override these by providing explicit values in the config.
+ * 
+ * @example Server-side (minimal - uses env vars):
+ * ```typescript
+ * import { createMCPServer, gmailPlugin } from 'integrate-sdk/server';
+ * 
+ * // Automatically uses GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET from env
+ * export const { client } = createMCPServer({
+ *   plugins: [
+ *     gmailPlugin({
+ *       scopes: ['gmail.send', 'gmail.readonly'],
+ *     }),
+ *   ],
+ * });
+ * ```
+ * 
+ * @example Server-side (with explicit override):
  * ```typescript
  * import { createMCPServer, gmailPlugin } from 'integrate-sdk/server';
  * 
  * export const { client } = createMCPServer({
  *   plugins: [
  *     gmailPlugin({
- *       clientId: process.env.GMAIL_CLIENT_ID!,
- *       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+ *       clientId: process.env.CUSTOM_GMAIL_ID!,
+ *       clientSecret: process.env.CUSTOM_GMAIL_SECRET!,
  *       scopes: ['gmail.send', 'gmail.readonly'],
  *     }),
  *   ],
@@ -66,11 +84,11 @@ const GMAIL_TOOLS = [
  * });
  * ```
  */
-export function gmailPlugin(config: GmailPluginConfig): MCPPlugin {
+export function gmailPlugin(config: GmailPluginConfig = {}): MCPPlugin {
   const oauth: OAuthConfig = {
     provider: "gmail",
-    clientId: config.clientId,
-    clientSecret: config.clientSecret,
+    clientId: config.clientId ?? process.env.GMAIL_CLIENT_ID,
+    clientSecret: config.clientSecret ?? process.env.GMAIL_CLIENT_SECRET,
     scopes: config.scopes || [
       "https://www.googleapis.com/auth/gmail.send",
       "https://www.googleapis.com/auth/gmail.readonly",

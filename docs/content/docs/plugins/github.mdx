@@ -26,14 +26,28 @@ import { createMCPClient, githubPlugin } from "integrate-sdk";
 
 ### 2. Configure the Plugin
 
+The plugin automatically reads `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` from your environment variables:
+
 ```typescript
 const client = createMCPClient({
   plugins: [
     githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       scopes: ["repo", "user", "read:org"], // Optional
       redirectUri: "http://localhost:3000/callback", // Optional
+    }),
+  ],
+});
+```
+
+You can override the environment variables by passing explicit values:
+
+```typescript
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.CUSTOM_GITHUB_ID!,
+      clientSecret: process.env.CUSTOM_GITHUB_SECRET!,
+      scopes: ["repo", "user", "read:org"],
     }),
   ],
 });

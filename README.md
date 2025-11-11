@@ -43,7 +43,7 @@ For production, use: `https://yourdomain.com/api/integrate/oauth/callback`
 
 ### 1. Create Server Config
 
-Define your OAuth providers once:
+Define your OAuth providers once. Plugins automatically read credentials from environment variables:
 
 ```typescript
 // lib/integrate-server.ts (server-side only!)
@@ -53,16 +53,14 @@ import {
   gmailPlugin,
 } from "integrate-sdk/server";
 
+// Plugins automatically use GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, 
+// GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET from environment
 export const { client: serverClient } = createMCPServer({
   plugins: [
     githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
       scopes: ["repo", "user"],
     }),
     gmailPlugin({
-      clientId: process.env.GMAIL_CLIENT_ID,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET,
       scopes: ["gmail.readonly"],
     }),
   ],
@@ -152,6 +150,7 @@ The SDK automatically manages connections for you - no manual `connect()` or `di
 
 ```typescript
 // ✅ Default behavior - automatic connection
+// Plugins automatically use GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET from environment
 const client = createMCPClient({
   plugins: [
     githubPlugin({
@@ -308,11 +307,10 @@ Use `genericOAuthPlugin` to configure any server-supported integration:
 ```typescript
 import { genericOAuthPlugin } from "integrate-sdk/server";
 
+// Automatically uses SLACK_CLIENT_ID and SLACK_CLIENT_SECRET from environment
 const slackPlugin = genericOAuthPlugin({
   id: "slack",
   provider: "slack",
-  clientId: process.env.SLACK_CLIENT_ID,
-  clientSecret: process.env.SLACK_CLIENT_SECRET,
   scopes: ["chat:write", "channels:read"],
   tools: ["slack_send_message", "slack_list_channels"],
 });
