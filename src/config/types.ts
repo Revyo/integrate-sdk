@@ -26,28 +26,43 @@ export interface ReauthContext {
 export type ReauthHandler = (context: ReauthContext) => Promise<boolean> | boolean;
 
 /**
+ * Server-side configuration (extends client config with API key)
+ * 
+ * API key is only available server-side for security reasons.
+ */
+export interface MCPServerConfig<TPlugins extends readonly MCPPlugin[]> extends MCPClientConfig<TPlugins> {
+  /**
+   * API Key for authentication and usage tracking (SERVER-SIDE ONLY)
+   * Sent as X-API-KEY header to the MCP server for tracking API usage
+   * Used by Polar.sh for usage-based billing
+   * 
+   * ⚠️ SECURITY: Never expose this in client-side code or environment variables
+   * prefixed with NEXT_PUBLIC_ or similar. This should only be used server-side.
+   * 
+   * @example
+   * ```typescript
+   * // ✅ CORRECT - Server-side only
+   * createMCPServer({
+   *   apiKey: process.env.INTEGRATE_API_KEY, // No NEXT_PUBLIC_ prefix
+   *   plugins: [...]
+   * })
+   * 
+   * // ❌ WRONG - Never do this
+   * createMCPClient({
+   *   apiKey: process.env.NEXT_PUBLIC_INTEGRATE_API_KEY, // Exposed to browser!
+   *   plugins: [...]
+   * })
+   * ```
+   */
+  apiKey?: string;
+}
+
+/**
  * Main client configuration
  */
 export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
   /** Array of plugins to enable */
   plugins: TPlugins;
-
-  /**
-   * Customer ID for usage tracking (REQUIRED)
-   * Sent as X-Customer-ID header to the MCP server for tracking API usage
-   * Used by Polar.sh for usage-based billing
-   * 
-   * This field is required to ensure all usage is properly tracked and billed.
-   * 
-   * @example
-   * ```typescript
-   * createMCPClient({
-   *   customerId: 'cust_xyz789',
-   *   plugins: [...]
-   * })
-   * ```
-   */
-  customerId: string;
 
   /** Optional HTTP headers to include in requests */
   headers?: Record<string, string>;

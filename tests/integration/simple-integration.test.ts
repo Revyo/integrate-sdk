@@ -12,7 +12,6 @@ import { gmailPlugin } from "../../src/plugins/gmail.js";
 describe("Integration - Client Configuration", () => {
   test("creates client with multiple plugins", () => {
     const client = createMCPClient({
-      customerId: 'test_customer',
       serverUrl: "https://mcp.integrate.dev:8080/api/v1/mcp",
       plugins: [
         githubPlugin({

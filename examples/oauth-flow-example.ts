@@ -19,7 +19,6 @@ async function popupFlowExample() {
 
   // Create client with popup OAuth flow
   const client = createMCPClient({
-    customerId: 'cust_example123',
     plugins: [
       githubPlugin({
         clientId: process.env.GITHUB_CLIENT_ID,
@@ -75,7 +74,6 @@ async function redirectFlowExample() {
 
   // Create client with redirect OAuth flow
   const client = createMCPClient({
-    customerId: 'cust_example123',
     plugins: [
       githubPlugin({
         clientId: process.env.GITHUB_CLIENT_ID,
@@ -144,7 +142,6 @@ async function multipleProvidersExample() {
   console.log("\n\n=== Multiple Providers Example ===\n");
 
   const client = createMCPClient({
-    customerId: 'cust_example123',
     plugins: [
       githubPlugin({
         clientId: process.env.GITHUB_CLIENT_ID,
@@ -211,7 +208,6 @@ async function sessionRestorationExample() {
 
   // Create client with existing session token
   const client = createMCPClient({
-    customerId: 'cust_example123',
     plugins: [
       githubPlugin({
         clientId: process.env.GITHUB_CLIENT_ID,
@@ -279,7 +275,6 @@ async function customCallbackExample() {
   console.log("\n\n=== Custom Callback Handler Example ===\n");
 
   const client = createMCPClient({
-    customerId: 'cust_example123',
     plugins: [
       githubPlugin({
         clientId: process.env.GITHUB_CLIENT_ID,
@@ -317,7 +312,6 @@ async function errorHandlingExample() {
   console.log("\n\n=== Error Handling Example ===\n");
 
   const client = createMCPClient({
-    customerId: 'cust_example123',
     plugins: [
       githubPlugin({
         clientId: process.env.GITHUB_CLIENT_ID,

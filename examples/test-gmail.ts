@@ -13,7 +13,6 @@ async function testGmailIntegration() {
   // Create client with Gmail plugin
   // Using placeholder credentials since we're just testing tool availability
   const client = createMCPClient({
-    customerId: 'cust_example123',
     plugins: [
       gmailPlugin({
         clientId: "test-client-id",

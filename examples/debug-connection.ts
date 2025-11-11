@@ -10,7 +10,6 @@ async function debugConnection() {
 
   // Create a minimal client with just one simple plugin
   const client = createMCPClient({
-    customerId: 'cust_example123',
     plugins: [
       createSimplePlugin({
         id: "test",

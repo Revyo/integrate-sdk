@@ -48,7 +48,6 @@ async function main() {
 
   // Create client with re-authentication handler
   const client = createMCPClient({
-    customerId: 'cust_example123',
     plugins: [
       githubPlugin({
         clientId: process.env.GITHUB_CLIENT_ID || "your-github-client-id",

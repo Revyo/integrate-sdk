@@ -14,7 +14,6 @@ import {
 async function main() {
   // Create a client with multiple plugins
   const client = createMCPClient({
-    customerId: 'cust_example123',
     plugins: [
       // GitHub plugin with OAuth configuration
       githubPlugin({

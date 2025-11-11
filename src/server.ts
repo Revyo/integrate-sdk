@@ -4,7 +4,7 @@
  */
 
 import { MCPClient } from './client.js';
-import type { MCPClientConfig } from './config/types.js';
+import type { MCPServerConfig } from './config/types.js';
 import type { MCPPlugin } from './plugins/types.js';
 import { createNextOAuthHandler } from './adapters/nextjs.js';
 
@@ -47,24 +47,25 @@ function getDefaultRedirectUri(): string {
 }
 
 /**
- * Create MCP Server instance with OAuth secrets
+ * Create MCP Server instance with OAuth secrets (SERVER-SIDE ONLY)
  * 
- * This is for SERVER-SIDE ONLY - includes OAuth secrets from environment variables.
+ * This is for SERVER-SIDE ONLY - includes OAuth secrets and API key from environment variables.
  * Use this in your server configuration file (e.g., lib/integrate-server.ts)
  * 
  * The redirectUri can be specified globally and will be used for all plugins.
  * If not provided, it will auto-detect from INTEGRATE_URL or VERCEL_URL
  * 
- * **Required**: customerId must be provided for usage tracking and billing.
+ * ⚠️ SECURITY: The API key should NEVER be exposed to client-side code.
+ * Use environment variables WITHOUT the NEXT_PUBLIC_ prefix.
  * 
  * @example
  * ```typescript
  * // lib/integrate-server.ts (server-side only!)
  * import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
  * 
- * // With explicit redirectUri
+ * // ✅ CORRECT - Server-side only, API key from secure env var
  * export const { client: serverClient } = createMCPServer({
- *   customerId: 'cust_server_internal', // REQUIRED for usage tracking
+ *   apiKey: process.env.INTEGRATE_API_KEY, // ✅ No NEXT_PUBLIC_ prefix
  *   redirectUri: process.env.INTEGRATE_URL 
  *     ? `${process.env.INTEGRATE_URL}/oauth/callback`
  *     : 'http://localhost:3000/api/integrate/oauth/callback',
@@ -81,18 +82,6 @@ function getDefaultRedirectUri(): string {
  *     }),
  *   ],
  * });
- * 
- * // Or omit redirectUri to use auto-detection from environment variables
- * export const { client: serverClient } = createMCPServer({
- *   customerId: 'cust_server_internal', // REQUIRED
- *   plugins: [
- *     githubPlugin({
- *       clientId: process.env.GITHUB_CLIENT_ID!,
- *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
- *       scopes: ['repo', 'user'],
- *     }),
- *   ],
- * });
  * ```
  * 
  * Then in your route file:
@@ -102,7 +91,7 @@ function getDefaultRedirectUri(): string {
  * ```
  */
 export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
-  config: MCPClientConfig<TPlugins>
+  config: MCPServerConfig<TPlugins>
 ) {
   // Validate we're on the server
   if (typeof window !== 'undefined') {
@@ -164,6 +153,11 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
     singleton: config.singleton ?? true,
   };
   const client = new MCPClient(clientConfig);
+  
+  // Set API key header for authentication and usage tracking (server-side only)
+  if (config.apiKey) {
+    client.setRequestHeader('X-API-KEY', config.apiKey);
+  }
 
   // Attach OAuth config to the client for toNextJsHandler access
   (client as any).__oauthConfig = { providers };
