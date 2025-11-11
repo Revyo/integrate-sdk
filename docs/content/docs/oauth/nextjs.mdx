@@ -1,0 +1,437 @@
+---
+title: Next.js Adapter
+description: Integrate the Integrate SDK with Next.js
+---
+
+The Integrate SDK provides seamless integration with Next.js through server-side configuration and catch-all route handlers. Set up OAuth in just 2 files.
+
+## Quick Setup
+
+Setting up OAuth in Next.js requires only **2 files**:
+
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: ['gmail.send', 'gmail.readonly'],
+    }),
+  ],
+});
+```
+
+### 2. Catch-All Route
+
+Create a single catch-all route that handles all OAuth operations:
+
+```typescript
+// app/api/integrate/[...all]/route.ts
+import { serverClient } from '@/lib/integrate-server';
+import { toNextJsHandler } from 'integrate-sdk/server';
+
+export const { POST, GET } = toNextJsHandler({
+  client: serverClient,
+  redirectUrl: '/dashboard',        // Where to redirect after OAuth success
+  errorRedirectUrl: '/auth-error',  // Where to redirect on OAuth error (optional)
+});
+```
+
+That's it! This single route file handles:
+
+- `POST /api/integrate/oauth/authorize` - Get authorization URL
+- `POST /api/integrate/oauth/callback` - Exchange code for token
+- `GET /api/integrate/oauth/callback` - Provider OAuth redirect
+- `GET /api/integrate/oauth/status` - Check authorization status
+- `POST /api/integrate/oauth/disconnect` - Disconnect provider
+
+## How It Works
+
+### Server Configuration
+
+`createMCPServer` creates a server-side client with OAuth secrets and exports route handlers:
+
+```typescript
+const { client, POST, GET } = createMCPServer({
+  plugins: [/* ... */],
+  
+  // Optional: Explicit redirect URI
+  redirectUri: process.env.OAUTH_REDIRECT_URI,
+  
+  // All standard client options work here
+  connectionMode: 'lazy',
+  singleton: true,
+  autoCleanup: true,
+});
+```
+
+The redirect URI is automatically detected from environment variables:
+1. `INTEGRATE_URL` (primary)
+2. `VERCEL_URL` (fallback for Vercel deployments)
+3. `http://localhost:3000/api/integrate/oauth/callback` (dev fallback)
+
+### Catch-All Handler
+
+`toNextJsHandler` creates POST and GET handlers that route requests to the appropriate OAuth actions:
+
+```typescript
+toNextJsHandler({
+  client: serverClient,           // Required: Server client from createMCPServer
+  redirectUrl: '/',               // Optional: Where to redirect after OAuth (default: '/')
+  errorRedirectUrl: '/auth-error' // Optional: Where to redirect on error (default: '/auth-error')
+})
+```
+
+The handler automatically:
+- Parses route segments (e.g., `/oauth/callback`)
+- Routes to appropriate OAuth actions
+- Handles provider redirects
+- Returns JSON or redirects as needed
+
+## OAuth Flow
+
+Here's how the complete OAuth flow works:
+
+### 1. User Initiates OAuth (Client)
+
+```typescript
+// Client-side
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  ],
+  oauthFlow: { mode: 'popup' },
+});
+
+// User clicks "Connect GitHub"
+await client.authorize('github');
+```
+
+### 2. Client Requests Authorization URL
+
+The SDK calls `POST /api/integrate/oauth/authorize`:
+
+```json
+{
+  "provider": "github",
+  "scopes": ["repo", "user"],
+  "state": "random-state-string",
+  "codeChallenge": "pkce-code-challenge",
+  "codeChallengeMethod": "S256",
+  "redirectUri": "https://yourapp.com/api/integrate/oauth/callback"
+}
+```
+
+### 3. Server Returns Authorization URL
+
+Your Next.js route handler (via `toNextJsHandler`) securely communicates with the MCP server using `clientSecret`:
+
+```json
+{
+  "authorizationUrl": "https://github.com/login/oauth/authorize?client_id=..."
+}
+```
+
+### 4. User Authorizes on Provider
+
+Client redirects or opens popup to GitHub's OAuth page.
+
+### 5. Provider Redirects to Callback
+
+GitHub redirects to: `GET /api/integrate/oauth/callback?code=...&state=...`
+
+### 6. Server Handles Redirect
+
+The catch-all handler receives the GET request and:
+- Validates `code` and `state`
+- Extracts `returnUrl` from state
+- Redirects to `returnUrl` with OAuth params in hash: `returnUrl#oauth_callback={"code":"...","state":"..."}`
+
+### 7. Client Handles Callback
+
+The SDK automatically detects the hash fragment and calls `POST /api/integrate/oauth/callback`:
+
+```json
+{
+  "provider": "github",
+  "code": "authorization-code",
+  "codeVerifier": "pkce-code-verifier",
+  "state": "state-from-authorize"
+}
+```
+
+### 8. Server Exchanges Code for Token
+
+Your route handler exchanges the code for an access token via the MCP server:
+
+```json
+{
+  "accessToken": "ghp_...",
+  "provider": "github",
+  "expiresAt": 1234567890
+}
+```
+
+### 9. Client Stores Token
+
+The SDK stores the token in `localStorage` and the user is now authorized!
+
+## Environment Variables
+
+Configure your OAuth apps and set these environment variables:
+
+```bash
+# Server-side (keep secret!)
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+GMAIL_CLIENT_ID=your_gmail_client_id
+GMAIL_CLIENT_SECRET=your_gmail_client_secret
+
+# Client-side (public)
+NEXT_PUBLIC_GITHUB_CLIENT_ID=your_github_client_id
+NEXT_PUBLIC_GMAIL_CLIENT_ID=your_gmail_client_id
+
+# Optional: Custom redirect URI
+INTEGRATE_URL=https://yourapp.com
+# or for Vercel
+VERCEL_URL=yourapp.vercel.app
+```
+
+## OAuth Provider Configuration
+
+Configure your OAuth redirect URI in each provider's developer settings:
+
+| Provider | Redirect URI |
+|----------|-------------|
+| **Development** | `http://localhost:3000/api/integrate/oauth/callback` |
+| **Production** | `https://yourapp.com/api/integrate/oauth/callback` |
+
+### GitHub
+
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Create a new OAuth App
+3. Set **Authorization callback URL** to your redirect URI
+4. Copy Client ID and Client Secret
+
+### Google (Gmail)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project (or select existing)
+3. Enable Gmail API
+4. Create OAuth 2.0 credentials
+5. Add your redirect URI to **Authorized redirect URIs**
+6. Copy Client ID and Client Secret
+
+## Advanced Configuration
+
+### Custom Redirect URLs
+
+Control where users land after OAuth:
+
+```typescript
+// Dynamic redirect based on user state
+export const { POST, GET } = toNextJsHandler({
+  client: serverClient,
+  redirectUrl: '/dashboard',
+  errorRedirectUrl: '/auth-error?provider=github',
+});
+```
+
+The SDK automatically preserves the original page URL when possible, so users return to where they started.
+
+### Multiple Route Patterns
+
+You can use the older `[action]` pattern instead of `[...all]`:
+
+```typescript
+// app/api/integrate/oauth/[action]/route.ts
+import { serverClient } from '@/lib/integrate-server';
+
+// Export handlers directly from createMCPServer
+// These handlers work with [action] dynamic routes
+export { POST, GET } from 'integrate-sdk/server';
+```
+
+However, this pattern **only handles API operations**, not provider redirects. You need both:
+- `app/api/integrate/oauth/[action]/route.ts` - API operations
+- A separate callback route for provider redirects
+
+**Recommendation**: Use the catch-all `[...all]` pattern shown above for simpler setup.
+
+### Inline Configuration
+
+If you prefer not to create a separate server file, you can provide configuration inline:
+
+```typescript
+// app/api/integrate/[...all]/route.ts
+import { toNextJsHandler } from 'integrate-sdk/server';
+
+export const { POST, GET } = toNextJsHandler({
+  config: {
+    providers: {
+      github: {
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        redirectUri: process.env.GITHUB_REDIRECT_URI,
+      },
+      gmail: {
+        clientId: process.env.GMAIL_CLIENT_ID!,
+        clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      },
+    },
+  },
+  redirectUrl: '/dashboard',
+});
+```
+
+However, this doesn't give you access to the `serverClient` for making API calls in other routes.
+
+## Using the Server Client
+
+Use the server client in your API routes to make authenticated calls:
+
+```typescript
+// app/api/repos/route.ts
+import { serverClient } from '@/lib/integrate-server';
+import { getVercelAITools } from 'integrate-sdk';
+
+export async function GET(req: Request) {
+  try {
+    // Extract provider tokens from request
+    const tokensHeader = req.headers.get('x-integrate-tokens');
+    const providerTokens = JSON.parse(tokensHeader || '{}');
+    
+    // Use directly with provider namespace
+    const repos = await serverClient.github.listOwnRepos({ per_page: 10 });
+    
+    // Or use with Vercel AI SDK
+    const tools = await getVercelAITools(serverClient, { providerTokens });
+    
+    return Response.json({ repos });
+  } catch (error: any) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+}
+```
+
+## Complete Example
+
+Here's a complete Next.js app setup:
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ['repo', 'user'],
+    }),
+  ],
+});
+```
+
+```typescript
+// app/api/integrate/[...all]/route.ts
+import { serverClient } from '@/lib/integrate-server';
+import { toNextJsHandler } from 'integrate-sdk/server';
+
+export const { POST, GET } = toNextJsHandler({
+  client: serverClient,
+  redirectUrl: '/dashboard',
+});
+```
+
+```typescript
+// app/components/GitHubConnect.tsx
+'use client';
+
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { useState, useEffect } from 'react';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
+    }),
+  ],
+  oauthFlow: { mode: 'popup' },
+});
+
+export function GitHubConnect() {
+  const [authorized, setAuthorized] = useState(false);
+  const [repos, setRepos] = useState([]);
+  
+  useEffect(() => {
+    client.isAuthorized('github').then(setAuthorized);
+  }, []);
+  
+  const handleConnect = async () => {
+    await client.authorize('github');
+    setAuthorized(true);
+  };
+  
+  const handleFetchRepos = async () => {
+    const result = await client.github.listOwnRepos({ per_page: 5 });
+    setRepos(result.content);
+  };
+  
+  if (!authorized) {
+    return <button onClick={handleConnect}>Connect GitHub</button>;
+  }
+  
+  return (
+    <div>
+      <button onClick={handleFetchRepos}>Fetch Repos</button>
+      <ul>
+        {repos.map((repo: any) => (
+          <li key={repo.id}>{repo.full_name}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+## Troubleshooting
+
+### "OAuth not configured" Error
+
+Make sure you:
+1. Created `lib/integrate-server.ts` with `createMCPServer`
+2. Imported `serverClient` in your route file
+3. Called `createMCPServer` before the route handlers are created
+
+### Redirect URI Mismatch
+
+Ensure your OAuth provider's redirect URI exactly matches:
+- Development: `http://localhost:3000/api/integrate/oauth/callback`
+- Production: `https://yourapp.com/api/integrate/oauth/callback`
+
+### Client Secret Exposed
+
+Never use `clientSecret` on the client side! It should only appear in:
+- `lib/integrate-server.ts` (server-side)
+- Environment variables (`.env.local`, not `.env`)
+
+## Next Steps
+
+- Integrate with [Vercel AI SDK](/docs/integrations/vercel-ai)
+- Explore [Advanced Configuration](/docs/getting-started/advanced-usage)
+- Check the [API Reference](/docs/reference/options)

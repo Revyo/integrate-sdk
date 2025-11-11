@@ -1,11 +1,7 @@
 ---
-title: API Reference
+title: Options
 description: Complete API reference for the Integrate SDK
 ---
-
-# API Reference
-
-Complete reference documentation for the Integrate SDK.
 
 ## createMCPClient
 
@@ -17,28 +13,7 @@ function createMCPClient(config: MCPClientConfig): MCPClient;
 
 ### Parameters
 
-```typescript
-interface MCPClientConfig {
-  plugins: MCPPlugin[]; // Array of plugins to enable
-  headers?: Record<string, string>; // Custom HTTP headers (optional)
-  timeout?: number; // Request timeout in ms (default: 30000)
-  clientInfo?: {
-    // Client identification (optional)
-    name: string;
-    version: string;
-  };
-  onReauthRequired?: ReauthHandler; // Re-authentication handler (optional)
-  maxReauthRetries?: number; // Max re-auth attempts (default: 1)
-}
-
-type ReauthHandler = (context: ReauthContext) => Promise<boolean> | boolean;
-
-interface ReauthContext {
-  provider: string; // OAuth provider that needs re-authentication
-  error: AuthenticationError; // The error that triggered re-auth
-  toolName?: string; // Tool being called (if applicable)
-}
-```
+<AutoTypeTable path="../src/config/types.ts" name="MCPClientConfig" />
 
 ### Returns
 
@@ -104,27 +79,27 @@ Built-in plugins (GitHub, Gmail) provide fully typed methods for calling tools.
 **GitHub Plugin Methods:**
 
 ```typescript
-client.github.createIssue(params)
-client.github.listIssues(params)
-client.github.getRepo(params)
-client.github.createPullRequest(params)
+client.github.createIssue(params);
+client.github.listIssues(params);
+client.github.getRepo(params);
+client.github.createPullRequest(params);
 // ... and more
 ```
 
 **Gmail Plugin Methods:**
 
 ```typescript
-client.gmail.sendEmail(params)
-client.gmail.listEmails(params)
-client.gmail.searchEmails(params)
-client.gmail.createLabel(params)
+client.gmail.sendEmail(params);
+client.gmail.listEmails(params);
+client.gmail.searchEmails(params);
+client.gmail.createLabel(params);
 // ... and more
 ```
 
 **Server Methods:**
 
 ```typescript
-client.server.listToolsByIntegration(params)
+client.server.listToolsByIntegration(params);
 // ... other server-level tools
 ```
 
@@ -140,7 +115,7 @@ const result = await client.github.createIssue({
 });
 ```
 
-### _callToolByName()
+### \_callToolByName()
 
 For integrations configured with `genericOAuthPlugin` or `createSimplePlugin`, use this internal method to call tools directly.
 
@@ -433,60 +408,71 @@ try {
 
 ### MCPTool
 
-```typescript
-interface MCPTool {
-  name: string; // Tool name
-  description?: string; // Tool description
-  inputSchema: {
-    // JSON schema for parameters
-    type: "object";
-    properties?: Record<string, any>;
-    required?: string[];
-  };
-}
-```
+<AutoTypeTable path="../src/protocol/messages.ts" name="MCPTool" />
 
 ### MCPToolCallResponse
 
-```typescript
-interface MCPToolCallResponse {
-  content: Array<{
-    type: "text" | "image" | "resource";
-    text?: string;
-    data?: string;
-    mimeType?: string;
-  }>;
-  isError?: boolean;
-}
-```
+<AutoTypeTable path="../src/protocol/messages.ts" name="MCPToolCallResponse" />
+
+### MCPToolCallParams
+
+<AutoTypeTable path="../src/protocol/messages.ts" name="MCPToolCallParams" />
 
 ### OAuthConfig
 
-```typescript
-interface OAuthConfig {
-  provider: string; // OAuth provider name
-  clientId: string; // Client ID
-  clientSecret: string; // Client secret
-  scopes: string[]; // OAuth scopes
-  redirectUri?: string; // Redirect URI (optional)
-}
-```
+<AutoTypeTable path="../src/plugins/types.ts" name="OAuthConfig" />
 
 ### MCPPlugin
 
-```typescript
-interface MCPPlugin {
-  id: string; // Unique identifier
-  tools: string[]; // Tool names to enable
-  oauth?: OAuthConfig; // OAuth config (optional)
-  onInit?: PluginHook; // Initialization hook (optional)
-  onBeforeConnect?: PluginHook; // Pre-connection hook (optional)
-  onAfterConnect?: PluginHook; // Post-connection hook (optional)
-  onDisconnect?: PluginHook; // Disconnect hook (optional)
-}
+<AutoTypeTable path="../src/plugins/types.ts" name="MCPPlugin" />
 
-type PluginHook = (client: MCPClient) => Promise<void> | void;
-```
+### ReauthContext
+
+<AutoTypeTable path="../src/config/types.ts" name="ReauthContext" />
+
+## OAuth Types
+
+### PopupOptions
+
+<AutoTypeTable path="../src/oauth/types.ts" name="PopupOptions" />
+
+### OAuthFlowConfig
+
+<AutoTypeTable path="../src/oauth/types.ts" name="OAuthFlowConfig" />
+
+### AuthStatus
+
+<AutoTypeTable path="../src/oauth/types.ts" name="AuthStatus" />
+
+### ProviderTokenData
+
+<AutoTypeTable path="../src/oauth/types.ts" name="ProviderTokenData" />
+
+### OAuthCallbackParams
+
+<AutoTypeTable path="../src/oauth/types.ts" name="OAuthCallbackParams" />
+
+### OAuth Event Types
+
+#### AuthStartedEvent
+
+<AutoTypeTable path="../src/oauth/types.ts" name="AuthStartedEvent" />
+
+#### AuthCompleteEvent
+
+<AutoTypeTable path="../src/oauth/types.ts" name="AuthCompleteEvent" />
+
+#### AuthErrorEvent
+
+<AutoTypeTable path="../src/oauth/types.ts" name="AuthErrorEvent" />
+
+#### AuthLogoutEvent
+
+<AutoTypeTable path="../src/oauth/types.ts" name="AuthLogoutEvent" />
+
+#### AuthDisconnectEvent
+
+<AutoTypeTable path="../src/oauth/types.ts" name="AuthDisconnectEvent" />
 
 ## Built-in Plugins
 
@@ -496,14 +482,9 @@ Creates a GitHub plugin.
 
 ```typescript
 function githubPlugin(config: GitHubPluginConfig): MCPPlugin;
-
-interface GitHubPluginConfig {
-  clientId: string;
-  clientSecret: string;
-  scopes?: string[]; // Default: ['repo', 'user']
-  redirectUri?: string;
-}
 ```
+
+<AutoTypeTable path="../src/plugins/github.ts" name="GitHubPluginConfig" />
 
 ### gmailPlugin()
 
@@ -511,14 +492,9 @@ Creates a Gmail plugin.
 
 ```typescript
 function gmailPlugin(config: GmailPluginConfig): MCPPlugin;
-
-interface GmailPluginConfig {
-  clientId: string;
-  clientSecret: string;
-  scopes?: string[]; // Default: common Gmail scopes
-  redirectUri?: string;
-}
 ```
+
+<AutoTypeTable path="../src/plugins/gmail.ts" name="GmailPluginConfig" />
 
 ### genericOAuthPlugin()
 
@@ -526,48 +502,67 @@ Creates a generic OAuth plugin.
 
 ```typescript
 function genericOAuthPlugin(config: GenericOAuthPluginConfig): MCPPlugin;
-
-interface GenericOAuthPluginConfig {
-  id: string; // Plugin identifier
-  provider: string; // OAuth provider name
-  clientId: string;
-  clientSecret: string;
-  scopes: string[];
-  tools: string[]; // Tool names to enable
-  redirectUri?: string;
-}
 ```
+
+<AutoTypeTable
+  path="../src/plugins/generic.ts"
+  name="GenericOAuthPluginConfig"
+/>
 
 ### createSimplePlugin()
 
 Creates a simple plugin without OAuth.
 
 ```typescript
-function createSimplePlugin(config: SimplePluginConfig): MCPPlugin;
-
-interface SimplePluginConfig {
-  id: string; // Plugin identifier
-  tools: string[]; // Tool names to enable
-  onInit?: PluginHook;
-  onBeforeConnect?: PluginHook;
-  onAfterConnect?: PluginHook;
-  onDisconnect?: PluginHook;
-}
+function createSimplePlugin(config: {
+  id: string;
+  tools: string[];
+  onInit?: (client: any) => Promise<void> | void;
+  onAfterConnect?: (client: any) => Promise<void> | void;
+  onDisconnect?: (client: any) => Promise<void> | void;
+}): MCPPlugin;
 ```
 
+**Parameters:**
+
+- `id` - Plugin identifier
+- `tools` - Array of tool names to enable
+- `onInit` - Optional initialization hook
+- `onAfterConnect` - Optional post-connection hook
+- `onDisconnect` - Optional disconnect hook
+
 ## Vercel AI SDK Integration
+
+### VercelAITool
+
+Tool definition compatible with Vercel AI SDK v5:
+
+<AutoTypeTable path="../src/integrations/vercel-ai.ts" name="VercelAITool" />
+
+### VercelAIToolsOptions
+
+Options for converting MCP tools to Vercel AI SDK format:
+
+<AutoTypeTable
+  path="../src/integrations/vercel-ai.ts"
+  name="VercelAIToolsOptions"
+/>
 
 ### getVercelAITools()
 
 Converts all enabled MCP tools to Vercel AI SDK format.
 
 ```typescript
-function getVercelAITools(client: MCPClient): Record<string, CoreTool>;
+function getVercelAITools(
+  client: MCPClient,
+  options?: VercelAIToolsOptions
+): Record<string, CoreTool>;
 ```
 
 **Parameters:**
 
 - `client` - Connected MCP client
+- `options` - Optional configuration (see VercelAIToolsOptions above)
 
 **Returns:**
 
@@ -576,9 +571,16 @@ function getVercelAITools(client: MCPClient): Record<string, CoreTool>;
 **Example:**
 
 ```typescript
-const tools = getVercelAITools(mcpClient);
+// Client-side
+const tools = await getVercelAITools(mcpClient);
+
+// Server-side with provider tokens
+const tools = await getVercelAITools(serverClient, {
+  providerTokens: { github: "ghp_...", gmail: "ya29..." },
+});
+
 const result = await generateText({
-  model: openai("gpt-5"),
+  model: openai("gpt-4"),
   prompt: "Create a GitHub issue",
   tools,
 });
@@ -664,7 +666,11 @@ class AuthenticationError extends IntegrateSDKError {
 import { isAuthError, AuthenticationError } from "integrate-sdk";
 
 try {
-  await client.github.createIssue({ owner: "user", repo: "repo", title: "Bug" });
+  await client.github.createIssue({
+    owner: "user",
+    repo: "repo",
+    title: "Bug",
+  });
 } catch (error) {
   if (isAuthError(error)) {
     console.error(`Auth failed for ${error.provider}: ${error.message}`);
@@ -689,7 +695,11 @@ class TokenExpiredError extends AuthenticationError {
 import { isTokenExpiredError } from "integrate-sdk";
 
 try {
-  await client.github.createIssue({ owner: "user", repo: "repo", title: "Bug" });
+  await client.github.createIssue({
+    owner: "user",
+    repo: "repo",
+    title: "Bug",
+  });
 } catch (error) {
   if (isTokenExpiredError(error)) {
     console.error(`Token expired for ${error.provider}`);
@@ -716,7 +726,11 @@ class AuthorizationError extends IntegrateSDKError {
 import { isAuthorizationError } from "integrate-sdk";
 
 try {
-  await client.github.createIssue({ owner: "user", repo: "repo", title: "Bug" });
+  await client.github.createIssue({
+    owner: "user",
+    repo: "repo",
+    title: "Bug",
+  });
 } catch (error) {
   if (isAuthorizationError(error)) {
     console.error("Insufficient permissions");
@@ -775,7 +789,11 @@ import {
 } from "integrate-sdk";
 
 try {
-  await client.github.createIssue({ owner: "user", repo: "repo", title: "Bug" });
+  await client.github.createIssue({
+    owner: "user",
+    repo: "repo",
+    title: "Bug",
+  });
 } catch (error) {
   if (isTokenExpiredError(error)) {
     // Handle token expiration

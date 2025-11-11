@@ -1,0 +1,10 @@
+{
+    "title": "Documentation",
+    "pages": [
+        "---Getting Started---",
+        "---Oauth---",
+        "---Integrations---",
+        "---Plugins---",
+        "---Reference---"
+    ]
+}

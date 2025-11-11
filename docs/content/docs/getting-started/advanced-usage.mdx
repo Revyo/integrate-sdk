@@ -1,0 +1,493 @@
+---
+title: Advanced Usage
+description: Advanced configuration options and patterns for power users
+---
+
+This guide covers advanced configuration options for `createMCPClient` and `createMCPServer` that give you fine-grained control over connection behavior, OAuth flows, error handling, and more.
+
+## Connection Modes
+
+Control when and how the client connects to the MCP server.
+
+```typescript
+import { createMCPClient, githubPlugin } from "integrate-sdk";
+
+// Lazy connection (default) - connects automatically on first method call
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  connectionMode: "lazy", // Default
+});
+
+// No need to call connect()!
+await client.github.listOwnRepos({}); // Automatically connects
+
+// Eager connection - connects immediately when created
+const eagerClient = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  connectionMode: "eager",
+});
+// Connects in background immediately
+
+// Manual connection - original behavior
+const manualClient = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  connectionMode: "manual",
+});
+
+await manualClient.connect(); // Required!
+await manualClient.github.listOwnRepos({});
+await manualClient.disconnect(); // Required cleanup
+```
+
+### When to Use Each Mode
+
+- **lazy** (default): Best for most use cases - connects automatically when needed
+- **eager**: When you want to pre-connect and cache the connection, or validate credentials early
+- **manual**: When you need precise control over connection lifecycle (testing, connection pooling)
+
+## Singleton Pattern
+
+By default, `createMCPClient` returns cached instances to improve performance and reduce connections.
+
+```typescript
+// Singleton enabled (default) - reuses client instances
+const client1 = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  singleton: true, // Default
+});
+
+const client2 = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  singleton: true,
+});
+
+// client1 === client2 (same instance if config matches)
+
+// Disable singleton - always create new instances
+const uniqueClient = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  singleton: false,
+});
+
+// uniqueClient is always a new instance
+```
+
+### Clearing the Cache
+
+```typescript
+import { clearClientCache } from "integrate-sdk";
+
+// Clear all cached clients and disconnect them
+await clearClientCache();
+```
+
+## Auto-Cleanup
+
+Control whether clients automatically disconnect on process exit.
+
+```typescript
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  autoCleanup: true, // Default - automatically disconnects on exit
+});
+
+// No cleanup needed - handles SIGINT, SIGTERM, beforeExit
+
+// Disable auto-cleanup for manual control
+const manualClient = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  autoCleanup: false,
+});
+
+// You must manually disconnect
+await manualClient.disconnect();
+```
+
+## Re-Authentication Handling
+
+Handle expired or invalid OAuth tokens automatically.
+
+```typescript
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  
+  // Called when authentication fails
+  onReauthRequired: async (context) => {
+    console.log(`Re-auth needed for ${context.provider}`);
+    console.log(`Error: ${context.error.message}`);
+    console.log(`Tool: ${context.toolName}`);
+    
+    // Trigger your OAuth flow here
+    try {
+      await client.authorize(context.provider);
+      return true; // Re-auth successful
+    } catch (error) {
+      console.error("Re-auth failed:", error);
+      return false; // Re-auth failed
+    }
+  },
+  
+  // Number of automatic retry attempts
+  maxReauthRetries: 1, // Default: 1
+});
+
+// When a tool call fails with auth error:
+// 1. onReauthRequired is called
+// 2. If it returns true, the tool call is retried
+// 3. Up to maxReauthRetries times
+try {
+  await client.github.createIssue({ /* ... */ });
+} catch (error) {
+  // Only thrown if re-auth fails or max retries exceeded
+}
+```
+
+## OAuth Flow Configuration
+
+Customize the OAuth authorization experience.
+
+```typescript
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  
+  oauthFlow: {
+    // Mode: 'popup' or 'redirect'
+    mode: "popup", // Default: 'redirect'
+    
+    // Popup window dimensions (popup mode only)
+    popupOptions: {
+      width: 600,
+      height: 700,
+    },
+    
+    // Custom callback handler
+    onAuthCallback: async (provider, code, state) => {
+      console.log(`Received callback for ${provider}`);
+      // Handle custom logic here
+    },
+  },
+});
+```
+
+### Popup vs Redirect
+
+**Popup Mode:**
+- Opens OAuth in a new window
+- User stays on current page
+- Better for single-page apps
+- Blocked by some browsers
+
+**Redirect Mode (default):**
+- Full page redirect to OAuth provider
+- More reliable, works everywhere
+- Preserves URL with `returnUrl`
+
+## OAuth Configuration
+
+Fine-tune OAuth behavior and URLs.
+
+```typescript
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  
+  // Base URL for OAuth API routes (default: '/api/integrate/oauth')
+  oauthApiBase: "/api/integrate/oauth",
+  
+  // Global redirect URI for all providers
+  // Auto-detected from window.location.origin if not provided
+  redirectUri: "https://myapp.com/api/integrate/oauth/callback",
+  
+  // Auto-handle OAuth callbacks from URL hash (default: true)
+  autoHandleOAuthCallback: true,
+  
+  // Manual session token (if you manage tokens externally)
+  sessionToken: "existing-session-token",
+});
+```
+
+### OAuth Redirect URI Auto-Detection
+
+**Client-side:**
+```typescript
+// Auto-detects: window.location.origin + oauthApiBase + '/callback'
+// Example: http://localhost:3000/api/integrate/oauth/callback
+```
+
+**Server-side:**
+```typescript
+import { createMCPServer } from "integrate-sdk/server";
+
+const { client } = createMCPServer({
+  plugins: [/* ... */],
+  // Auto-detects from environment variables:
+  // 1. INTEGRATE_URL (primary)
+  // 2. VERCEL_URL (falls back)
+  // 3. http://localhost:3000/api/integrate/oauth/callback (default)
+});
+
+// Or provide explicitly:
+const { client: explicitClient } = createMCPServer({
+  plugins: [/* ... */],
+  redirectUri: process.env.OAUTH_REDIRECT_URI,
+});
+```
+
+## Client Information
+
+Customize the client identity sent to the MCP server.
+
+```typescript
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  
+  clientInfo: {
+    name: "my-app",
+    version: "1.2.3",
+  },
+});
+```
+
+## HTTP Configuration
+
+Configure HTTP transport settings.
+
+```typescript
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+  
+  // Custom headers for all requests
+  headers: {
+    "X-Custom-Header": "value",
+    "X-App-Version": "1.0.0",
+  },
+  
+  // Request timeout in milliseconds (default: 30000)
+  timeout: 60000, // 60 seconds
+});
+```
+
+## Server-Side Configuration
+
+`createMCPServer` supports the same options as `createMCPClient`, plus server-specific features.
+
+```typescript
+import { createMCPServer, githubPlugin } from "integrate-sdk/server";
+
+export const { client, POST, GET } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!, // Server only!
+      scopes: ["repo", "user"],
+    }),
+  ],
+  
+  // All client options work here too
+  connectionMode: "lazy",
+  singleton: true,
+  autoCleanup: true,
+  timeout: 30000,
+  
+  // Server-specific: OAuth redirect URI
+  // Auto-detects from INTEGRATE_URL or VERCEL_URL
+  redirectUri: process.env.OAUTH_REDIRECT_URI,
+});
+
+// Exported route handlers
+export { POST, GET }; // Use in app/api/integrate/oauth/[action]/route.ts
+```
+
+## Event Listeners
+
+Listen to OAuth events for custom logic.
+
+```typescript
+const client = createMCPClient({
+  plugins: [githubPlugin({ /* ... */ })],
+});
+
+// Auth started
+client.on("auth:started", ({ provider }) => {
+  console.log(`Starting OAuth for ${provider}`);
+});
+
+// Auth completed
+client.on("auth:complete", ({ provider, accessToken, expiresAt }) => {
+  console.log(`${provider} authorized until ${expiresAt}`);
+  // Save to analytics, update UI, etc.
+});
+
+// Auth error
+client.on("auth:error", ({ provider, error }) => {
+  console.error(`Auth error for ${provider}:`, error.message);
+  // Show error UI, log to monitoring
+});
+
+// Provider disconnected
+client.on("auth:disconnect", ({ provider }) => {
+  console.log(`${provider} disconnected`);
+  // Update UI state
+});
+
+// All providers logged out
+client.on("auth:logout", () => {
+  console.log("User logged out from all services");
+  // Redirect to login, clear state
+});
+
+// Remove listener
+const handler = ({ provider }) => console.log(provider);
+client.on("auth:complete", handler);
+client.off("auth:complete", handler);
+```
+
+## Provider Token Management
+
+Work with provider tokens directly.
+
+```typescript
+// Get token for a specific provider
+const githubToken = client.getProviderToken("github");
+console.log(githubToken.accessToken);
+console.log(githubToken.expiresAt);
+
+// Set token manually (e.g., from database)
+client.setProviderToken("github", {
+  accessToken: "ghp_...",
+  tokenType: "Bearer",
+  expiresIn: 3600,
+});
+
+// Get all provider tokens (useful for server-side)
+const allTokens = client.getAllProviderTokens();
+// { github: 'ghp_...', gmail: 'ya29...' }
+
+// Send tokens to server
+await fetch("/api/ai", {
+  method: "POST",
+  headers: {
+    "x-integrate-tokens": JSON.stringify(allTokens),
+  },
+  body: JSON.stringify({ prompt: "Create an issue" }),
+});
+```
+
+## Checking Authorization
+
+Multiple ways to check if providers are authorized.
+
+```typescript
+// Check single provider
+const isAuthorized = await client.isAuthorized("github");
+
+// Get all authorized providers
+const authorized = await client.authorizedProviders();
+console.log(authorized); // ['github', 'gmail']
+
+// Get detailed status
+const status = await client.getAuthorizationStatus("github");
+console.log(status.authorized);
+console.log(status.scopes);
+console.log(status.expiresAt);
+```
+
+## Disconnect and Logout
+
+Manage user sessions.
+
+```typescript
+// Disconnect a single provider
+await client.disconnectProvider("github");
+
+// Check - no longer authorized
+const isAuthorized = await client.isAuthorized("github"); // false
+
+// Logout from all providers
+await client.logout();
+
+// All providers now require re-authorization
+await client.authorize("github");
+await client.authorize("gmail");
+```
+
+## Complete Example
+
+Here's a comprehensive example using multiple advanced features:
+
+```typescript
+import { createMCPClient, githubPlugin, gmailPlugin } from "integrate-sdk";
+
+const client = createMCPClient({
+  // Plugins
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ["repo", "user"],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+    }),
+  ],
+  
+  // Connection
+  connectionMode: "lazy",
+  singleton: true,
+  autoCleanup: true,
+  
+  // OAuth
+  oauthFlow: {
+    mode: "popup",
+    popupOptions: { width: 600, height: 700 },
+  },
+  oauthApiBase: "/api/integrate/oauth",
+  autoHandleOAuthCallback: true,
+  
+  // Re-authentication
+  onReauthRequired: async ({ provider, error }) => {
+    console.log(`Re-auth needed for ${provider}: ${error.message}`);
+    await client.authorize(provider);
+    return true;
+  },
+  maxReauthRetries: 2,
+  
+  // HTTP
+  timeout: 60000,
+  headers: {
+    "X-App-Version": "1.0.0",
+  },
+  
+  // Client info
+  clientInfo: {
+    name: "my-awesome-app",
+    version: "1.0.0",
+  },
+});
+
+// Event listeners
+client.on("auth:complete", ({ provider }) => {
+  console.log(`✅ ${provider} connected`);
+});
+
+client.on("auth:error", ({ provider, error }) => {
+  console.error(`❌ ${provider} error:`, error);
+});
+
+// Use the client
+try {
+  await client.github.createIssue({
+    owner: "owner",
+    repo: "repo",
+    title: "Test issue",
+  });
+} catch (error) {
+  console.error("Failed to create issue:", error);
+}
+```
+
+## Next Steps
+
+- Learn about [OAuth Setup in Next.js](/docs/oauth/nextjs)
+- Integrate with [Vercel AI SDK](/docs/integrations/vercel-ai)
+- Check the [API Reference](/docs/reference/options) for complete type definitions

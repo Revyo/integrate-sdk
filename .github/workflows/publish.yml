@@ -5,10 +5,11 @@ on:
     branches:
       - main
     paths-ignore:
-      - '**.md'
-      - 'examples/**'
-      - '.github/**'
-      - '!.github/workflows/publish.yml'
+      - "**.md"
+      - "docs/**"
+      - "examples/**"
+      - ".github/**"
+      - "!.github/workflows/publish.yml"
 
 jobs:
   check-version:
@@ -38,10 +39,10 @@ jobs:
         run: |
           CURRENT_VERSION="${{ steps.package.outputs.version }}"
           PREVIOUS_VERSION="${{ steps.previous.outputs.version }}"
-          
+
           echo "Current version: $CURRENT_VERSION"
           echo "Previous version: $PREVIOUS_VERSION"
-          
+
           if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "✅ Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
@@ -78,8 +79,8 @@ jobs:
       - name: Setup Node.js (for npm publish)
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Publish to npm
         run: npm publish
@@ -95,13 +96,12 @@ jobs:
           release_name: Release v${{ needs.check-version.outputs.version }}
           body: |
             ## Changes in v${{ needs.check-version.outputs.version }}
-            
+
             See [CHANGELOG.md](https://github.com/Revyo/integrate-sdk/blob/main/CHANGELOG.md) for details.
-            
+
             ### Installation
             ```bash
             bun add integrate-sdk@${{ needs.check-version.outputs.version }}
             ```
           draft: false
           prerelease: false
-
