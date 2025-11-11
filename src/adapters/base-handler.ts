@@ -22,6 +22,11 @@ export interface OAuthHandlerConfig {
     /** Optional redirect URI override */
     redirectUri?: string;
   }>;
+  /**
+   * MCP Server URL
+   * @default 'https://mcp.integrate.dev/api/v1/mcp'
+   */
+  serverUrl?: string;
 }
 
 /**
@@ -95,13 +100,16 @@ export interface DisconnectResponse {
  * with server-side OAuth credentials from environment variables
  */
 export class OAuthHandler {
-  private readonly serverUrl = MCP_SERVER_URL;
+  private readonly serverUrl: string;
   
   constructor(private config: OAuthHandlerConfig) {
     // Validate config on initialization
     if (!config || !config.providers) {
       throw new Error('OAuthHandler requires a valid config with providers');
     }
+    
+    // Use configured serverUrl or default
+    this.serverUrl = config.serverUrl || MCP_SERVER_URL;
   }
 
   /**

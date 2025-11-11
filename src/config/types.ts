@@ -64,6 +64,22 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
   /** Array of plugins to enable */
   plugins: TPlugins;
 
+  /**
+   * MCP Server URL
+   * 
+   * @default 'https://mcp.integrate.dev/api/v1/mcp'
+   * 
+   * @example
+   * ```typescript
+   * // For local development
+   * createMCPClient({
+   *   serverUrl: 'http://localhost:8080/api/v1/mcp',
+   *   plugins: [githubPlugin({ ... })]
+   * })
+   * ```
+   */
+  serverUrl?: string;
+
   /** Optional HTTP headers to include in requests */
   headers?: Record<string, string>;
 

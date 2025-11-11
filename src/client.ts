@@ -160,7 +160,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
 
   constructor(config: MCPClientConfig<TPlugins>) {
     this.transport = new HttpSessionTransport({
-      url: MCP_SERVER_URL,
+      url: config.serverUrl || MCP_SERVER_URL,
       headers: config.headers,
       timeout: config.timeout,
     });
