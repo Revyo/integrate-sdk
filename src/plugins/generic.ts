@@ -13,10 +13,10 @@ export interface GenericOAuthPluginConfig {
   id: string;
   /** OAuth provider name */
   provider: string;
-  /** OAuth client ID */
-  clientId: string;
-  /** OAuth client secret */
-  clientSecret: string;
+  /** OAuth client ID (defaults to {PROVIDER}_CLIENT_ID env var) */
+  clientId?: string;
+  /** OAuth client secret (defaults to {PROVIDER}_CLIENT_SECRET env var) */
+  clientSecret?: string;
   /** OAuth scopes */
   scopes: string[];
   /** Tool names to enable from the server (must exist on the server) */
@@ -40,14 +40,15 @@ export interface GenericOAuthPluginConfig {
  * Note: This does NOT create new tools - it only configures access to existing server-side tools.
  * All tools must be implemented on the server and exposed via the MCP protocol.
  * 
- * @example
+ * By default, reads {PROVIDER}_CLIENT_ID and {PROVIDER}_CLIENT_SECRET from environment variables
+ * (e.g., SLACK_CLIENT_ID, SLACK_CLIENT_SECRET). You can override these by providing explicit values.
+ * 
+ * @example Minimal (uses env vars):
  * ```typescript
- * // Configure Slack integration (assuming server supports Slack tools)
+ * // Automatically uses SLACK_CLIENT_ID and SLACK_CLIENT_SECRET from env
  * const slackPlugin = genericOAuthPlugin({
  *   id: 'slack',
  *   provider: 'slack',
- *   clientId: process.env.SLACK_CLIENT_ID!,
- *   clientSecret: process.env.SLACK_CLIENT_SECRET!,
  *   scopes: ['chat:write', 'channels:read'],
  *   tools: [
  *     'slack_send_message',      // Must exist on server
@@ -63,14 +64,28 @@ export interface GenericOAuthPluginConfig {
  * // Call server tools using _callToolByName
  * await client._callToolByName('slack_send_message', { channel: '#general', text: 'Hello' });
  * ```
+ * 
+ * @example With explicit override:
+ * ```typescript
+ * const slackPlugin = genericOAuthPlugin({
+ *   id: 'slack',
+ *   provider: 'slack',
+ *   clientId: process.env.CUSTOM_SLACK_ID!,
+ *   clientSecret: process.env.CUSTOM_SLACK_SECRET!,
+ *   scopes: ['chat:write', 'channels:read'],
+ *   tools: ['slack_send_message', 'slack_list_channels'],
+ * });
+ * ```
  */
 export function genericOAuthPlugin(
   config: GenericOAuthPluginConfig
 ): MCPPlugin {
+  const providerUpper = config.provider.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+  
   const oauth: OAuthConfig = {
     provider: config.provider,
-    clientId: config.clientId,
-    clientSecret: config.clientSecret,
+    clientId: config.clientId ?? process.env[`${providerUpper}_CLIENT_ID`],
+    clientSecret: config.clientSecret ?? process.env[`${providerUpper}_CLIENT_SECRET`],
     scopes: config.scopes,
     redirectUri: config.redirectUri,
     config,

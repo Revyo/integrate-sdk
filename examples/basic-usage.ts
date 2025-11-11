@@ -13,19 +13,18 @@ import {
 
 async function main() {
   // Create a client with multiple plugins
+  // Plugins automatically read GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, etc. from environment
   const client = createMCPClient({
     plugins: [
       // GitHub plugin with OAuth configuration
       githubPlugin({
-        clientId: process.env.GITHUB_CLIENT_ID,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET,
         scopes: ["repo", "user"],
+        // clientId and clientSecret automatically read from GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET
       }),
 
       // Gmail plugin with OAuth configuration
       gmailPlugin({
-        clientId: process.env.GMAIL_CLIENT_ID || "your-client-id",
-        clientSecret: process.env.GMAIL_CLIENT_SECRET || "your-client-secret",
+        // clientId and clientSecret automatically read from GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET
       }),
     ],
     

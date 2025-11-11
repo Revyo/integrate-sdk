@@ -18,17 +18,14 @@
 import { createMCPServer, githubPlugin, gmailPlugin } from "../src/server.js";
 
 // Create server-side MCP client (do this once, export and reuse)
+// Plugins automatically use GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
 export const { client: serverClient } = createMCPServer({
   apiKey: process.env.INTEGRATE_API_KEY,
   plugins: [
     githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       scopes: ['repo', 'user', 'read:org'],
     }),
     gmailPlugin({
-      clientId: process.env.GMAIL_CLIENT_ID!,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
       scopes: ['gmail.send', 'gmail.readonly'],
     }),
   ],
