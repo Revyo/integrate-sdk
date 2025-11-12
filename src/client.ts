@@ -1141,6 +1141,7 @@ function generateCacheKey<TPlugins extends readonly MCPPlugin[]>(
 ): string {
   // Create a stable key based on configuration
   const parts = [
+    config.serverUrl || 'default',
     config.clientInfo?.name || 'integrate-sdk',
     config.clientInfo?.version || '0.1.0',
     JSON.stringify(config.plugins.map(p => ({ id: p.id, tools: p.tools }))),

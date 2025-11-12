@@ -27,6 +27,11 @@ export interface OAuthHandlerConfig {
    * @default 'https://mcp.integrate.dev/api/v1/mcp'
    */
   serverUrl?: string;
+  /**
+   * API Key for authentication and usage tracking (SERVER-SIDE ONLY)
+   * Sent as X-API-KEY header with all OAuth requests to the MCP server
+   */
+  apiKey?: string;
 }
 
 /**
@@ -101,6 +106,7 @@ export interface DisconnectResponse {
  */
 export class OAuthHandler {
   private readonly serverUrl: string;
+  private readonly apiKey?: string;
   
   constructor(private config: OAuthHandlerConfig) {
     // Validate config on initialization
@@ -110,6 +116,23 @@ export class OAuthHandler {
     
     // Use configured serverUrl or default
     this.serverUrl = config.serverUrl || MCP_SERVER_URL;
+    this.apiKey = config.apiKey;
+  }
+  
+  /**
+   * Get headers with API key if configured
+   */
+  private getHeaders(additionalHeaders?: Record<string, string>): Record<string, string> {
+    const headers: Record<string, string> = {
+      ...additionalHeaders,
+    };
+    
+    // Add API key header if configured (for usage tracking)
+    if (this.apiKey) {
+      headers['X-API-KEY'] = this.apiKey;
+    }
+    
+    return headers;
   }
 
   /**
@@ -153,6 +176,7 @@ export class OAuthHandler {
     // Forward to MCP server
     const response = await fetch(url.toString(), {
       method: 'GET',
+      headers: this.getHeaders(),
     });
 
     if (!response.ok) {
@@ -194,9 +218,9 @@ export class OAuthHandler {
 
     const response = await fetch(url.toString(), {
       method: 'POST',
-      headers: {
+      headers: this.getHeaders({
         'Content-Type': 'application/json',
-      },
+      }),
       body: JSON.stringify({
         provider: request.provider,
         code: request.code,
@@ -234,9 +258,9 @@ export class OAuthHandler {
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers: {
+      headers: this.getHeaders({
         'Authorization': `Bearer ${accessToken}`,
-      },
+      }),
     });
 
     if (!response.ok) {
@@ -276,10 +300,10 @@ export class OAuthHandler {
 
     const response = await fetch(url.toString(), {
       method: 'POST',
-      headers: {
+      headers: this.getHeaders({
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`,
-      },
+      }),
       body: JSON.stringify({
         provider: request.provider,
       }),

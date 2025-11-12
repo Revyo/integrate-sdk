@@ -19,6 +19,7 @@ let globalServerConfig: {
     redirectUri?: string;
   }>;
   serverUrl?: string;
+  apiKey?: string;
 } | null = null;
 
 /**
@@ -147,6 +148,7 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
   globalServerConfig = { 
     providers,
     serverUrl: config.serverUrl,
+    apiKey: config.apiKey,
   };
 
   // Create the client instance with lazy connection (same as client-side)
@@ -167,12 +169,14 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
   (client as any).__oauthConfig = { 
     providers,
     serverUrl: config.serverUrl,
+    apiKey: config.apiKey,
   };
 
   // Create route handlers with the provider configuration
   const { POST, GET } = createOAuthRouteHandlers({ 
     providers,
     serverUrl: config.serverUrl,
+    apiKey: config.apiKey,
   });
 
   return {
@@ -191,7 +195,7 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
  * Create OAuth route handlers for Next.js App Router
  * Internal function used by createMCPServer
  */
-function createOAuthRouteHandlers(config: { providers: Record<string, any>; serverUrl?: string }) {
+function createOAuthRouteHandlers(config: { providers: Record<string, any>; serverUrl?: string; apiKey?: string }) {
   const handler = createNextOAuthHandler(config);
   return handler.createRoutes();
 }
