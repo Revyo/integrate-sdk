@@ -1,19 +1,19 @@
 {
   "name": "integrate-sdk",
   "version": "0.6.5",
-  "description": "Type-safe TypeScript SDK for MCP Client with plugin-based OAuth provider configuration",
+  "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Revyo/integrate-sdk.git"
+    "url": "https://github.com/integratedotdev/integrate-sdk.git"
   },
   "bugs": {
-    "url": "https://github.com/Revyo/integrate-sdk/issues"
+    "url": "https://github.com/integratedotdev/integrate-sdk/issues"
   },
-  "homepage": "https://github.com/Revyo/integrate-sdk#readme",
+  "homepage": "https://github.com/integratedotdev/integrate-sdk#readme",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
