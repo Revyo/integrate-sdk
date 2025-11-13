@@ -11,30 +11,41 @@ Install the Integrate SDK in your Waku project:
 bun add integrate-sdk
 ```
 
-## Mount the Handler
+## Setup
 
-Create a catch-all API route in your Waku project. Create a file at `src/pages/api/auth/[...route].ts`:
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
 
 ```typescript
-import { OAuthHandler } from 'integrate-sdk';
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
 
-const handler = new OAuthHandler({
-  providers: {
-    github: {
+export const { client: serverClient, handler } = createMCPServer({
+  plugins: [
+    githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
-    },
-  },
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: ['gmail.send', 'gmail.readonly'],
+    }),
+  ],
 });
+```
 
-export const GET = async (request: Request): Promise<Response> => {
-  return handler.handler(request);
-};
+### 2. Mount the Handler
 
-export const POST = async (request: Request): Promise<Response> => {
-  return handler.handler(request);
-};
+Create a catch-all API route at `src/pages/api/auth/[...route].ts`:
+
+```typescript
+import { handler } from '@/lib/integrate-server';
+
+export const GET = handler;
+export const POST = handler;
 ```
 
 ## Configuration

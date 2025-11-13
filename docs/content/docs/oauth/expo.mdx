@@ -11,30 +11,41 @@ Install the Integrate SDK in your Expo project:
 bun add integrate-sdk
 ```
 
-## Mount the Handler
+## Setup
+
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient, handler } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: ['gmail.send', 'gmail.readonly'],
+    }),
+  ],
+});
+```
+
+### 2. Mount the Handler
 
 If using Expo's API Routes feature, create a catch-all route at `app/api/auth/[...auth]+api.ts`:
 
 ```typescript
-import { OAuthHandler } from 'integrate-sdk';
+import { handler } from '@/lib/integrate-server';
 
-const handler = new OAuthHandler({
-  providers: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'myapp://oauth/callback',
-    },
-  },
-});
-
-export const GET = async (request: Request): Promise<Response> => {
-  return handler.handler(request);
-};
-
-export const POST = async (request: Request): Promise<Response> => {
-  return handler.handler(request);
-};
+export const GET = handler;
+export const POST = handler;
 ```
 
 ## Configuration

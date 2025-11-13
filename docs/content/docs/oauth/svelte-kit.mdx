@@ -11,52 +11,62 @@ Install the Integrate SDK in your SvelteKit project:
 bun add integrate-sdk
 ```
 
-## Mount the Handler
+## Setup
 
-### Option 1: Using Route Handlers
+### 1. Server Configuration
 
-Create a catch-all API route in your SvelteKit project. Create a file at `src/routes/api/integrate/oauth/[...all]/+server.ts`:
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient, handler } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: ['gmail.send', 'gmail.readonly'],
+    }),
+  ],
+});
+```
+
+### 2. Mount the Handler
+
+#### Option 1: Using Route Handlers
+
+Create a catch-all API route at `src/routes/api/auth/[...all]/+server.ts`:
 
 ```typescript
 import { toSvelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
+import { handler } from '$lib/integrate-server';
 
-const handler = toSvelteKitHandler({
-  providers: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:5173/api/integrate/oauth/callback',
-    },
-  },
-});
+const svelteKitRoute = toSvelteKitHandler(handler);
 
-export const POST = handler;
-export const GET = handler;
+export const POST = svelteKitRoute;
+export const GET = svelteKitRoute;
 ```
 
-### Option 2: Using Hooks
+#### Option 2: Using Hooks
 
 Integrate OAuth handling into your `hooks.server.ts`:
 
 ```typescript
-import { svelteKitHandler, toSvelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
-
-const handler = toSvelteKitHandler({
-  providers: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:5173/api/integrate/oauth/callback',
-    },
-  },
-});
+import { svelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
+import { handler } from '$lib/integrate-server';
 
 export async function handle({ event, resolve }) {
   return svelteKitHandler({ 
+    authConfig: handler,
     event, 
-    resolve, 
-    handler,
-    basePath: '/api/integrate/oauth'
+    resolve,
+    basePath: '/api/auth'
   });
 }
 ```

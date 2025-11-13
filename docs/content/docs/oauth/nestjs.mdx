@@ -11,33 +11,50 @@ Install the Integrate SDK in your NestJS project:
 bun add integrate-sdk
 ```
 
-## Mount the Handler
+## Setup
 
-Create a controller to handle OAuth routes in your NestJS application:
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient, handler } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: ['gmail.send', 'gmail.readonly'],
+    }),
+  ],
+});
+```
+
+### 2. Mount the Handler
+
+Create a controller to handle OAuth routes:
 
 ```typescript
 // oauth.controller.ts
 import { Controller, All, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { OAuthHandler, toNodeHandler } from 'integrate-sdk';
+import { handler } from '@/lib/integrate-server';
+import { toNodeHandler } from 'integrate-sdk';
 
 @Controller('api/auth')
 export class OAuthController {
-  private oauthHandler = new OAuthHandler({
-    providers: {
-      github: {
-        clientId: process.env.GITHUB_CLIENT_ID!,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-        redirectUri: 'http://localhost:3000/api/auth/callback',
-      },
-    },
-  });
-
-  private handler = toNodeHandler(this.oauthHandler.handler.bind(this.oauthHandler));
+  private nodeHandler = toNodeHandler(handler);
 
   @All('*')
   handleOAuth(@Req() req: Request, @Res() res: Response) {
-    return this.handler(req, res);
+    return this.nodeHandler(req, res);
   }
 }
 ```

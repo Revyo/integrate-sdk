@@ -11,26 +11,42 @@ Install the Integrate SDK in your Astro project:
 bun add integrate-sdk
 ```
 
-## Mount the Handler
+## Setup
 
-Create a catch-all API route in your Astro project to handle OAuth requests. Create a file at `pages/api/auth/[...all].ts`:
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
 
 ```typescript
-import { OAuthHandler } from 'integrate-sdk';
-import type { APIRoute } from 'astro';
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
 
-const handler = new OAuthHandler({
-  providers: {
-    github: {
+export const { client: serverClient, handler } = createMCPServer({
+  plugins: [
+    githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
-    },
-  },
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: ['gmail.send', 'gmail.readonly'],
+    }),
+  ],
 });
+```
+
+### 2. Mount the Handler
+
+Create a catch-all API route at `pages/api/auth/[...all].ts`:
+
+```typescript
+import { handler } from '@/lib/integrate-server';
+import type { APIRoute } from 'astro';
 
 export const ALL: APIRoute = async (ctx) => {
-  return handler.handler(ctx.request);
+  return handler(ctx.request);
 };
 ```
 

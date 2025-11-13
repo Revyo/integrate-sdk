@@ -11,22 +11,45 @@ Install the Integrate SDK in your SolidStart project:
 bun add integrate-sdk
 ```
 
-## Mount the Handler
+## Setup
 
-Create a catch-all API route in your SolidStart project. Create a file at `src/routes/api/auth/[...all].ts`:
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
 
 ```typescript
-import { toSolidStartHandler } from 'integrate-sdk/adapters/solid-start';
+// lib/integrate-server.ts
+import {
+  createMCPServer,
+  githubPlugin,
+  gmailPlugin,
+} from "integrate-sdk/server";
 
-const handlers = toSolidStartHandler({
-  providers: {
-    github: {
+export const { client: serverClient, handler } = createMCPServer({
+  plugins: [
+    githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
-    },
-  },
+      scopes: ["repo", "user"],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: ["gmail.send", "gmail.readonly"],
+    }),
+  ],
 });
+```
+
+### 2. Mount the Handler
+
+Create a catch-all API route at `src/routes/api/auth/[...all].ts`:
+
+```typescript
+import { toSolidStartHandler } from "integrate-sdk/adapters/solid-start";
+import { handler } from "@/lib/integrate-server";
+
+const handlers = toSolidStartHandler(handler);
 
 export const { GET, POST, PATCH, PUT, DELETE } = handlers;
 ```
@@ -45,18 +68,18 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 ### Client-Side Authorization
 
 ```typescript
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { createMCPClient, githubPlugin } from "integrate-sdk";
 
 const client = createMCPClient({
   plugins: [
     githubPlugin({
-      scopes: ['repo', 'user'],
+      scopes: ["repo", "user"],
     }),
   ],
 });
 
 // Start OAuth flow
-await client.authorize('github');
+await client.authorize("github");
 ```
 
 ## Framework-Specific Notes
@@ -64,4 +87,3 @@ await client.authorize('github');
 - **HTTP Methods**: The handler exports all HTTP methods (GET, POST, PATCH, PUT, DELETE).
 - **Environment Variables**: SolidStart supports `.env` files via Vite.
 - **TypeScript**: Full TypeScript support with Solid's type system.
-

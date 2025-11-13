@@ -11,29 +11,45 @@ Install the Integrate SDK in your Hono project:
 bun add integrate-sdk
 ```
 
-## Mount the Handler
+## Setup
+
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient, handler } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: ['gmail.send', 'gmail.readonly'],
+    }),
+  ],
+});
+```
+
+### 2. Mount the Handler
 
 Add OAuth route handlers to your Hono application:
 
 ```typescript
 import { Hono } from 'hono';
-import { OAuthHandler } from 'integrate-sdk';
+import { handler } from './lib/integrate-server';
 
 const app = new Hono();
 
-const handler = new OAuthHandler({
-  providers: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
-    },
-  },
-});
-
 // Register OAuth routes with catch-all
 app.on(['POST', 'GET'], '/api/auth/*', (c) => {
-  return handler.handler(c.req.raw);
+  return handler(c.req.raw);
 });
 
 export default app;

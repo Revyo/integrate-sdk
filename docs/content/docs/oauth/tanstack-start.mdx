@@ -11,30 +11,48 @@ Install the Integrate SDK in your TanStack Start project:
 bun add integrate-sdk
 ```
 
-## Mount the Handler
+## Setup
 
-Create separate route files for each OAuth action in your TanStack Start application:
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
 
 ```typescript
-// app/routes/api/auth/$.ts
-import { toTanStackStartHandler } from 'integrate-sdk/adapters/tanstack-start';
-import { createFileRoute } from '@tanstack/react-router';
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
 
-const handler = toTanStackStartHandler({
-  providers: {
-    github: {
+export const { client: serverClient, handler } = createMCPServer({
+  plugins: [
+    githubPlugin({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
-    },
-  },
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: ['gmail.send', 'gmail.readonly'],
+    }),
+  ],
 });
+```
+
+### 2. Mount the Handler
+
+Create a catch-all route at `app/routes/api/auth/$.ts`:
+
+```typescript
+import { toTanStackStartHandler } from 'integrate-sdk/adapters/tanstack-start';
+import { createFileRoute } from '@tanstack/react-router';
+import { handler } from '@/lib/integrate-server';
+
+const handlers = toTanStackStartHandler(handler);
 
 export const Route = createFileRoute('/api/auth/$')({
   server: {
     handlers: {
-      GET: handler.GET,
-      POST: handler.POST,
+      GET: handlers.GET,
+      POST: handlers.POST,
     },
   },
 });
