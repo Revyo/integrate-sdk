@@ -2,7 +2,7 @@ import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
 
 export function baseOptions(): BaseLayoutProps {
   return {
-    githubUrl: 'https://github.com/revyo/integrate-sdk',
+    githubUrl: 'https://github.com/integratedotdev/typescript-sdk',
     links: [
       {
         type: 'main',
