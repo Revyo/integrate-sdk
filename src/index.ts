@@ -47,22 +47,10 @@ export { createNextOAuthHandler } from "./adapters/nextjs.js";
 export { createOAuthRedirectHandler } from "./adapters/nextjs-oauth-redirect.js";
 export type { OAuthRedirectConfig } from "./adapters/nextjs-oauth-redirect.js";
 
-export { toAstroHandler } from "./adapters/astro.js";
-export { toElysiaHandler } from "./adapters/elysia.js";
-export { toExpoHandler } from "./adapters/expo.js";
-export { toExpressHandler } from "./adapters/express.js";
-export { toFastifyHandler } from "./adapters/fastify.js";
-export { toHonoHandler } from "./adapters/hono.js";
-export { toLynxHandler } from "./adapters/lynx.js";
-export { toNestJsHandler } from "./adapters/nestjs.js";
-export { toNitroHandler } from "./adapters/nitro.js";
 export { toNodeHandler, fromNodeHeaders } from "./adapters/node.js";
-export { toNuxtHandler } from "./adapters/nuxt.js";
-export { toRemixHandler } from "./adapters/remix.js";
 export { toSolidStartHandler } from "./adapters/solid-start.js";
 export { toSvelteKitHandler, svelteKitHandler } from "./adapters/svelte-kit.js";
 export { toTanStackStartHandler, createTanStackOAuthHandler } from "./adapters/tanstack-start.js";
-export { toWakuHandler } from "./adapters/waku.js";
 
 // Configuration
 export type { MCPClientConfig, ReauthContext, ReauthHandler } from "./config/types.js";

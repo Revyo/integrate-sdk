@@ -31,53 +31,13 @@
       "types": "./dist/react.d.ts",
       "import": "./dist/react.js"
     },
-    "./adapters/astro": {
-      "types": "./dist/adapters/astro.d.ts",
-      "import": "./dist/adapters/astro.js"
-    },
-    "./adapters/elysia": {
-      "types": "./dist/adapters/elysia.d.ts",
-      "import": "./dist/adapters/elysia.js"
-    },
-    "./adapters/expo": {
-      "types": "./dist/adapters/expo.d.ts",
-      "import": "./dist/adapters/expo.js"
-    },
-    "./adapters/express": {
-      "types": "./dist/adapters/express.d.ts",
-      "import": "./dist/adapters/express.js"
-    },
-    "./adapters/fastify": {
-      "types": "./dist/adapters/fastify.d.ts",
-      "import": "./dist/adapters/fastify.js"
-    },
-    "./adapters/hono": {
-      "types": "./dist/adapters/hono.d.ts",
-      "import": "./dist/adapters/hono.js"
-    },
-    "./adapters/lynx": {
-      "types": "./dist/adapters/lynx.d.ts",
-      "import": "./dist/adapters/lynx.js"
-    },
-    "./adapters/nestjs": {
-      "types": "./dist/adapters/nestjs.d.ts",
-      "import": "./dist/adapters/nestjs.js"
-    },
-    "./adapters/nitro": {
-      "types": "./dist/adapters/nitro.d.ts",
-      "import": "./dist/adapters/nitro.js"
+    "./adapters/nextjs": {
+      "types": "./dist/adapters/nextjs.d.ts",
+      "import": "./dist/adapters/nextjs.js"
     },
     "./adapters/node": {
       "types": "./dist/adapters/node.d.ts",
       "import": "./dist/adapters/node.js"
-    },
-    "./adapters/nuxt": {
-      "types": "./dist/adapters/nuxt.d.ts",
-      "import": "./dist/adapters/nuxt.js"
-    },
-    "./adapters/remix": {
-      "types": "./dist/adapters/remix.d.ts",
-      "import": "./dist/adapters/remix.js"
     },
     "./adapters/solid-start": {
       "types": "./dist/adapters/solid-start.d.ts",
@@ -90,10 +50,6 @@
     "./adapters/tanstack-start": {
       "types": "./dist/adapters/tanstack-start.d.ts",
       "import": "./dist/adapters/tanstack-start.js"
-    },
-    "./adapters/waku": {
-      "types": "./dist/adapters/waku.d.ts",
-      "import": "./dist/adapters/waku.js"
     }
   },
   "files": [

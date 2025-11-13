@@ -16,9 +16,9 @@ bun add integrate-sdk
 Create a catch-all API route in your Waku project. Create a file at `src/pages/api/auth/[...route].ts`:
 
 ```typescript
-import { toWakuHandler } from 'integrate-sdk/adapters/waku';
+import { OAuthHandler } from 'integrate-sdk';
 
-const handlers = toWakuHandler({
+const handler = new OAuthHandler({
   providers: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -28,8 +28,13 @@ const handlers = toWakuHandler({
   },
 });
 
-export const GET = handlers.GET;
-export const POST = handlers.POST;
+export const GET = async (request: Request): Promise<Response> => {
+  return handler.handler(request);
+};
+
+export const POST = async (request: Request): Promise<Response> => {
+  return handler.handler(request);
+};
 ```
 
 ## Configuration

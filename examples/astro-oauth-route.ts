@@ -6,11 +6,11 @@
  * It creates a catch-all route that handles all OAuth actions.
  */
 
-import { toAstroHandler } from 'integrate-sdk/adapters/astro';
+import { OAuthHandler } from 'integrate-sdk';
 import type { APIRoute } from 'astro';
 
 // Create the OAuth handler with your provider configuration
-const handler = toAstroHandler({
+const handler = new OAuthHandler({
   providers: {
     github: {
       clientId: import.meta.env.GITHUB_CLIENT_ID!,
@@ -26,5 +26,7 @@ const handler = toAstroHandler({
 });
 
 // Export as ALL to handle all HTTP methods
-export const ALL: APIRoute = handler;
+export const ALL: APIRoute = async (ctx) => {
+  return handler.handler(ctx.request);
+};
 

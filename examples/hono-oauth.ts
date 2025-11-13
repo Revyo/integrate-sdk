@@ -5,7 +5,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { toHonoHandler } from 'integrate-sdk/adapters/hono';
+import { OAuthHandler } from 'integrate-sdk';
 
 const app = new Hono();
 
@@ -16,7 +16,7 @@ app.use('/api/auth/*', cors({
 }));
 
 // Create OAuth handler
-const handler = toHonoHandler({
+const handler = new OAuthHandler({
   providers: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -33,7 +33,7 @@ const handler = toHonoHandler({
 
 // Register OAuth routes with catch-all
 app.on(['POST', 'GET'], '/api/auth/*', (c) => {
-  return handler(c.req.raw);
+  return handler.handler(c.req.raw);
 });
 
 // Example protected route

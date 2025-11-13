@@ -16,9 +16,9 @@ bun add integrate-sdk
 If using Expo's API Routes feature, create a catch-all route at `app/api/auth/[...auth]+api.ts`:
 
 ```typescript
-import { toExpoHandler } from 'integrate-sdk/adapters/expo';
+import { OAuthHandler } from 'integrate-sdk';
 
-const handler = toExpoHandler({
+const handler = new OAuthHandler({
   providers: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -28,7 +28,13 @@ const handler = toExpoHandler({
   },
 });
 
-export { handler as GET, handler as POST };
+export const GET = async (request: Request): Promise<Response> => {
+  return handler.handler(request);
+};
+
+export const POST = async (request: Request): Promise<Response> => {
+  return handler.handler(request);
+};
 ```
 
 ## Configuration

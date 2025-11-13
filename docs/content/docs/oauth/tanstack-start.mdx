@@ -15,10 +15,8 @@ bun add integrate-sdk
 
 Create separate route files for each OAuth action in your TanStack Start application:
 
-### Authorize Route
-
 ```typescript
-// app/routes/api/integrate/oauth/authorize.ts
+// app/routes/api/auth/$.ts
 import { toTanStackStartHandler } from 'integrate-sdk/adapters/tanstack-start';
 import { createFileRoute } from '@tanstack/react-router';
 
@@ -27,90 +25,16 @@ const handler = toTanStackStartHandler({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
+      redirectUri: 'http://localhost:3000/api/auth/callback',
     },
   },
 });
 
-export const Route = createFileRoute('/api/integrate/oauth/authorize')({
+export const Route = createFileRoute('/api/auth/$')({
   server: {
     handlers: {
-      POST: handler.authorize,
-    },
-  },
-});
-```
-
-### Callback Route
-
-```typescript
-// app/routes/api/integrate/oauth/callback.ts
-import { toTanStackStartHandler } from 'integrate-sdk/adapters/tanstack-start';
-import { createFileRoute } from '@tanstack/react-router';
-
-const handler = toTanStackStartHandler({
-  providers: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    },
-  },
-});
-
-export const Route = createFileRoute('/api/integrate/oauth/callback')({
-  server: {
-    handlers: {
-      POST: handler.callback,
-    },
-  },
-});
-```
-
-### Status Route
-
-```typescript
-// app/routes/api/integrate/oauth/status.ts
-import { toTanStackStartHandler } from 'integrate-sdk/adapters/tanstack-start';
-import { createFileRoute } from '@tanstack/react-router';
-
-const handler = toTanStackStartHandler({
-  providers: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    },
-  },
-});
-
-export const Route = createFileRoute('/api/integrate/oauth/status')({
-  server: {
-    handlers: {
-      GET: handler.status,
-    },
-  },
-});
-```
-
-### Disconnect Route
-
-```typescript
-// app/routes/api/integrate/oauth/disconnect.ts
-import { toTanStackStartHandler } from 'integrate-sdk/adapters/tanstack-start';
-import { createFileRoute } from '@tanstack/react-router';
-
-const handler = toTanStackStartHandler({
-  providers: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    },
-  },
-});
-
-export const Route = createFileRoute('/api/integrate/oauth/disconnect')({
-  server: {
-    handlers: {
-      POST: handler.disconnect,
+      GET: handler.GET,
+      POST: handler.POST,
     },
   },
 });

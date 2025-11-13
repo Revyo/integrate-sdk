@@ -16,10 +16,10 @@ bun add integrate-sdk
 Create a catch-all API route in your Astro project to handle OAuth requests. Create a file at `pages/api/auth/[...all].ts`:
 
 ```typescript
-import { toAstroHandler } from 'integrate-sdk/adapters/astro';
+import { OAuthHandler } from 'integrate-sdk';
 import type { APIRoute } from 'astro';
 
-const handler = toAstroHandler({
+const handler = new OAuthHandler({
   providers: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -29,7 +29,9 @@ const handler = toAstroHandler({
   },
 });
 
-export const ALL: APIRoute = handler;
+export const ALL: APIRoute = async (ctx) => {
+  return handler.handler(ctx.request);
+};
 ```
 
 ## Configuration

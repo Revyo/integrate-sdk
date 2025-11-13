@@ -1,41 +1,36 @@
 /**
  * Remix OAuth Routes Example
- * Demonstrates how to set up OAuth routes in Remix
+ * File: app/routes/api.auth.$.ts
  * 
- * Create separate files for each action:
- * - app/routes/api.integrate.oauth.authorize.ts
- * - app/routes/api.integrate.oauth.callback.ts
- * - app/routes/api.integrate.oauth.status.ts
- * - app/routes/api.integrate.oauth.disconnect.ts
+ * This file should be placed in your Remix project's app/routes/ directory.
+ * It creates a catch-all route that handles all OAuth actions.
  */
 
-import { toRemixHandler } from 'integrate-sdk/adapters/remix';
+import { OAuthHandler } from 'integrate-sdk';
 
-// Shared OAuth handler configuration
-const handler = toRemixHandler({
+// Create OAuth handler with provider configuration
+const handler = new OAuthHandler({
   providers: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
+      redirectUri: 'http://localhost:3000/api/auth/callback',
     },
     gmail: {
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
+      redirectUri: 'http://localhost:3000/api/auth/callback',
     },
   },
 });
 
-// ===== File: app/routes/api.integrate.oauth.authorize.ts =====
-export const action = handler.authorize;
+// Handle POST requests (authorize, callback, disconnect)
+export const action = async ({ request }: { request: Request }) => {
+  return handler.handler(request);
+};
 
-// ===== File: app/routes/api.integrate.oauth.callback.ts =====
-// export const action = handler.callback;
-
-// ===== File: app/routes/api.integrate.oauth.status.ts =====
-// export const loader = handler.status;
-
-// ===== File: app/routes/api.integrate.oauth.disconnect.ts =====
-// export const action = handler.disconnect;
+// Handle GET requests (status)
+export const loader = async ({ request }: { request: Request }) => {
+  return handler.handler(request);
+};
 

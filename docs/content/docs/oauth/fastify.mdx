@@ -17,43 +17,42 @@ Add OAuth route handlers to your Fastify application:
 
 ```typescript
 import Fastify from 'fastify';
-import { toFastifyHandler } from 'integrate-sdk/adapters/fastify';
+import { OAuthHandler } from 'integrate-sdk';
 
 const fastify = Fastify({ logger: true });
 
-const handler = toFastifyHandler({
+const handler = new OAuthHandler({
   providers: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
+      redirectUri: 'http://localhost:3000/api/auth/callback',
     },
   },
 });
 
-// Register OAuth routes
+// Register OAuth catch-all route
 fastify.route({
-  method: 'POST',
-  url: '/api/integrate/oauth/authorize',
-  handler: handler.authorize
-});
+  method: ['GET', 'POST'],
+  url: '/api/auth/*',
+  handler: async (request, reply) => {
+    // Construct Web Request from Fastify request
+    const url = new URL(request.url, `http://${request.headers.host}`);
+    const webRequest = new Request(url, {
+      method: request.method,
+      headers: request.headers as any,
+      body: request.method !== 'GET' ? JSON.stringify(request.body) : undefined,
+    });
 
-fastify.route({
-  method: 'POST',
-  url: '/api/integrate/oauth/callback',
-  handler: handler.callback
-});
-
-fastify.route({
-  method: 'GET',
-  url: '/api/integrate/oauth/status',
-  handler: handler.status
-});
-
-fastify.route({
-  method: 'POST',
-  url: '/api/integrate/oauth/disconnect',
-  handler: handler.disconnect
+    const response = await handler.handler(webRequest);
+    
+    // Forward response to Fastify
+    reply.status(response.status);
+    response.headers.forEach((value, key) => {
+      reply.header(key, value);
+    });
+    return reply.send(await response.text());
+  }
 });
 
 fastify.listen({ port: 3000 }, (err) => {

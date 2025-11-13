@@ -12,12 +12,13 @@ import { OAuthHandler, type OAuthHandlerConfig } from './base-handler.js';
  * that handle authorization with server-side secrets.
  * 
  * @param config - OAuth handler configuration with provider credentials
- * @returns Object with authorize, callback, status, and disconnect route handlers
+ * @returns Object with GET and POST handlers for catch-all routes
  * 
  * @example
  * ```typescript
- * // app/routes/api/integrate/oauth/authorize.ts
+ * // app/routes/api/auth/$.ts
  * import { toTanStackStartHandler } from 'integrate-sdk/adapters/tanstack-start';
+ * import { createFileRoute } from '@tanstack/react-router';
  * 
  * const handler = toTanStackStartHandler({
  *   providers: {
@@ -28,181 +29,26 @@ import { OAuthHandler, type OAuthHandlerConfig } from './base-handler.js';
  *   },
  * });
  * 
- * export const POST = handler.authorize;
+ * export const Route = createFileRoute('/api/auth/$')({
+ *   server: {
+ *     handlers: {
+ *       GET: handler.GET,
+ *       POST: handler.POST,
+ *     },
+ *   },
+ * });
  * ```
  */
 export function toTanStackStartHandler(config: OAuthHandlerConfig) {
   const handler = new OAuthHandler(config);
 
+  const baseHandler = async ({ request }: { request: Request }): Promise<Response> => {
+    return handler.handler(request);
+  };
+
   return {
-    /**
-     * POST /api/integrate/oauth/authorize
-     * Request authorization URL from MCP server
-     */
-    async authorize({ request }: { request: Request }): Promise<Response> {
-      try {
-        const body = await request.json();
-        const result = await handler.handleAuthorize(body);
-        return new Response(JSON.stringify(result), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (error: any) {
-        console.error('[OAuth Authorize] Error:', error);
-        return new Response(
-          JSON.stringify({ error: error.message || 'Failed to get authorization URL' }),
-          {
-            status: 500,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
-    },
-
-    /**
-     * POST /api/integrate/oauth/callback
-     * Exchange authorization code for access token
-     */
-    async callback({ request }: { request: Request }): Promise<Response> {
-      try {
-        const body = await request.json();
-        const result = await handler.handleCallback(body);
-        return new Response(JSON.stringify(result), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (error: any) {
-        console.error('[OAuth Callback] Error:', error);
-        return new Response(
-          JSON.stringify({ error: error.message || 'Failed to exchange authorization code' }),
-          {
-            status: 500,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
-    },
-
-    /**
-     * GET /api/integrate/oauth/status
-     * Check authorization status
-     */
-    async status({ request }: { request: Request }): Promise<Response> {
-      try {
-        const url = new URL(request.url);
-        const provider = url.searchParams.get('provider');
-        const authHeader = request.headers.get('authorization');
-
-        if (!provider) {
-          return new Response(
-            JSON.stringify({ error: 'Missing provider query parameter' }),
-            {
-              status: 400,
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-        }
-
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          return new Response(
-            JSON.stringify({ error: 'Missing or invalid Authorization header' }),
-            {
-              status: 400,
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-        }
-
-        const accessToken = authHeader.substring(7);
-        const result = await handler.handleStatus(provider, accessToken);
-        return new Response(JSON.stringify(result), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (error: any) {
-        console.error('[OAuth Status] Error:', error);
-        return new Response(
-          JSON.stringify({ error: error.message || 'Failed to check authorization status' }),
-          {
-            status: 500,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
-    },
-
-    /**
-     * POST /api/integrate/oauth/disconnect
-     * Revoke authorization for a provider
-     */
-    async disconnect({ request }: { request: Request }): Promise<Response> {
-      try {
-        const authHeader = request.headers.get('authorization');
-
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          return new Response(
-            JSON.stringify({ error: 'Missing or invalid Authorization header' }),
-            {
-              status: 400,
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-        }
-
-        const accessToken = authHeader.substring(7);
-        const body = await request.json();
-        const { provider } = body;
-
-        if (!provider) {
-          return new Response(
-            JSON.stringify({ error: 'Missing provider in request body' }),
-            {
-              status: 400,
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-        }
-
-        const result = await handler.handleDisconnect({ provider }, accessToken);
-        return new Response(JSON.stringify(result), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (error: any) {
-        console.error('[OAuth Disconnect] Error:', error);
-        return new Response(
-          JSON.stringify({ error: error.message || 'Failed to disconnect provider' }),
-          {
-            status: 500,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
-    },
+    GET: baseHandler,
+    POST: baseHandler,
   };
 }
 

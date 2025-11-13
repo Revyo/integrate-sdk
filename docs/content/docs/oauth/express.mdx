@@ -13,30 +13,30 @@ bun add integrate-sdk
 
 ## Mount the Handler
 
-Add OAuth route handlers to your Express application:
+Add OAuth route handlers to your Express application using the Node.js adapter:
 
 ```typescript
 import express from 'express';
-import { toExpressHandler } from 'integrate-sdk/adapters/express';
+import { OAuthHandler, toNodeHandler } from 'integrate-sdk';
 
 const app = express();
 app.use(express.json());
 
-const handler = toExpressHandler({
+const oauthHandler = new OAuthHandler({
   providers: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
+      redirectUri: 'http://localhost:3000/api/auth/callback',
     },
   },
 });
 
-// Register OAuth routes
-app.post('/api/integrate/oauth/authorize', handler.authorize);
-app.post('/api/integrate/oauth/callback', handler.callback);
-app.get('/api/integrate/oauth/status', handler.status);
-app.post('/api/integrate/oauth/disconnect', handler.disconnect);
+// Convert Web API handler to Node.js handler
+const handler = toNodeHandler(oauthHandler.handler.bind(oauthHandler));
+
+// Register OAuth catch-all route
+app.all('/api/auth/*', handler);
 
 app.listen(3000, () => {
   console.log('Server running on port 3000');

@@ -17,11 +17,11 @@ Add OAuth route handlers to your Elysia application:
 
 ```typescript
 import { Elysia } from 'elysia';
-import { toElysiaHandler } from 'integrate-sdk/adapters/elysia';
+import { OAuthHandler } from 'integrate-sdk';
 
 const app = new Elysia();
 
-const handler = toElysiaHandler({
+const handler = new OAuthHandler({
   providers: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -33,7 +33,7 @@ const handler = toElysiaHandler({
 
 // Register OAuth routes with catch-all
 app.on(['POST', 'GET'], '/api/auth/*', (context) => {
-  return handler(context.request);
+  return handler.handler(context.request);
 });
 
 app.listen(3000);

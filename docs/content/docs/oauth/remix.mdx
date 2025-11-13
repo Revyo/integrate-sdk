@@ -13,79 +13,29 @@ bun add integrate-sdk
 
 ## Mount the Handler
 
-Create separate route files for each OAuth action in your Remix application:
-
-### Authorize Route
+Create a catch-all route in your Remix application:
 
 ```typescript
-// app/routes/api.integrate.oauth.authorize.ts
-import { toRemixHandler } from 'integrate-sdk/adapters/remix';
+// app/routes/api.auth.$.ts
+import { OAuthHandler } from 'integrate-sdk';
 
-const handler = toRemixHandler({
+const handler = new OAuthHandler({
   providers: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
+      redirectUri: 'http://localhost:3000/api/auth/callback',
     },
   },
 });
 
-export const action = handler.authorize;
-```
+export const action = async ({ request }: { request: Request }) => {
+  return handler.handler(request);
+};
 
-### Callback Route
-
-```typescript
-// app/routes/api.integrate.oauth.callback.ts
-import { toRemixHandler } from 'integrate-sdk/adapters/remix';
-
-const handler = toRemixHandler({
-  providers: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    },
-  },
-});
-
-export const action = handler.callback;
-```
-
-### Status Route
-
-```typescript
-// app/routes/api.integrate.oauth.status.ts
-import { toRemixHandler } from 'integrate-sdk/adapters/remix';
-
-const handler = toRemixHandler({
-  providers: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    },
-  },
-});
-
-export const loader = handler.status;
-```
-
-### Disconnect Route
-
-```typescript
-// app/routes/api.integrate.oauth.disconnect.ts
-import { toRemixHandler } from 'integrate-sdk/adapters/remix';
-
-const handler = toRemixHandler({
-  providers: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    },
-  },
-});
-
-export const action = handler.disconnect;
+export const loader = async ({ request }: { request: Request }) => {
+  return handler.handler(request);
+};
 ```
 
 ## Configuration

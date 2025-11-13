@@ -17,9 +17,9 @@ Create a catch-all API route in your Lynx project:
 
 ```typescript
 // api/auth/[...all].ts
-import { toLynxHandler } from 'integrate-sdk/adapters/lynx';
+import { OAuthHandler } from 'integrate-sdk';
 
-const handler = toLynxHandler({
+const handler = new OAuthHandler({
   providers: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -29,7 +29,13 @@ const handler = toLynxHandler({
   },
 });
 
-export { handler as GET, handler as POST };
+export const GET = async (request: Request): Promise<Response> => {
+  return handler.handler(request);
+};
+
+export const POST = async (request: Request): Promise<Response> => {
+  return handler.handler(request);
+};
 ```
 
 ## Configuration
