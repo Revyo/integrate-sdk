@@ -1,0 +1,98 @@
+---
+title: Astro Integration
+description: Integrate OAuth with Astro
+---
+
+## Installation
+
+Install the Integrate SDK in your Astro project:
+
+```bash
+bun add integrate-sdk
+```
+
+## Mount the Handler
+
+Create a catch-all API route in your Astro project to handle OAuth requests. Create a file at `pages/api/auth/[...all].ts`:
+
+```typescript
+import { toAstroHandler } from 'integrate-sdk/adapters/astro';
+import type { APIRoute } from 'astro';
+
+const handler = toAstroHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      redirectUri: 'http://localhost:3000/api/auth/callback',
+    },
+  },
+});
+
+export const ALL: APIRoute = handler;
+```
+
+## Configuration
+
+Add your OAuth credentials to your `.env` file:
+
+```bash
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+```
+
+## Usage Examples
+
+### Client-Side Authorization
+
+Use the client SDK to initiate OAuth flows from your Astro components:
+
+```typescript
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ['repo', 'user'],
+    }),
+  ],
+});
+
+// Start OAuth flow
+await client.authorize('github');
+```
+
+### Callback Handling
+
+The OAuth callback is automatically handled by your catch-all route. After successful authorization, the access token will be available to your client.
+
+### Status Checking
+
+Check if a provider is authorized:
+
+```typescript
+const status = await client.checkAuthStatus('github');
+console.log(status.authorized); // true/false
+```
+
+## Framework-Specific Notes
+
+- **CORS**: If your Astro app serves from a different origin than your API routes, configure CORS in your `astro.config.mjs`.
+- **Environment Variables**: Astro automatically loads `.env` files. Use `import.meta.env` for client-side variables.
+- **TypeScript**: Astro has excellent TypeScript support out of the box.
+
+## Example Project Structure
+
+```
+my-astro-app/
+├── src/
+│   ├── pages/
+│   │   ├── api/
+│   │   │   └── auth/
+│   │   │       └── [... all].ts
+│   │   └── index.astro
+│   └── lib/
+│       └── integrate-client.ts
+└── .env
+```
+

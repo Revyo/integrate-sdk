@@ -1,0 +1,67 @@
+---
+title: SolidStart Integration
+description: Integrate OAuth with SolidStart
+---
+
+## Installation
+
+Install the Integrate SDK in your SolidStart project:
+
+```bash
+bun add integrate-sdk
+```
+
+## Mount the Handler
+
+Create a catch-all API route in your SolidStart project. Create a file at `src/routes/api/auth/[...all].ts`:
+
+```typescript
+import { toSolidStartHandler } from 'integrate-sdk/adapters/solid-start';
+
+const handlers = toSolidStartHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      redirectUri: 'http://localhost:3000/api/auth/callback',
+    },
+  },
+});
+
+export const { GET, POST, PATCH, PUT, DELETE } = handlers;
+```
+
+## Configuration
+
+Add your OAuth credentials to your `.env` file:
+
+```bash
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+```
+
+## Usage Examples
+
+### Client-Side Authorization
+
+```typescript
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ['repo', 'user'],
+    }),
+  ],
+});
+
+// Start OAuth flow
+await client.authorize('github');
+```
+
+## Framework-Specific Notes
+
+- **HTTP Methods**: The handler exports all HTTP methods (GET, POST, PATCH, PUT, DELETE).
+- **Environment Variables**: SolidStart supports `.env` files via Vite.
+- **TypeScript**: Full TypeScript support with Solid's type system.
+

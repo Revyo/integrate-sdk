@@ -1,25 +1,25 @@
 /**
- * TanStack Start OAuth Route Adapter
- * Provides OAuth route handlers for TanStack Start
+ * Remix OAuth Route Adapter
+ * Provides OAuth route handlers for Remix
  */
 
 import { OAuthHandler, type OAuthHandlerConfig } from './base-handler.js';
 
 /**
- * Create TanStack Start OAuth route handlers
+ * Create Remix OAuth route handlers
  * 
- * Use this to create secure OAuth API routes in your TanStack Start application
+ * Use this to create secure OAuth API routes in your Remix application
  * that handle authorization with server-side secrets.
  * 
  * @param config - OAuth handler configuration with provider credentials
- * @returns Object with authorize, callback, status, and disconnect route handlers
+ * @returns Object with action and loader functions for Remix routes
  * 
  * @example
  * ```typescript
- * // app/routes/api/integrate/oauth/authorize.ts
- * import { toTanStackStartHandler } from 'integrate-sdk/adapters/tanstack-start';
+ * // app/routes/api.integrate.oauth.authorize.ts
+ * import { toRemixHandler } from 'integrate-sdk/adapters/remix';
  * 
- * const handler = toTanStackStartHandler({
+ * const handler = toRemixHandler({
  *   providers: {
  *     github: {
  *       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -28,26 +28,24 @@ import { OAuthHandler, type OAuthHandlerConfig } from './base-handler.js';
  *   },
  * });
  * 
- * export const POST = handler.authorize;
+ * export const action = handler.authorize;
  * ```
  */
-export function toTanStackStartHandler(config: OAuthHandlerConfig) {
+export function toRemixHandler(config: OAuthHandlerConfig) {
   const handler = new OAuthHandler(config);
 
   return {
     /**
+     * Action for authorize endpoint
      * POST /api/integrate/oauth/authorize
-     * Request authorization URL from MCP server
      */
-    async authorize({ request }: { request: Request }): Promise<Response> {
+    authorize: async ({ request }: { request: Request }) => {
       try {
         const body = await request.json();
         const result = await handler.handleAuthorize(body);
         return new Response(JSON.stringify(result), {
           status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
         });
       } catch (error: any) {
         console.error('[OAuth Authorize] Error:', error);
@@ -55,27 +53,23 @@ export function toTanStackStartHandler(config: OAuthHandlerConfig) {
           JSON.stringify({ error: error.message || 'Failed to get authorization URL' }),
           {
             status: 500,
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
           }
         );
       }
     },
 
     /**
+     * Action for callback endpoint
      * POST /api/integrate/oauth/callback
-     * Exchange authorization code for access token
      */
-    async callback({ request }: { request: Request }): Promise<Response> {
+    callback: async ({ request }: { request: Request }) => {
       try {
         const body = await request.json();
         const result = await handler.handleCallback(body);
         return new Response(JSON.stringify(result), {
           status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
         });
       } catch (error: any) {
         console.error('[OAuth Callback] Error:', error);
@@ -83,19 +77,17 @@ export function toTanStackStartHandler(config: OAuthHandlerConfig) {
           JSON.stringify({ error: error.message || 'Failed to exchange authorization code' }),
           {
             status: 500,
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
           }
         );
       }
     },
 
     /**
+     * Loader for status endpoint
      * GET /api/integrate/oauth/status
-     * Check authorization status
      */
-    async status({ request }: { request: Request }): Promise<Response> {
+    status: async ({ request }: { request: Request }) => {
       try {
         const url = new URL(request.url);
         const provider = url.searchParams.get('provider');
@@ -106,9 +98,7 @@ export function toTanStackStartHandler(config: OAuthHandlerConfig) {
             JSON.stringify({ error: 'Missing provider query parameter' }),
             {
               status: 400,
-              headers: {
-                'Content-Type': 'application/json',
-              },
+              headers: { 'Content-Type': 'application/json' },
             }
           );
         }
@@ -118,9 +108,7 @@ export function toTanStackStartHandler(config: OAuthHandlerConfig) {
             JSON.stringify({ error: 'Missing or invalid Authorization header' }),
             {
               status: 400,
-              headers: {
-                'Content-Type': 'application/json',
-              },
+              headers: { 'Content-Type': 'application/json' },
             }
           );
         }
@@ -129,9 +117,7 @@ export function toTanStackStartHandler(config: OAuthHandlerConfig) {
         const result = await handler.handleStatus(provider, accessToken);
         return new Response(JSON.stringify(result), {
           status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
         });
       } catch (error: any) {
         console.error('[OAuth Status] Error:', error);
@@ -139,19 +125,17 @@ export function toTanStackStartHandler(config: OAuthHandlerConfig) {
           JSON.stringify({ error: error.message || 'Failed to check authorization status' }),
           {
             status: 500,
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
           }
         );
       }
     },
 
     /**
+     * Action for disconnect endpoint
      * POST /api/integrate/oauth/disconnect
-     * Revoke authorization for a provider
      */
-    async disconnect({ request }: { request: Request }): Promise<Response> {
+    disconnect: async ({ request }: { request: Request }) => {
       try {
         const authHeader = request.headers.get('authorization');
 
@@ -160,9 +144,7 @@ export function toTanStackStartHandler(config: OAuthHandlerConfig) {
             JSON.stringify({ error: 'Missing or invalid Authorization header' }),
             {
               status: 400,
-              headers: {
-                'Content-Type': 'application/json',
-              },
+              headers: { 'Content-Type': 'application/json' },
             }
           );
         }
@@ -176,9 +158,7 @@ export function toTanStackStartHandler(config: OAuthHandlerConfig) {
             JSON.stringify({ error: 'Missing provider in request body' }),
             {
               status: 400,
-              headers: {
-                'Content-Type': 'application/json',
-              },
+              headers: { 'Content-Type': 'application/json' },
             }
           );
         }
@@ -186,9 +166,7 @@ export function toTanStackStartHandler(config: OAuthHandlerConfig) {
         const result = await handler.handleDisconnect({ provider }, accessToken);
         return new Response(JSON.stringify(result), {
           status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
         });
       } catch (error: any) {
         console.error('[OAuth Disconnect] Error:', error);
@@ -196,16 +174,11 @@ export function toTanStackStartHandler(config: OAuthHandlerConfig) {
           JSON.stringify({ error: error.message || 'Failed to disconnect provider' }),
           {
             status: 500,
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
           }
         );
       }
     },
   };
 }
-
-// Backwards compatibility
-export const createTanStackOAuthHandler = toTanStackStartHandler;
 

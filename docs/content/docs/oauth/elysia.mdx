@@ -1,0 +1,88 @@
+---
+title: Elysia Integration
+description: Integrate OAuth with Elysia
+---
+
+## Installation
+
+Install the Integrate SDK in your Elysia project:
+
+```bash
+bun add integrate-sdk
+```
+
+## Mount the Handler
+
+Add OAuth route handlers to your Elysia application:
+
+```typescript
+import { Elysia } from 'elysia';
+import { toElysiaHandler } from 'integrate-sdk/adapters/elysia';
+
+const app = new Elysia();
+
+const handler = toElysiaHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      redirectUri: 'http://localhost:3000/api/auth/callback',
+    },
+  },
+});
+
+// Register OAuth routes with catch-all
+app.on(['POST', 'GET'], '/api/auth/*', (context) => {
+  return handler(context.request);
+});
+
+app.listen(3000);
+```
+
+## Configuration
+
+Add your OAuth credentials to your `.env` file:
+
+```bash
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+```
+
+## CORS Setup
+
+Configure CORS using Elysia's CORS plugin:
+
+```typescript
+import { cors } from '@elysiajs/cors';
+
+app.use(cors({
+  origin: 'http://localhost:3001',
+  credentials: true,
+}));
+```
+
+## Usage Examples
+
+### Client-Side Authorization
+
+```typescript
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ['repo', 'user'],
+    }),
+  ],
+});
+
+// Start OAuth flow
+await client.authorize('github');
+```
+
+## Framework-Specific Notes
+
+- **Bun Runtime**: Elysia is built specifically for Bun.
+- **Performance**: Extremely fast with Bun's native performance.
+- **Type Safety**: Excellent TypeScript support with end-to-end type safety.
+

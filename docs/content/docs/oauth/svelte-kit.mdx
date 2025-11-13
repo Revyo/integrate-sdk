@@ -1,0 +1,97 @@
+---
+title: SvelteKit Integration
+description: Integrate OAuth with SvelteKit
+---
+
+## Installation
+
+Install the Integrate SDK in your SvelteKit project:
+
+```bash
+bun add integrate-sdk
+```
+
+## Mount the Handler
+
+### Option 1: Using Route Handlers
+
+Create a catch-all API route in your SvelteKit project. Create a file at `src/routes/api/integrate/oauth/[...all]/+server.ts`:
+
+```typescript
+import { toSvelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
+
+const handler = toSvelteKitHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      redirectUri: 'http://localhost:5173/api/integrate/oauth/callback',
+    },
+  },
+});
+
+export const POST = handler;
+export const GET = handler;
+```
+
+### Option 2: Using Hooks
+
+Integrate OAuth handling into your `hooks.server.ts`:
+
+```typescript
+import { svelteKitHandler, toSvelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
+
+const handler = toSvelteKitHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      redirectUri: 'http://localhost:5173/api/integrate/oauth/callback',
+    },
+  },
+});
+
+export async function handle({ event, resolve }) {
+  return svelteKitHandler({ 
+    event, 
+    resolve, 
+    handler,
+    basePath: '/api/integrate/oauth'
+  });
+}
+```
+
+## Configuration
+
+Add your OAuth credentials to your `.env` file:
+
+```bash
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+```
+
+## Usage Examples
+
+### Client-Side Authorization
+
+```typescript
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ['repo', 'user'],
+    }),
+  ],
+});
+
+// Start OAuth flow
+await client.authorize('github');
+```
+
+## Framework-Specific Notes
+
+- **Hooks**: Use the `svelteKitHandler` function to integrate OAuth into your hooks.
+- **Environment Variables**: SvelteKit uses Vite for environment variables.
+- **TypeScript**: Full TypeScript support with SvelteKit's type system.
+

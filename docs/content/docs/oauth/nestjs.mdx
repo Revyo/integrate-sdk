@@ -1,0 +1,125 @@
+---
+title: NestJS Integration
+description: Integrate OAuth with NestJS
+---
+
+## Installation
+
+Install the Integrate SDK in your NestJS project:
+
+```bash
+bun add integrate-sdk
+```
+
+## Mount the Handler
+
+Create a controller to handle OAuth routes in your NestJS application:
+
+```typescript
+// oauth.controller.ts
+import { Controller, Post, Get, Req, Res } from '@nestjs/common';
+import { Request, Response } from 'express';
+import { toNestJsHandler } from 'integrate-sdk/adapters/nestjs';
+
+@Controller('api/integrate/oauth')
+export class OAuthController {
+  private handler = toNestJsHandler({
+    providers: {
+      github: {
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
+      },
+    },
+  });
+
+  @Post('authorize')
+  authorize(@Req() req: Request, @Res() res: Response) {
+    return this.handler.authorize(req, res);
+  }
+
+  @Post('callback')
+  callback(@Req() req: Request, @Res() res: Response) {
+    return this.handler.callback(req, res);
+  }
+
+  @Get('status')
+  status(@Req() req: Request, @Res() res: Response) {
+    return this.handler.status(req, res);
+  }
+
+  @Post('disconnect')
+  disconnect(@Req() req: Request, @Res() res: Response) {
+    return this.handler.disconnect(req, res);
+  }
+}
+```
+
+Register the controller in your module:
+
+```typescript
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { OAuthController } from './oauth.controller';
+
+@Module({
+  controllers: [OAuthController],
+})
+export class AppModule {}
+```
+
+## Configuration
+
+Add your OAuth credentials to your `.env` file:
+
+```bash
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+```
+
+## CORS Setup
+
+Configure CORS in your `main.ts`:
+
+```typescript
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  
+  app.enableCors({
+    origin: 'http://localhost:3001',
+    credentials: true,
+  });
+
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+## Usage Examples
+
+### Client-Side Authorization
+
+```typescript
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ['repo', 'user'],
+    }),
+  ],
+});
+
+// Start OAuth flow
+await client.authorize('github');
+```
+
+## Framework-Specific Notes
+
+- **Decorators**: NestJS uses decorators for routing and dependency injection.
+- **Modules**: Organize your OAuth controller in a dedicated module for better structure.
+- **Guards**: You can create custom guards to protect routes based on OAuth status.
+

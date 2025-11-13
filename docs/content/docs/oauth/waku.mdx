@@ -1,0 +1,68 @@
+---
+title: Waku Integration
+description: Integrate OAuth with Waku
+---
+
+## Installation
+
+Install the Integrate SDK in your Waku project:
+
+```bash
+bun add integrate-sdk
+```
+
+## Mount the Handler
+
+Create a catch-all API route in your Waku project. Create a file at `src/pages/api/auth/[...route].ts`:
+
+```typescript
+import { toWakuHandler } from 'integrate-sdk/adapters/waku';
+
+const handlers = toWakuHandler({
+  providers: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      redirectUri: 'http://localhost:3000/api/auth/callback',
+    },
+  },
+});
+
+export const GET = handlers.GET;
+export const POST = handlers.POST;
+```
+
+## Configuration
+
+Add your OAuth credentials to your `.env` file:
+
+```bash
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+```
+
+## Usage Examples
+
+### Client-Side Authorization
+
+```typescript
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ['repo', 'user'],
+    }),
+  ],
+});
+
+// Start OAuth flow
+await client.authorize('github');
+```
+
+## Framework-Specific Notes
+
+- **API Routes**: Waku uses a file-system based routing for API routes.
+- **Environment Variables**: Access via `process.env` in server code.
+- **RSC Support**: Waku has React Server Components support.
+

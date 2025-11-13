@@ -30,6 +30,70 @@
     "./react": {
       "types": "./dist/react.d.ts",
       "import": "./dist/react.js"
+    },
+    "./adapters/astro": {
+      "types": "./dist/adapters/astro.d.ts",
+      "import": "./dist/adapters/astro.js"
+    },
+    "./adapters/elysia": {
+      "types": "./dist/adapters/elysia.d.ts",
+      "import": "./dist/adapters/elysia.js"
+    },
+    "./adapters/expo": {
+      "types": "./dist/adapters/expo.d.ts",
+      "import": "./dist/adapters/expo.js"
+    },
+    "./adapters/express": {
+      "types": "./dist/adapters/express.d.ts",
+      "import": "./dist/adapters/express.js"
+    },
+    "./adapters/fastify": {
+      "types": "./dist/adapters/fastify.d.ts",
+      "import": "./dist/adapters/fastify.js"
+    },
+    "./adapters/hono": {
+      "types": "./dist/adapters/hono.d.ts",
+      "import": "./dist/adapters/hono.js"
+    },
+    "./adapters/lynx": {
+      "types": "./dist/adapters/lynx.d.ts",
+      "import": "./dist/adapters/lynx.js"
+    },
+    "./adapters/nestjs": {
+      "types": "./dist/adapters/nestjs.d.ts",
+      "import": "./dist/adapters/nestjs.js"
+    },
+    "./adapters/nitro": {
+      "types": "./dist/adapters/nitro.d.ts",
+      "import": "./dist/adapters/nitro.js"
+    },
+    "./adapters/node": {
+      "types": "./dist/adapters/node.d.ts",
+      "import": "./dist/adapters/node.js"
+    },
+    "./adapters/nuxt": {
+      "types": "./dist/adapters/nuxt.d.ts",
+      "import": "./dist/adapters/nuxt.js"
+    },
+    "./adapters/remix": {
+      "types": "./dist/adapters/remix.d.ts",
+      "import": "./dist/adapters/remix.js"
+    },
+    "./adapters/solid-start": {
+      "types": "./dist/adapters/solid-start.d.ts",
+      "import": "./dist/adapters/solid-start.js"
+    },
+    "./adapters/svelte-kit": {
+      "types": "./dist/adapters/svelte-kit.d.ts",
+      "import": "./dist/adapters/svelte-kit.js"
+    },
+    "./adapters/tanstack-start": {
+      "types": "./dist/adapters/tanstack-start.d.ts",
+      "import": "./dist/adapters/tanstack-start.js"
+    },
+    "./adapters/waku": {
+      "types": "./dist/adapters/waku.d.ts",
+      "import": "./dist/adapters/waku.js"
     }
   },
   "files": [
@@ -41,7 +105,8 @@
   ],
   "scripts": {
     "prep": "bun run type-check && bun run build",
-    "build": "bun build index.ts server.ts oauth.ts react.ts --outdir dist --target node --format esm --external react && bun run build:types",
+    "build": "bun build index.ts server.ts oauth.ts react.ts --outdir dist --target node --format esm --external react && bun run build:adapters && bun run build:types",
+    "build:adapters": "bun build src/adapters/*.ts --outdir dist/adapters --target node --format esm",
     "build:types": "tsc --emitDeclarationOnly --declaration --declarationMap",
     "dev": "bun --watch src/index.ts",
     "type-check": "tsc --noEmit",
