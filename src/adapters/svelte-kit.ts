@@ -3,8 +3,6 @@
  * Provides OAuth route handlers for SvelteKit
  */
 
-import { OAuthHandler, type OAuthHandlerConfig } from './base-handler.js';
-
 // Type-only imports to avoid requiring SvelteKit at build time
 type RequestEvent = any;
 type ResolveFunction = any;
@@ -14,43 +12,47 @@ type ResolveFunction = any;
  * 
  * Use this to integrate OAuth handling into your SvelteKit hooks.server.ts
  * 
+ * @param authConfig - Handler function from createMCPServer
  * @param event - SvelteKit RequestEvent
  * @param resolve - SvelteKit resolve function
- * @param handler - OAuth handler instance
- * @param basePath - Base path for OAuth routes (default: '/api/integrate/oauth')
+ * @param basePath - Base path for OAuth routes (default: '/api/auth')
  * @returns Response from OAuth handler or resolved request
  * 
  * @example
  * ```typescript
- * // hooks.server.ts
- * import { svelteKitHandler, toSvelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
+ * // lib/integrate-server.ts
+ * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
  * 
- * const handler = toSvelteKitHandler({
- *   providers: {
- *     github: {
+ * export const { client: serverClient, handler } = createMCPServer({
+ *   plugins: [
+ *     githubPlugin({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
  *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
- *     },
- *   },
+ *     }),
+ *   ],
  * });
  * 
+ * // hooks.server.ts
+ * import { svelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
+ * import { handler } from '$lib/integrate-server';
+ * 
  * export async function handle({ event, resolve }) {
- *   return svelteKitHandler({ event, resolve, handler });
+ *   return svelteKitHandler({ authConfig: handler, event, resolve });
  * }
  * ```
  */
 export async function svelteKitHandler({
+    authConfig,
     event,
     resolve,
-    handler,
-    basePath = '/api/integrate/oauth',
+    basePath = '/api/auth',
 }: {
+    authConfig: (request: Request) => Promise<Response>;
     event: RequestEvent;
     resolve: ResolveFunction;
-    handler: ReturnType<typeof toSvelteKitHandler>;
     basePath?: string;
 }): Promise<Response> {
-    const { request, url } = event;
+    const { url } = event;
 
     // Check if this is an OAuth path
     const baseUrl = new URL(basePath, url.origin);
@@ -59,7 +61,7 @@ export async function svelteKitHandler({
     }
 
     // Handle OAuth request
-    return handler(event);
+    return authConfig(event.request);
 }
 
 /**
@@ -68,141 +70,36 @@ export async function svelteKitHandler({
  * Use this to create secure OAuth API routes in your SvelteKit application
  * that handle authorization with server-side secrets.
  * 
- * @param config - OAuth handler configuration with provider credentials
+ * @param baseHandler - Handler function from createMCPServer
  * @returns Handler function for SvelteKit routes
  * 
  * @example
  * ```typescript
- * // routes/api/integrate/oauth/[...all]/+server.ts
- * import { toSvelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
+ * // lib/integrate-server.ts
+ * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
  * 
- * const handler = toSvelteKitHandler({
- *   providers: {
- *     github: {
+ * export const { client: serverClient, handler } = createMCPServer({
+ *   plugins: [
+ *     githubPlugin({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
  *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
- *     },
- *   },
+ *     }),
+ *   ],
  * });
  * 
- * export const POST = handler;
- * export const GET = handler;
+ * // routes/api/auth/[...all]/+server.ts
+ * import { toSvelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
+ * import { handler } from '$lib/integrate-server';
+ * 
+ * const svelteKitRoute = toSvelteKitHandler(handler);
+ * 
+ * export const POST = svelteKitRoute;
+ * export const GET = svelteKitRoute;
  * ```
  */
-export function toSvelteKitHandler(config: OAuthHandlerConfig) {
-    const oauthHandler = new OAuthHandler(config);
-
+export function toSvelteKitHandler(baseHandler: (request: Request) => Promise<Response>) {
     return async (event: RequestEvent): Promise<Response> => {
-        const { request } = event;
-        const url = new URL(request.url);
-        const segments = url.pathname.split('/').filter(Boolean);
-        const action = segments[segments.length - 1];
-
-        try {
-            // Handle POST requests
-            if (request.method === 'POST') {
-                if (action === 'authorize') {
-                    const body = await request.json();
-                    const result = await oauthHandler.handleAuthorize(body);
-                    return new Response(JSON.stringify(result), {
-                        status: 200,
-                        headers: { 'Content-Type': 'application/json' },
-                    });
-                }
-
-                if (action === 'callback') {
-                    const body = await request.json();
-                    const result = await oauthHandler.handleCallback(body);
-                    return new Response(JSON.stringify(result), {
-                        status: 200,
-                        headers: { 'Content-Type': 'application/json' },
-                    });
-                }
-
-                if (action === 'disconnect') {
-                    const authHeader = request.headers.get('authorization');
-                    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                        return new Response(
-                            JSON.stringify({ error: 'Missing or invalid Authorization header' }),
-                            {
-                                status: 400,
-                                headers: { 'Content-Type': 'application/json' },
-                            }
-                        );
-                    }
-
-                    const accessToken = authHeader.substring(7);
-                    const body = await request.json();
-                    const { provider } = body;
-
-                    if (!provider) {
-                        return new Response(
-                            JSON.stringify({ error: 'Missing provider in request body' }),
-                            {
-                                status: 400,
-                                headers: { 'Content-Type': 'application/json' },
-                            }
-                        );
-                    }
-
-                    const result = await oauthHandler.handleDisconnect({ provider }, accessToken);
-                    return new Response(JSON.stringify(result), {
-                        status: 200,
-                        headers: { 'Content-Type': 'application/json' },
-                    });
-                }
-            }
-
-            // Handle GET requests
-            if (request.method === 'GET' && action === 'status') {
-                const provider = url.searchParams.get('provider');
-                const authHeader = request.headers.get('authorization');
-
-                if (!provider) {
-                    return new Response(
-                        JSON.stringify({ error: 'Missing provider query parameter' }),
-                        {
-                            status: 400,
-                            headers: { 'Content-Type': 'application/json' },
-                        }
-                    );
-                }
-
-                if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                    return new Response(
-                        JSON.stringify({ error: 'Missing or invalid Authorization header' }),
-                        {
-                            status: 400,
-                            headers: { 'Content-Type': 'application/json' },
-                        }
-                    );
-                }
-
-                const accessToken = authHeader.substring(7);
-                const result = await oauthHandler.handleStatus(provider, accessToken);
-                return new Response(JSON.stringify(result), {
-                    status: 200,
-                    headers: { 'Content-Type': 'application/json' },
-                });
-            }
-
-            return new Response(
-                JSON.stringify({ error: `Unknown action: ${action}` }),
-                {
-                    status: 404,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            );
-        } catch (error: any) {
-            console.error(`[OAuth ${action}] Error:`, error);
-            return new Response(
-                JSON.stringify({ error: error.message || 'Internal server error' }),
-                {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            );
-        }
+        return baseHandler(event.request);
     };
 }
 

@@ -3,47 +3,48 @@
  * Provides OAuth route handlers for TanStack Start
  */
 
-import { OAuthHandler, type OAuthHandlerConfig } from './base-handler.js';
-
 /**
  * Create TanStack Start OAuth route handlers
  * 
  * Use this to create secure OAuth API routes in your TanStack Start application
  * that handle authorization with server-side secrets.
  * 
- * @param config - OAuth handler configuration with provider credentials
+ * @param handler - Handler function from createMCPServer
  * @returns Object with GET and POST handlers for catch-all routes
  * 
  * @example
  * ```typescript
- * // app/routes/api/auth/$.ts
- * import { toTanStackStartHandler } from 'integrate-sdk/adapters/tanstack-start';
- * import { createFileRoute } from '@tanstack/react-router';
+ * // lib/integrate-server.ts
+ * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
  * 
- * const handler = toTanStackStartHandler({
- *   providers: {
- *     github: {
+ * export const { client: serverClient, handler } = createMCPServer({
+ *   plugins: [
+ *     githubPlugin({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
  *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
- *     },
- *   },
+ *     }),
+ *   ],
  * });
+ * 
+ * // app/routes/api/auth/$.ts
+ * import { toTanStackStartHandler } from 'integrate-sdk/adapters/tanstack-start';
+ * import { handler } from '@/lib/integrate-server';
+ * 
+ * const handlers = toTanStackStartHandler(handler);
  * 
  * export const Route = createFileRoute('/api/auth/$')({
  *   server: {
  *     handlers: {
- *       GET: handler.GET,
- *       POST: handler.POST,
+ *       GET: handlers.GET,
+ *       POST: handlers.POST,
  *     },
  *   },
  * });
  * ```
  */
-export function toTanStackStartHandler(config: OAuthHandlerConfig) {
-  const handler = new OAuthHandler(config);
-
+export function toTanStackStartHandler(handler: (request: Request) => Promise<Response>) {
   const baseHandler = async ({ request }: { request: Request }): Promise<Response> => {
-    return handler.handler(request);
+    return handler(request);
   };
 
   return {
@@ -52,6 +53,6 @@ export function toTanStackStartHandler(config: OAuthHandlerConfig) {
   };
 }
 
-// Backwards compatibility
+// Backwards compatibility - for old OAuthHandlerConfig usage
 export const createTanStackOAuthHandler = toTanStackStartHandler;
 
