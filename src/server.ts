@@ -214,13 +214,18 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
         segments = all.split('/').filter(Boolean);
       }
 
-      // Handle route structure: /api/integrate/oauth/[action]
+      // Handle route structure: /api/integrate/oauth/[action] or /api/integrate/mcp
       // segments should be ['oauth', 'callback'] or ['oauth', 'authorize'], etc.
       if (segments.length === 2 && segments[0] === 'oauth') {
         action = segments[1];
       } else if (segments.length === 1) {
-        // If only one segment, use it as the action (for routes like /api/integrate/[action])
-        action = segments[0];
+        // Check if it's the MCP route (handled separately below)
+        if (segments[0] === 'mcp') {
+          action = 'mcp';
+        } else {
+          // Otherwise use it as an OAuth action (for routes like /api/integrate/[action])
+          action = segments[0];
+        }
       } else if (segments.length > 0) {
         // Fallback: use the last segment
         action = segments[segments.length - 1];
@@ -241,6 +246,31 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
       }
     }
 
+    // Handle /mcp route BEFORE validating OAuth routes
+    if (action === 'mcp' && method === 'POST') {
+      try {
+        const body = await request.json();
+        const authHeader = request.headers.get('authorization');
+        
+        // Create OAuth handler with config that includes API key
+        const { OAuthHandler } = await import('./adapters/base-handler.js');
+        const oauthHandler = new OAuthHandler({
+          providers,
+          serverUrl: config.serverUrl,
+          apiKey: config.apiKey,
+        });
+        
+        const result = await oauthHandler.handleToolCall(body, authHeader);
+        return Response.json(result);
+      } catch (error: any) {
+        console.error('[MCP Tool Call] Error:', error);
+        return Response.json(
+          { error: error.message || 'Failed to execute tool call' },
+          { status: error.statusCode || 500 }
+        );
+      }
+    }
+
     // Validate route structure for catch-all routes
     // Must be /api/integrate/oauth/[action] or /api/integrate/mcp
     if (segments.length > 0) {
@@ -251,29 +281,13 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
           { status: 404 }
         );
       }
-      // Handle /mcp route directly
-      if (segments.length === 1 && segments[0] === 'mcp' && method === 'POST') {
-        try {
-          const body = await request.json();
-          const authHeader = request.headers.get('authorization');
-          
-          // Create OAuth handler with config that includes API key
-          const { OAuthHandler } = await import('./adapters/base-handler.js');
-          const oauthHandler = new OAuthHandler({
-            providers,
-            serverUrl: config.serverUrl,
-            apiKey: config.apiKey,
-          });
-          
-          const result = await oauthHandler.handleToolCall(body, authHeader);
-          return Response.json(result);
-        } catch (error: any) {
-          console.error('[MCP Tool Call] Error:', error);
-          return Response.json(
-            { error: error.message || 'Failed to execute tool call' },
-            { status: error.statusCode || 500 }
-          );
-        }
+      // MCP route is already handled above
+      if (segments.length === 1 && segments[0] === 'mcp') {
+        // Already handled, but if we get here it's a non-POST method
+        return Response.json(
+          { error: `Method ${method} not allowed for /mcp route. Use POST.` },
+          { status: 405 }
+        );
       }
     }
 
