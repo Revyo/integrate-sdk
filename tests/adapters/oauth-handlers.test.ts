@@ -1163,3 +1163,581 @@ describe("Server-Side toNextJsHandler", () => {
   });
 });
 
+describe("SvelteKit Handler - toSvelteKitHandler", () => {
+  describe("Pattern 1: Handler function (recommended)", () => {
+    it("should wrap handler from createMCPServer", async () => {
+      const mockFetch = mock(async (url: string, options?: any) => {
+        if (url.includes("/oauth/authorize")) {
+          return {
+            ok: true,
+            json: async () => ({
+              authorizationUrl: "https://github.com/login/oauth/authorize",
+            }),
+          } as Response;
+        }
+        return { ok: false, text: async () => "error" } as Response;
+      }) as any;
+
+      global.fetch = mockFetch;
+
+      // Make sure we're in server mode
+      (global as any).window = undefined;
+
+      const { handler, client } = createMCPServer({
+        plugins: [{
+          id: "github",
+          tools: [],
+          oauth: {
+            clientId: "test-id",
+            clientSecret: "test-secret",
+            provider: "github",
+          },
+        }] as any,
+      });
+
+      // Import and use toSvelteKitHandler
+      const { toSvelteKitHandler } = await import("../../src/server");
+      const svelteKitHandler = toSvelteKitHandler(handler, {
+        redirectUrl: "/dashboard",
+        errorRedirectUrl: "/error",
+      });
+
+      // Create a mock SvelteKit event
+      const mockEvent = {
+        request: {
+          url: "http://localhost:5173/api/integrate/oauth/authorize",
+          method: "POST",
+          headers: {
+            get: () => null,
+          },
+          json: async () => ({
+            provider: "github",
+            scopes: ["repo"],
+            state: "test-state",
+            codeChallenge: "challenge",
+            codeChallengeMethod: "S256",
+          }),
+        } as any,
+        params: {
+          all: ["oauth", "authorize"],
+        },
+      };
+
+      const response = await svelteKitHandler(mockEvent);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.authorizationUrl).toContain("github.com");
+    });
+  });
+
+  describe("Pattern 2: Inline configuration", () => {
+    it("should accept providers config directly", async () => {
+      const mockFetch = mock(async (url: string, options?: any) => {
+        if (url.includes("/oauth/authorize")) {
+          expect(url).toContain("provider=github");
+          expect(url).toContain("client_id=test-client-id");
+          expect(url).toContain("client_secret=test-client-secret");
+          return {
+            ok: true,
+            json: async () => ({
+              authorizationUrl: "https://github.com/login/oauth/authorize",
+            }),
+          } as Response;
+        }
+        return { ok: false, text: async () => "error" } as Response;
+      }) as any;
+
+      global.fetch = mockFetch;
+
+      // Import toSvelteKitHandler
+      const { toSvelteKitHandler } = await import("../../src/server");
+      
+      // Create handler with inline config (like the example)
+      const svelteKitHandler = toSvelteKitHandler({
+        providers: {
+          github: {
+            clientId: "test-client-id",
+            clientSecret: "test-client-secret",
+          },
+        },
+        redirectUrl: "/dashboard",
+        errorRedirectUrl: "/error",
+      });
+
+      // Create a mock SvelteKit event
+      const mockEvent = {
+        request: {
+          url: "http://localhost:5173/api/integrate/oauth/authorize",
+          method: "POST",
+          headers: {
+            get: () => null,
+          },
+          json: async () => ({
+            provider: "github",
+            scopes: ["repo"],
+            state: "test-state",
+            codeChallenge: "challenge",
+            codeChallengeMethod: "S256",
+          }),
+        } as any,
+        params: {
+          all: ["oauth", "authorize"],
+        },
+      };
+
+      const response = await svelteKitHandler(mockEvent);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.authorizationUrl).toContain("github.com");
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    it("should handle callback with inline config", async () => {
+      const mockFetch = mock(async (url: string, options?: any) => {
+        if (url.includes("/oauth/callback")) {
+          return {
+            ok: true,
+            json: async () => ({
+              accessToken: "test-token",
+              tokenType: "Bearer",
+              expiresIn: 3600,
+            }),
+          } as Response;
+        }
+        return { ok: false, text: async () => "error" } as Response;
+      }) as any;
+
+      global.fetch = mockFetch;
+
+      const { toSvelteKitHandler } = await import("../../src/server");
+      
+      const svelteKitHandler = toSvelteKitHandler({
+        providers: {
+          github: {
+            clientId: "test-client-id",
+            clientSecret: "test-client-secret",
+          },
+        },
+      });
+
+      const mockEvent = {
+        request: {
+          url: "http://localhost:5173/api/integrate/oauth/callback",
+          method: "POST",
+          headers: {
+            get: () => null,
+          },
+          json: async () => ({
+            provider: "github",
+            code: "test-code",
+            codeVerifier: "verifier",
+            state: "test-state",
+          }),
+        } as any,
+        params: {
+          all: ["oauth", "callback"],
+        },
+      };
+
+      const response = await svelteKitHandler(mockEvent);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.accessToken).toBe("test-token");
+    });
+
+    it("should handle status check with inline config", async () => {
+      const mockFetch = mock(async (url: string, options?: any) => {
+        if (url.includes("/oauth/status")) {
+          return {
+            ok: true,
+            json: async () => ({
+              authorized: true,
+              scopes: ["repo"],
+            }),
+          } as Response;
+        }
+        return { ok: false, text: async () => "error" } as Response;
+      }) as any;
+
+      global.fetch = mockFetch;
+
+      const { toSvelteKitHandler } = await import("../../src/server");
+      
+      const svelteKitHandler = toSvelteKitHandler({
+        providers: {
+          github: {
+            clientId: "test-client-id",
+            clientSecret: "test-client-secret",
+          },
+        },
+      });
+
+      const mockUrl = new URL("http://localhost:5173/api/integrate/oauth/status?provider=github");
+      const mockEvent = {
+        request: {
+          url: mockUrl.toString(),
+          method: "GET",
+          headers: {
+            get: (key: string) => {
+              if (key === "authorization") return "Bearer test-token";
+              return null;
+            },
+          },
+          // Add nextUrl property for Next.js compatibility
+          nextUrl: {
+            searchParams: mockUrl.searchParams,
+          },
+        } as any,
+        params: {
+          all: ["oauth", "status"],
+        },
+      };
+
+      const response = await svelteKitHandler(mockEvent);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.authorized).toBe(true);
+    });
+
+    it("should throw error when providers config is missing", async () => {
+      const { toSvelteKitHandler } = await import("../../src/server");
+      
+      expect(() => {
+        toSvelteKitHandler({
+          redirectUrl: "/dashboard",
+        } as any);
+      }).toThrow("toSvelteKitHandler requires either a handler function or a providers config object");
+    });
+
+    it("should handle GET /oauth/callback (provider redirect)", async () => {
+      const { toSvelteKitHandler } = await import("../../src/server");
+      
+      const svelteKitHandler = toSvelteKitHandler({
+        providers: {
+          github: {
+            clientId: "test-client-id",
+            clientSecret: "test-client-secret",
+          },
+        },
+        redirectUrl: "/dashboard",
+      });
+
+      const mockEvent = {
+        request: {
+          url: "http://localhost:5173/api/integrate/oauth/callback?code=test-code&state=test-state",
+          method: "GET",
+          headers: {
+            get: () => null,
+          },
+        } as any,
+        params: {
+          all: ["oauth", "callback"],
+        },
+      };
+
+      const response = await svelteKitHandler(mockEvent);
+
+      // Should redirect with OAuth callback in hash
+      expect(response.status).toBe(302);
+      const location = response.headers.get("location");
+      expect(location).toContain("/dashboard");
+      expect(location).toContain("oauth_callback");
+    });
+  });
+});
+
+describe("SolidStart Handler - toSolidStartHandler", () => {
+  describe("Pattern 1: Handler function (recommended)", () => {
+    it("should wrap handler from createMCPServer", async () => {
+      const mockFetch = mock(async (url: string, options?: any) => {
+        if (url.includes("/oauth/authorize")) {
+          return {
+            ok: true,
+            json: async () => ({
+              authorizationUrl: "https://github.com/login/oauth/authorize",
+            }),
+          } as Response;
+        }
+        return { ok: false, text: async () => "error" } as Response;
+      }) as any;
+
+      global.fetch = mockFetch;
+
+      // Make sure we're in server mode
+      (global as any).window = undefined;
+
+      const { handler } = createMCPServer({
+        plugins: [{
+          id: "github",
+          tools: [],
+          oauth: {
+            clientId: "test-id",
+            clientSecret: "test-secret",
+            provider: "github",
+          },
+        }] as any,
+      });
+
+      // Import and use toSolidStartHandler
+      const { toSolidStartHandler } = await import("../../src/server");
+      const handlers = toSolidStartHandler(handler, {
+        redirectUrl: "/dashboard",
+        errorRedirectUrl: "/error",
+      });
+
+      // Create a mock SolidStart event
+      const mockEvent = {
+        request: {
+          url: "http://localhost:3000/api/integrate/oauth/authorize",
+          method: "POST",
+          headers: {
+            get: () => null,
+          },
+          json: async () => ({
+            provider: "github",
+            scopes: ["repo"],
+            state: "test-state",
+            codeChallenge: "challenge",
+            codeChallengeMethod: "S256",
+          }),
+        } as any,
+      };
+
+      const response = await handlers.POST(mockEvent);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.authorizationUrl).toContain("github.com");
+    });
+  });
+
+  describe("Pattern 2: Inline configuration", () => {
+    it("should accept providers config directly", async () => {
+      const mockFetch = mock(async (url: string, options?: any) => {
+        if (url.includes("/oauth/authorize")) {
+          expect(url).toContain("provider=github");
+          expect(url).toContain("client_id=test-client-id");
+          expect(url).toContain("client_secret=test-client-secret");
+          return {
+            ok: true,
+            json: async () => ({
+              authorizationUrl: "https://github.com/login/oauth/authorize",
+            }),
+          } as Response;
+        }
+        return { ok: false, text: async () => "error" } as Response;
+      }) as any;
+
+      global.fetch = mockFetch;
+
+      // Import toSolidStartHandler
+      const { toSolidStartHandler } = await import("../../src/server");
+      
+      // Create handler with inline config
+      const handlers = toSolidStartHandler({
+        providers: {
+          github: {
+            clientId: "test-client-id",
+            clientSecret: "test-client-secret",
+          },
+        },
+        redirectUrl: "/dashboard",
+        errorRedirectUrl: "/error",
+      });
+
+      // Create a mock SolidStart event
+      const mockEvent = {
+        request: {
+          url: "http://localhost:3000/api/integrate/oauth/authorize",
+          method: "POST",
+          headers: {
+            get: () => null,
+          },
+          json: async () => ({
+            provider: "github",
+            scopes: ["repo"],
+            state: "test-state",
+            codeChallenge: "challenge",
+            codeChallengeMethod: "S256",
+          }),
+        } as any,
+      };
+
+      const response = await handlers.POST(mockEvent);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.authorizationUrl).toContain("github.com");
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    it("should handle callback with inline config", async () => {
+      const mockFetch = mock(async (url: string, options?: any) => {
+        if (url.includes("/oauth/callback")) {
+          return {
+            ok: true,
+            json: async () => ({
+              accessToken: "test-token",
+              tokenType: "Bearer",
+              expiresIn: 3600,
+            }),
+          } as Response;
+        }
+        return { ok: false, text: async () => "error" } as Response;
+      }) as any;
+
+      global.fetch = mockFetch;
+
+      const { toSolidStartHandler } = await import("../../src/server");
+      
+      const handlers = toSolidStartHandler({
+        providers: {
+          github: {
+            clientId: "test-client-id",
+            clientSecret: "test-client-secret",
+          },
+        },
+      });
+
+      const mockEvent = {
+        request: {
+          url: "http://localhost:3000/api/integrate/oauth/callback",
+          method: "POST",
+          headers: {
+            get: () => null,
+          },
+          json: async () => ({
+            provider: "github",
+            code: "test-code",
+            codeVerifier: "verifier",
+            state: "test-state",
+          }),
+        } as any,
+      };
+
+      const response = await handlers.POST(mockEvent);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.accessToken).toBe("test-token");
+    });
+
+    it("should handle status check with inline config", async () => {
+      const mockFetch = mock(async (url: string, options?: any) => {
+        if (url.includes("/oauth/status")) {
+          return {
+            ok: true,
+            json: async () => ({
+              authorized: true,
+              scopes: ["repo"],
+            }),
+          } as Response;
+        }
+        return { ok: false, text: async () => "error" } as Response;
+      }) as any;
+
+      global.fetch = mockFetch;
+
+      const { toSolidStartHandler } = await import("../../src/server");
+      
+      const handlers = toSolidStartHandler({
+        providers: {
+          github: {
+            clientId: "test-client-id",
+            clientSecret: "test-client-secret",
+          },
+        },
+      });
+
+      const mockUrl = new URL("http://localhost:3000/api/integrate/oauth/status?provider=github");
+      const mockEvent = {
+        request: {
+          url: mockUrl.toString(),
+          method: "GET",
+          headers: {
+            get: (key: string) => {
+              if (key === "authorization") return "Bearer test-token";
+              return null;
+            },
+          },
+          // Add nextUrl property for Next.js compatibility
+          nextUrl: {
+            searchParams: mockUrl.searchParams,
+          },
+        } as any,
+      };
+
+      const response = await handlers.GET(mockEvent);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.authorized).toBe(true);
+    });
+
+    it("should throw error when providers config is missing", async () => {
+      const { toSolidStartHandler } = await import("../../src/server");
+      
+      expect(() => {
+        toSolidStartHandler({
+          redirectUrl: "/dashboard",
+        } as any);
+      }).toThrow("toSolidStartHandler requires either a handler function or a providers config object");
+    });
+
+    it("should handle GET /oauth/callback (provider redirect)", async () => {
+      const { toSolidStartHandler } = await import("../../src/server");
+      
+      const handlers = toSolidStartHandler({
+        providers: {
+          github: {
+            clientId: "test-client-id",
+            clientSecret: "test-client-secret",
+          },
+        },
+        redirectUrl: "/dashboard",
+      });
+
+      const mockEvent = {
+        request: {
+          url: "http://localhost:3000/api/integrate/oauth/callback?code=test-code&state=test-state",
+          method: "GET",
+          headers: {
+            get: () => null,
+          },
+        } as any,
+      };
+
+      const response = await handlers.GET(mockEvent);
+
+      // Should redirect with OAuth callback in hash
+      expect(response.status).toBe(302);
+      const location = response.headers.get("location");
+      expect(location).toContain("/dashboard");
+      expect(location).toContain("oauth_callback");
+    });
+
+    it("should return all HTTP method handlers", async () => {
+      const { toSolidStartHandler } = await import("../../src/server");
+      
+      const handlers = toSolidStartHandler({
+        providers: {
+          github: {
+            clientId: "test-client-id",
+            clientSecret: "test-client-secret",
+          },
+        },
+      });
+
+      expect(handlers.GET).toBeDefined();
+      expect(handlers.POST).toBeDefined();
+      expect(handlers.PATCH).toBeDefined();
+      expect(handlers.PUT).toBeDefined();
+      expect(handlers.DELETE).toBeDefined();
+    });
+  });
+});
+

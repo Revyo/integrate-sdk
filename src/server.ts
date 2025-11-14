@@ -251,7 +251,7 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
       try {
         const body = await request.json();
         const authHeader = request.headers.get('authorization');
-        
+
         // Create OAuth handler with config that includes API key
         const { OAuthHandler } = await import('./adapters/base-handler.js');
         const oauthHandler = new OAuthHandler({
@@ -259,7 +259,7 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
           serverUrl: config.serverUrl,
           apiKey: config.apiKey,
         });
-        
+
         const result = await oauthHandler.handleToolCall(body, authHeader);
         return Response.json(result);
       } catch (error: any) {
@@ -706,13 +706,16 @@ export function toAstroHandler(
 /**
  * Create SolidStart handler with configurable redirect URLs
  * 
- * Wraps the unified handler with redirect URL configuration
+ * Supports two usage patterns:
+ * 1. Pass a handler function from createMCPServer
+ * 2. Pass config object directly (for inline configuration)
  * 
- * @param baseHandler - Handler function from createMCPServer
- * @param options - Redirect URL configuration
+ * @param handlerOrOptions - Handler function from createMCPServer, or config options
+ * @param redirectOptions - Redirect URL configuration (when first param is a handler)
  * @returns Object with GET, POST, PATCH, PUT, DELETE handlers
  * 
  * @example
+ * **Pattern 1: Using handler from createMCPServer (Recommended)**
  * ```typescript
  * // lib/integrate-server.ts
  * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
@@ -737,20 +740,118 @@ export function toAstroHandler(
  * 
  * export const { GET, POST, PATCH, PUT, DELETE } = handlers;
  * ```
+ * 
+ * @example
+ * **Pattern 2: Inline configuration**
+ * ```typescript
+ * // src/routes/api/integrate/[...all].ts
+ * import { toSolidStartHandler } from 'integrate-sdk/server';
+ * 
+ * const handlers = toSolidStartHandler({
+ *   providers: {
+ *     github: {
+ *       clientId: process.env.GITHUB_CLIENT_ID!,
+ *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+ *     },
+ *   },
+ *   redirectUrl: '/dashboard',
+ *   errorRedirectUrl: '/auth-error',
+ * });
+ * 
+ * export const { GET, POST, PATCH, PUT, DELETE } = handlers;
+ * ```
  */
 export function toSolidStartHandler(
-  baseHandler: (request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>,
-  options?: {
+  handlerOrOptions:
+    | ((request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>)
+    | {
+      /** OAuth provider configurations */
+      providers?: Record<string, {
+        clientId: string;
+        clientSecret: string;
+        redirectUri?: string;
+      }>;
+      /** Server URL for MCP server */
+      serverUrl?: string;
+      /** API key for authentication */
+      apiKey?: string;
+      /** URL to redirect to after successful OAuth callback (default: '/') */
+      redirectUrl?: string;
+      /** URL to redirect to on OAuth error (default: '/auth-error') */
+      errorRedirectUrl?: string;
+    },
+  redirectOptions?: {
     /** URL to redirect to after successful OAuth callback (default: '/') */
     redirectUrl?: string;
     /** URL to redirect to on OAuth error (default: '/auth-error') */
     errorRedirectUrl?: string;
   }
 ) {
-  const wrappedHandler = toAstroHandler(baseHandler, options);
+  // Pattern 1: Handler function provided (wrap it)
+  if (typeof handlerOrOptions === 'function') {
+    const wrappedHandler = toAstroHandler(handlerOrOptions, redirectOptions);
 
+    const handler = async (event: { request: Request }): Promise<Response> => {
+      return wrappedHandler({ request: event.request, params: {} });
+    };
+
+    return {
+      GET: handler,
+      POST: handler,
+      PATCH: handler,
+      PUT: handler,
+      DELETE: handler,
+    };
+  }
+
+  // Pattern 2: Config object provided (create handler from scratch)
+  const options = handlerOrOptions;
+
+  if (!options.providers || Object.keys(options.providers).length === 0) {
+    throw new Error('toSolidStartHandler requires either a handler function or a providers config object');
+  }
+
+  // Create a minimal handler using the config
+  const { providers, serverUrl, apiKey, redirectUrl, errorRedirectUrl } = options;
+
+  // Create Next.js style handler with the config
+  const nextHandler = createNextOAuthHandler({
+    providers,
+    serverUrl,
+    apiKey,
+  });
+
+  // Get the catch-all handler routes
+  const routes = nextHandler.toNextJsHandler({
+    redirectUrl: redirectUrl || '/',
+    errorRedirectUrl: errorRedirectUrl || '/auth-error',
+  });
+
+  // Return a SolidStart-compatible handler that wraps the Next.js routes
   const handler = async (event: { request: Request }): Promise<Response> => {
-    return wrappedHandler({ request: event.request, params: {} });
+    const method = event.request.method.toUpperCase();
+    const url = new URL(event.request.url);
+    const pathParts = url.pathname.split('/').filter(Boolean);
+
+    // Extract the path segments after 'api/integrate'
+    const integrateIndex = pathParts.indexOf('integrate');
+    const segments = integrateIndex >= 0 ? pathParts.slice(integrateIndex + 1) : [];
+
+    // Convert SolidStart event to Next.js-style context
+    const context = {
+      params: segments,
+    };
+
+    if (method === 'POST') {
+      return routes.POST(event.request, { params: { all: context.params } });
+    } else if (method === 'GET') {
+      return routes.GET(event.request, { params: { all: context.params } });
+    } else {
+      return Response.json(
+        { error: `Method ${method} not allowed` },
+        { status: 405 }
+      );
+    }
   };
 
   return {
@@ -765,13 +866,16 @@ export function toSolidStartHandler(
 /**
  * Create SvelteKit handler with configurable redirect URLs
  * 
- * Wraps the unified handler with redirect URL configuration
+ * Supports two usage patterns:
+ * 1. Pass a handler function from createMCPServer
+ * 2. Pass config object directly (for inline configuration)
  * 
- * @param baseHandler - Handler function from createMCPServer
- * @param options - Redirect URL configuration
+ * @param handlerOrOptions - Handler function from createMCPServer, or config options
+ * @param redirectOptions - Redirect URL configuration (when first param is a handler)
  * @returns Handler function for SvelteKit routes
  * 
  * @example
+ * **Pattern 1: Using handler from createMCPServer (Recommended)**
  * ```typescript
  * // lib/integrate-server.ts
  * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
@@ -797,22 +901,108 @@ export function toSolidStartHandler(
  * export const POST = svelteKitRoute;
  * export const GET = svelteKitRoute;
  * ```
+ * 
+ * @example
+ * **Pattern 2: Inline configuration**
+ * ```typescript
+ * // routes/api/integrate/oauth/[...all]/+server.ts
+ * import { toSvelteKitHandler } from 'integrate-sdk/server';
+ * 
+ * const handler = toSvelteKitHandler({
+ *   providers: {
+ *     github: {
+ *       clientId: process.env.GITHUB_CLIENT_ID!,
+ *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+ *     },
+ *   },
+ *   redirectUrl: '/dashboard',
+ *   errorRedirectUrl: '/auth-error',
+ * });
+ * 
+ * export const POST = handler;
+ * export const GET = handler;
+ * ```
  */
 export function toSvelteKitHandler(
-  baseHandler: (request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>,
-  options?: {
+  handlerOrOptions:
+    | ((request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>)
+    | {
+      /** OAuth provider configurations */
+      providers?: Record<string, {
+        clientId: string;
+        clientSecret: string;
+        redirectUri?: string;
+      }>;
+      /** Server URL for MCP server */
+      serverUrl?: string;
+      /** API key for authentication */
+      apiKey?: string;
+      /** URL to redirect to after successful OAuth callback (default: '/') */
+      redirectUrl?: string;
+      /** URL to redirect to on OAuth error (default: '/auth-error') */
+      errorRedirectUrl?: string;
+    },
+  redirectOptions?: {
     /** URL to redirect to after successful OAuth callback (default: '/') */
     redirectUrl?: string;
     /** URL to redirect to on OAuth error (default: '/auth-error') */
     errorRedirectUrl?: string;
   }
 ) {
-  const wrappedHandler = toAstroHandler(baseHandler, options);
+  // Pattern 1: Handler function provided (wrap it)
+  if (typeof handlerOrOptions === 'function') {
+    const wrappedHandler = toAstroHandler(handlerOrOptions, redirectOptions);
 
+    return async (event: any): Promise<Response> => {
+      // Extract all param from SvelteKit event
+      const all = event.params?.all;
+      return wrappedHandler({ request: event.request, params: { all } });
+    };
+  }
+
+  // Pattern 2: Config object provided (create handler from scratch)
+  const options = handlerOrOptions;
+
+  if (!options.providers || Object.keys(options.providers).length === 0) {
+    throw new Error('toSvelteKitHandler requires either a handler function or a providers config object');
+  }
+
+  // Create a minimal handler using the config
+  const { providers, serverUrl, apiKey, redirectUrl, errorRedirectUrl } = options;
+
+  // Create Next.js style handler with the config
+  const nextHandler = createNextOAuthHandler({
+    providers,
+    serverUrl,
+    apiKey,
+  });
+
+  // Get the catch-all handler routes
+  const routes = nextHandler.toNextJsHandler({
+    redirectUrl: redirectUrl || '/',
+    errorRedirectUrl: errorRedirectUrl || '/auth-error',
+  });
+
+  // Return a SvelteKit-compatible handler that wraps the Next.js routes
   return async (event: any): Promise<Response> => {
-    // Extract all param from SvelteKit event
+    const method = event.request.method.toUpperCase();
     const all = event.params?.all;
-    return wrappedHandler({ request: event.request, params: { all } });
+
+    // Convert SvelteKit event to Next.js-style context
+    const context = {
+      params: Array.isArray(all) ? all : (all ? all.split('/').filter(Boolean) : []),
+    };
+
+    if (method === 'POST') {
+      return routes.POST(event.request, { params: { all: context.params } });
+    } else if (method === 'GET') {
+      return routes.GET(event.request, { params: { all: context.params } });
+    } else {
+      return Response.json(
+        { error: `Method ${method} not allowed` },
+        { status: 405 }
+      );
+    }
   };
 }
 
