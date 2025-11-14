@@ -1,0 +1,89 @@
+---
+title: Remix Integration
+description: Integrate OAuth with Remix
+---
+
+## Installation
+
+Install the Integrate SDK in your Remix project:
+
+```bash
+bun add integrate-sdk
+```
+
+## Setup
+
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient, handler } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: ['gmail.send', 'gmail.readonly'],
+    }),
+  ],
+});
+```
+
+### 2. Mount the Handler
+
+Create a catch-all route at `app/routes/api.auth.$.ts`:
+
+```typescript
+import { handler } from '@/lib/integrate-server';
+
+export const action = async ({ request }: { request: Request }) => {
+  return handler(request);
+};
+
+export const loader = async ({ request }: { request: Request }) => {
+  return handler(request);
+};
+```
+
+## Configuration
+
+Add your OAuth credentials to your `.env` file:
+
+```bash
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+```
+
+## Usage Examples
+
+### Client-Side Authorization
+
+```typescript
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ['repo', 'user'],
+    }),
+  ],
+});
+
+// Start OAuth flow
+await client.authorize('github');
+```
+
+## Framework-Specific Notes
+
+- **Loaders vs Actions**: Use `action` for POST requests (authorize, callback, disconnect) and `loader` for GET requests (status).
+- **Environment Variables**: Remix loads `.env` files automatically. Access them via `process.env`.
+- **TypeScript**: Remix has first-class TypeScript support.
+

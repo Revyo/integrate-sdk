@@ -1,0 +1,127 @@
+---
+title: Expo Integration
+description: Integrate OAuth with Expo (React Native)
+---
+
+## Installation
+
+Install the Integrate SDK in your Expo project:
+
+```bash
+bun add integrate-sdk
+```
+
+## Setup
+
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient, handler } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: ['gmail.send', 'gmail.readonly'],
+    }),
+  ],
+});
+```
+
+### 2. Mount the Handler
+
+If using Expo's API Routes feature, create a catch-all route at `app/api/auth/[...auth]+api.ts`:
+
+```typescript
+import { handler } from '@/lib/integrate-server';
+
+export const GET = handler;
+export const POST = handler;
+```
+
+## Configuration
+
+Add your OAuth credentials to your `.env` file:
+
+```bash
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+```
+
+## Deep Linking Setup
+
+Configure deep linking in your `app.json`:
+
+```json
+{
+  "expo": {
+    "scheme": "myapp",
+    "name": "My App"
+  }
+}
+```
+
+## Usage Examples
+
+### Client-Side Authorization
+
+```typescript
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ['repo', 'user'],
+    }),
+  ],
+});
+
+// Start OAuth flow
+await client.authorize('github');
+```
+
+### Handling Deep Links
+
+Set up deep link handling in your app:
+
+```typescript
+import * as Linking from 'expo-linking';
+import { useEffect } from 'react';
+
+export function OAuthCallback() {
+  useEffect(() => {
+    const handleUrl = ({ url }: { url: string }) => {
+      const { path, queryParams } = Linking.parse(url);
+      
+      if (path === 'oauth/callback') {
+        // Handle OAuth callback
+        console.log('OAuth callback:', queryParams);
+      }
+    };
+
+    Linking.addEventListener('url', handleUrl);
+
+    return () => {
+      Linking.removeEventListener('url', handleUrl);
+    };
+  }, []);
+
+  return null;
+}
+```
+
+## Framework-Specific Notes
+
+- **Deep Linking**: Expo uses deep links for OAuth redirects instead of web URLs.
+- **API Routes**: Expo API Routes are experimental; consider using a separate backend.
+- **Secure Storage**: Use `expo-secure-store` to securely store access tokens.
+
