@@ -1093,5 +1093,71 @@ describe("Server-Side toNextJsHandler", () => {
     expect(data.content).toHaveLength(1);
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
+
+  it("should handle POST /mcp route via unified handler (for Astro/Remix)", async () => {
+    let apiKeyUsed: string | undefined;
+    
+    const mockFetch = mock(async (url: string, options?: any) => {
+      if (url.includes("/tools/call")) {
+        // Capture the API key to verify it's being passed
+        apiKeyUsed = options?.headers?.["X-API-KEY"];
+        return {
+          ok: true,
+          json: async () => ({
+            jsonrpc: "2.0",
+            id: 1,
+            result: {
+              content: [{ type: "text", text: "unified handler result" }],
+            },
+          }),
+        } as Response;
+      }
+      return { ok: false } as Response;
+    }) as any;
+
+    global.fetch = mockFetch;
+
+    // Create a fresh server with API key for this test
+    (global as any).window = undefined; // Ensure server-side mode
+    
+    const { handler: unifiedHandler } = createMCPServer({
+      apiKey: "test-api-key-unified",
+      plugins: [{
+        id: "github",
+        tools: [],
+        oauth: {
+          clientId: "test-id",
+          clientSecret: "test-secret",
+          provider: "github",
+        },
+      }] as any,
+    });
+
+    // Create a request that mimics Astro/Remix routing
+    const mockRequest = {
+      url: "http://localhost:3000/api/integrate/mcp",
+      method: "POST",
+      headers: {
+        get: (key: string) => {
+          if (key === "authorization") return "Bearer github-token-123";
+          return null;
+        },
+      },
+      json: async () => ({
+        name: "github_list_own_repos",
+        arguments: {},
+      }),
+    } as any;
+
+    // Call the unified handler directly with params
+    const response = await unifiedHandler(mockRequest, { params: { all: ["mcp"] } });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.content).toHaveLength(1);
+    expect(data.content[0].text).toBe("unified handler result");
+    expect(apiKeyUsed).toBe("test-api-key-unified");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
 });
 

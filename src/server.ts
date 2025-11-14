@@ -251,9 +251,29 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
           { status: 404 }
         );
       }
-      // Allow /mcp route
-      if (segments.length === 1 && segments[0] === 'mcp') {
-        // This will be handled by the POST handler
+      // Handle /mcp route directly
+      if (segments.length === 1 && segments[0] === 'mcp' && method === 'POST') {
+        try {
+          const body = await request.json();
+          const authHeader = request.headers.get('authorization');
+          
+          // Create OAuth handler with config that includes API key
+          const { OAuthHandler } = await import('./adapters/base-handler.js');
+          const oauthHandler = new OAuthHandler({
+            providers,
+            serverUrl: config.serverUrl,
+            apiKey: config.apiKey,
+          });
+          
+          const result = await oauthHandler.handleToolCall(body, authHeader);
+          return Response.json(result);
+        } catch (error: any) {
+          console.error('[MCP Tool Call] Error:', error);
+          return Response.json(
+            { error: error.message || 'Failed to execute tool call' },
+            { status: error.statusCode || 500 }
+          );
+        }
       }
     }
 
