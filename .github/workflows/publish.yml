@@ -97,7 +97,7 @@ jobs:
           body: |
             ## Changes in v${{ needs.check-version.outputs.version }}
 
-            See [CHANGELOG.md](https://github.com/Revyo/integrate-sdk/blob/main/CHANGELOG.md) for details.
+            See [CHANGELOG.md](https://github.com/integratedotdev/typescript-sdk/blob/main/CHANGELOG.md) for details.
 
             ### Installation
             ```bash
