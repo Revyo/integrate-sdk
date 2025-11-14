@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
@@ -30,6 +30,26 @@
     "./react": {
       "types": "./dist/react.d.ts",
       "import": "./dist/react.js"
+    },
+    "./adapters/nextjs": {
+      "types": "./dist/adapters/nextjs.d.ts",
+      "import": "./dist/adapters/nextjs.js"
+    },
+    "./adapters/node": {
+      "types": "./dist/adapters/node.d.ts",
+      "import": "./dist/adapters/node.js"
+    },
+    "./adapters/solid-start": {
+      "types": "./dist/adapters/solid-start.d.ts",
+      "import": "./dist/adapters/solid-start.js"
+    },
+    "./adapters/svelte-kit": {
+      "types": "./dist/adapters/svelte-kit.d.ts",
+      "import": "./dist/adapters/svelte-kit.js"
+    },
+    "./adapters/tanstack-start": {
+      "types": "./dist/adapters/tanstack-start.d.ts",
+      "import": "./dist/adapters/tanstack-start.js"
     }
   },
   "files": [
@@ -41,7 +61,8 @@
   ],
   "scripts": {
     "prep": "bun run type-check && bun run build",
-    "build": "bun build index.ts server.ts oauth.ts react.ts --outdir dist --target node --format esm --external react && bun run build:types",
+    "build": "bun build index.ts server.ts oauth.ts react.ts --outdir dist --target node --format esm --external react && bun run build:adapters && bun run build:types",
+    "build:adapters": "bun build src/adapters/*.ts --outdir dist/adapters --target node --format esm",
     "build:types": "tsc --emitDeclarationOnly --declaration --declarationMap",
     "dev": "bun --watch src/index.ts",
     "type-check": "tsc --noEmit",

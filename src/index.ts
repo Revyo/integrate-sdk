@@ -41,10 +41,16 @@ export type {
   DisconnectRequest,
   DisconnectResponse,
 } from "./adapters/base-handler.js";
+
+// Framework adapters
 export { createNextOAuthHandler } from "./adapters/nextjs.js";
 export { createOAuthRedirectHandler } from "./adapters/nextjs-oauth-redirect.js";
 export type { OAuthRedirectConfig } from "./adapters/nextjs-oauth-redirect.js";
-export { createTanStackOAuthHandler } from "./adapters/tanstack-start.js";
+
+export { toNodeHandler, fromNodeHeaders } from "./adapters/node.js";
+export { toSolidStartHandler } from "./adapters/solid-start.js";
+export { toSvelteKitHandler, svelteKitHandler } from "./adapters/svelte-kit.js";
+export { toTanStackStartHandler, createTanStackOAuthHandler } from "./adapters/tanstack-start.js";
 
 // Configuration
 export type { MCPClientConfig, ReauthContext, ReauthHandler } from "./config/types.js";
