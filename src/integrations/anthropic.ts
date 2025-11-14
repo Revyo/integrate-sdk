@@ -26,7 +26,7 @@ export interface AnthropicTool {
 /**
  * Options for converting MCP tools to Anthropic format
  */
-export interface AnthropicToolsOptions extends AIToolsOptions {}
+export interface AnthropicToolsOptions extends AIToolsOptions { }
 
 /**
  * Anthropic tool use block from message content
@@ -62,8 +62,8 @@ export interface AnthropicToolResultBlock {
  */
 export function convertMCPToolToAnthropic(
   mcpTool: MCPTool,
-  client: MCPClient<any>,
-  options?: AnthropicToolsOptions
+  _client: MCPClient<any>,
+  _options?: AnthropicToolsOptions
 ): AnthropicTool {
   return {
     name: mcpTool.name,
@@ -169,20 +169,20 @@ export async function executeAnthropicToolCall(
  */
 export async function handleAnthropicToolCalls(
   client: MCPClient<any>,
-  messageContent: Array<{ type: string; [key: string]: any }>,
+  messageContent: Array<{ type: string;[key: string]: any }>,
   options?: AnthropicToolsOptions
 ): Promise<AnthropicToolResultBlock[]> {
   const toolResults: AnthropicToolResultBlock[] = [];
-  
+
   // Filter for tool_use blocks
   const toolUseBlocks = messageContent.filter(
-    (block): block is AnthropicToolUseBlock => 
-      block.type === 'tool_use' && 
-      'id' in block && 
-      'name' in block && 
+    (block): block is AnthropicToolUseBlock =>
+      block.type === 'tool_use' &&
+      'id' in block &&
+      'name' in block &&
       'input' in block
   );
-  
+
   // Execute each tool call
   for (const toolUse of toolUseBlocks) {
     try {
@@ -203,7 +203,7 @@ export async function handleAnthropicToolCalls(
       });
     }
   }
-  
+
   return toolResults;
 }
 

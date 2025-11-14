@@ -31,7 +31,7 @@ export interface CloudflareTool {
 /**
  * Options for converting MCP tools to Cloudflare format
  */
-export interface CloudflareToolsOptions extends AIToolsOptions {}
+export interface CloudflareToolsOptions extends AIToolsOptions { }
 
 /**
  * Convert a single MCP tool to Cloudflare Workers AI format
@@ -48,8 +48,8 @@ export interface CloudflareToolsOptions extends AIToolsOptions {}
  */
 export function convertMCPToolToCloudflare(
   mcpTool: MCPTool,
-  client: MCPClient<any>,
-  options?: CloudflareToolsOptions
+  _client: MCPClient<any>,
+  _options?: CloudflareToolsOptions
 ): CloudflareTool {
   return {
     type: 'function',
@@ -90,11 +90,11 @@ export function convertMCPToolsToCloudflare(
 ): Record<string, CloudflareTool> {
   const mcpTools = client.getEnabledTools();
   const tools: Record<string, CloudflareTool> = {};
-  
+
   for (const mcpTool of mcpTools) {
     tools[mcpTool.name] = convertMCPToolToCloudflare(mcpTool, client, options);
   }
-  
+
   return tools;
 }
 
@@ -122,10 +122,10 @@ export async function executeCloudflareToolCall(
   },
   options?: CloudflareToolsOptions
 ): Promise<string> {
-  const args = typeof toolCall.arguments === 'string' 
-    ? JSON.parse(toolCall.arguments) 
+  const args = typeof toolCall.arguments === 'string'
+    ? JSON.parse(toolCall.arguments)
     : toolCall.arguments;
-  
+
   const result = await executeToolWithToken(client, toolCall.name, args, options);
   return JSON.stringify(result);
 }

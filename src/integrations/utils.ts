@@ -6,7 +6,6 @@
 
 import { z } from "zod";
 import type { MCPClient } from "../client.js";
-import type { MCPTool } from "../protocol/messages.js";
 
 /**
  * Options for AI provider tool conversions
@@ -208,11 +207,11 @@ export async function executeToolWithToken(
       const transport = (client as any).transport;
       if (transport && typeof transport.setHeader === 'function') {
         const previousAuthHeader = transport.headers?.['Authorization'];
-        
+
         try {
           // Set the authorization header for this tool call
           transport.setHeader('Authorization', `Bearer ${options.providerTokens[provider]}`);
-          
+
           // Execute the tool with the injected token
           const result = await client._callToolByName(toolName, args);
           return result;
@@ -227,7 +226,7 @@ export async function executeToolWithToken(
       }
     }
   }
-  
+
   // No token injection needed or not available - execute normally
   const result = await client._callToolByName(toolName, args);
   return result;

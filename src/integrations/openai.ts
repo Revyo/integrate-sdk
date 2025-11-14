@@ -51,11 +51,11 @@ export interface OpenAIToolsOptions extends AIToolsOptions {
  */
 export function convertMCPToolToOpenAI(
   mcpTool: MCPTool,
-  client: MCPClient<any>,
+  _client: MCPClient<any>,
   options?: OpenAIToolsOptions
 ): OpenAITool {
   const inputParams = mcpTool.inputSchema;
-  
+
   return {
     type: 'function',
     name: mcpTool.name,

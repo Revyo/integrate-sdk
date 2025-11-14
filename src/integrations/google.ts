@@ -35,7 +35,7 @@ export interface GoogleFunctionCall {
 /**
  * Options for converting MCP tools to Google GenAI format
  */
-export interface GoogleToolsOptions extends AIToolsOptions {}
+export interface GoogleToolsOptions extends AIToolsOptions { }
 
 /**
  * Convert a single MCP tool to Google GenAI format
@@ -52,8 +52,8 @@ export interface GoogleToolsOptions extends AIToolsOptions {}
  */
 export function convertMCPToolToGoogle(
   mcpTool: MCPTool,
-  client: MCPClient<any>,
-  options?: GoogleToolsOptions
+  _client: MCPClient<any>,
+  _options?: GoogleToolsOptions
 ): GoogleTool {
   return {
     name: mcpTool.name,
