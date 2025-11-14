@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
@@ -31,6 +31,41 @@
       "types": "./dist/react.d.ts",
       "import": "./dist/react.js"
     },
+    "./integrations": {
+      "types": "./dist/integrations.d.ts",
+      "import": "./dist/integrations.js"
+    },
+    "./integrations/openai": {
+      "types": "./dist/integrations/openai.d.ts",
+      "import": "./dist/integrations/openai.js"
+    },
+    "./integrations/openai-agents": {
+      "types": "./dist/integrations/openai-agents.d.ts",
+      "import": "./dist/integrations/openai-agents.js"
+    },
+    "./integrations/anthropic": {
+      "types": "./dist/integrations/anthropic.d.ts",
+      "import": "./dist/integrations/anthropic.js"
+    },
+    "./integrations/google": {
+      "types": "./dist/integrations/google.d.ts",
+      "import": "./dist/integrations/google.js"
+    },
+    "./integrations/cloudflare": {
+      "types": "./dist/integrations/cloudflare.d.ts",
+      "import": "./dist/integrations/cloudflare.js"
+    },
+    "./integrations/langchain": {
+      "types": "./dist/integrations/langchain.d.ts",
+      "import": "./dist/integrations/langchain.js"
+    },
+    "./integrations/llamaindex": {
+      "types": "./dist/integrations/llamaindex.d.ts",
+      "import": "./dist/integrations/llamaindex.js"
+    },
+    "./integrations/mastra": {
+      "types": "./dist/integrations/mastra.d.ts",
+      "import": "./dist/integrations/mastra.js"
     "./adapters/nextjs": {
       "types": "./dist/adapters/nextjs.d.ts",
       "import": "./dist/adapters/nextjs.js"
@@ -57,10 +92,12 @@
     "index.ts",
     "server.ts",
     "oauth.ts",
-    "react.ts"
+    "react.ts",
+    "integrations.ts"
   ],
   "scripts": {
     "prep": "bun run type-check && bun run build",
+    "build": "bun build index.ts server.ts oauth.ts react.ts integrations.ts --outdir dist --target node --format esm --external react && bun run build:types",
     "build": "bun build index.ts server.ts oauth.ts react.ts --outdir dist --target node --format esm --external react && bun run build:adapters && bun run build:types",
     "build:adapters": "bun build src/adapters/*.ts --outdir dist/adapters --target node --format esm",
     "build:types": "tsc --emitDeclarationOnly --declaration --declarationMap",
@@ -94,10 +131,46 @@
   },
   "peerDependencies": {
     "typescript": ">=5.0.0",
-    "react": ">=19.0.0"
+    "react": ">=19.0.0",
+    "ai": ">=4.0.0",
+    "openai": ">=4.0.0",
+    "@openai/agents": ">=0.1.0",
+    "@anthropic-ai/sdk": ">=0.20.0",
+    "@google/generative-ai": ">=0.1.0",
+    "@cloudflare/workers-types": ">=4.0.0",
+    "@langchain/core": ">=0.1.0",
+    "llamaindex": ">=0.1.0",
+    "@mastra/core": ">=0.1.0"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    },
+    "@openai/agents": {
+      "optional": true
+    },
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@google/generative-ai": {
+      "optional": true
+    },
+    "@cloudflare/workers-types": {
+      "optional": true
+    },
+    "@langchain/core": {
+      "optional": true
+    },
+    "llamaindex": {
+      "optional": true
+    },
+    "@mastra/core": {
       "optional": true
     }
   },
