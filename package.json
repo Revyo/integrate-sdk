@@ -66,6 +66,7 @@
     "./integrations/mastra": {
       "types": "./dist/integrations/mastra.d.ts",
       "import": "./dist/integrations/mastra.js"
+    },
     "./adapters/nextjs": {
       "types": "./dist/adapters/nextjs.d.ts",
       "import": "./dist/adapters/nextjs.js"
