@@ -213,6 +213,25 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
   oauthApiBase?: string;
 
   /**
+   * Base URL for API routes (including MCP tool calls)
+   * Used to route tool calls through server-side handlers instead of directly to MCP server
+   * 
+   * The SDK will call:
+   * - POST {apiRouteBase}/mcp - Execute MCP tool calls
+   * 
+   * @default '/api/integrate'
+   * 
+   * @example
+   * ```typescript
+   * const client = createMCPClient({
+   *   plugins: [githubPlugin({ ... })],
+   *   apiRouteBase: '/api/integrate'
+   * });
+   * ```
+   */
+  apiRouteBase?: string;
+
+  /**
    * Automatically detect and handle OAuth callbacks from URL hash fragments
    * When true, the SDK will automatically process #oauth_callback={...} in the URL
    * 

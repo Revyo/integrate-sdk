@@ -10,7 +10,6 @@ import type {
   MCPToolCallResponse,
   MCPInitializeParams,
   MCPInitializeResponse,
-  MCPToolCallParams,
 } from "./protocol/messages.js";
 import { MCPMethod } from "./protocol/messages.js";
 import type { MCPPlugin, OAuthConfig } from "./plugins/types.js";
@@ -146,6 +145,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   private connecting: Promise<void> | null = null;
   private oauthManager: OAuthManager;
   private eventEmitter: SimpleEventEmitter = new SimpleEventEmitter();
+  private apiRouteBase: string;
 
   // Plugin namespaces - dynamically typed based on configured plugins
   public readonly github!: PluginNamespaces<TPlugins> extends { github: GitHubPluginClient }
@@ -171,6 +171,9 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     // Determine OAuth API base and default redirect URI
     const oauthApiBase = config.oauthApiBase || '/api/integrate/oauth';
     const defaultRedirectUri = this.getDefaultRedirectUri(oauthApiBase);
+
+    // Determine API route base for tool calls
+    this.apiRouteBase = config.apiRouteBase || '/api/integrate';
 
     // Clone plugins and inject default redirectUri if not set
     this.plugins = config.plugins.map(plugin => {
@@ -335,17 +338,9 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       );
     }
 
-    const params: MCPToolCallParams = {
-      name,
-      arguments: args,
-    };
-
     try {
-      const response = await this.transport.sendRequest<MCPToolCallResponse>(
-        MCPMethod.TOOLS_CALL,
-        params
-      );
-
+      // Route through API handler (server tools don't have providers)
+      const response = await this.callToolThroughHandler(name, args);
       return response;
     } catch (error) {
       // For server tools, we don't have provider info, so just parse the error
@@ -477,23 +472,83 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       );
     }
 
-    const params: MCPToolCallParams = {
-      name,
-      arguments: args,
-    };
-
     try {
-      const response = await this.transport.sendRequest<MCPToolCallResponse>(
-        MCPMethod.TOOLS_CALL,
-        params
-      );
-
+      // Route through API handler (server tools don't have providers)
+      const response = await this.callToolThroughHandler(name, args);
       return response;
     } catch (error) {
       // For server tools, we don't have provider info, so just parse the error
       const parsedError = parseServerError(error, { toolName: name });
       throw parsedError;
     }
+  }
+
+  /**
+   * Call a tool through the API handler (server-side route)
+   * Routes tool calls through /api/integrate/mcp instead of directly to MCP server
+   */
+  private async callToolThroughHandler(
+    name: string,
+    args?: Record<string, unknown>,
+    provider?: string
+  ): Promise<MCPToolCallResponse> {
+    // Build the API endpoint URL
+    const url = `${this.apiRouteBase}/mcp`;
+
+    // Prepare headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add provider token if available
+    if (provider) {
+      const tokenData = this.oauthManager.getProviderToken(provider);
+      if (tokenData) {
+        headers['Authorization'] = `Bearer ${tokenData.accessToken}`;
+      }
+    }
+
+    // Make request to API handler
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        name,
+        arguments: args,
+      }),
+    });
+
+    if (!response.ok) {
+      // Try to parse error response
+      let errorMessage = `Request failed: ${response.statusText}`;
+      const error = new Error(errorMessage) as Error & { statusCode?: number; code?: number; data?: unknown; jsonrpcError?: unknown };
+      error.statusCode = response.status;
+
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage = typeof errorData.error === 'string' ? errorData.error : errorData.error.message || errorMessage;
+          error.message = errorMessage;
+        }
+        if (errorData.code) {
+          error.code = errorData.code;
+        }
+        if (errorData.data) {
+          error.data = errorData.data;
+        }
+        // Preserve JSON-RPC error structure if present
+        if (errorData.error && typeof errorData.error === 'object') {
+          error.jsonrpcError = errorData.error;
+        }
+      } catch {
+        // If JSON parsing fails, use status text (already set)
+      }
+
+      throw error;
+    }
+
+    const result = await response.json();
+    return result as MCPToolCallResponse;
   }
 
   /**
@@ -522,26 +577,12 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       );
     }
 
-    // Get provider for this tool and set Authorization header if it has OAuth
+    // Get provider for this tool
     const provider = this.getProviderForTool(name);
-    if (provider) {
-      const tokenData = this.oauthManager.getProviderToken(provider);
-      if (tokenData) {
-        // Set Authorization header with provider's access token
-        this.transport.setHeader('Authorization', `Bearer ${tokenData.accessToken}`);
-      }
-    }
-
-    const params: MCPToolCallParams = {
-      name,
-      arguments: args,
-    };
 
     try {
-      const response = await this.transport.sendRequest<MCPToolCallResponse>(
-        MCPMethod.TOOLS_CALL,
-        params
-      );
+      // Route through API handler instead of direct MCP server call
+      const response = await this.callToolThroughHandler(name, args, provider);
 
       // Mark provider as authenticated on success
       if (provider) {
@@ -551,7 +592,6 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       return response;
     } catch (error) {
       // Parse the error to determine if it's an auth error
-      const provider = this.getProviderForTool(name);
       const parsedError = parseServerError(error, { toolName: name, provider });
 
       // Handle authentication errors with retry logic

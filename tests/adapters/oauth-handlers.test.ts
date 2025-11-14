@@ -656,6 +656,163 @@ describe("Next.js Catch-All Route Handler", () => {
       expect(data.error).toContain("Invalid route");
     });
 
+    it("should handle POST /mcp (MCP tool call)", async () => {
+      const mockFetch = mock(async (url: string, options?: any) => {
+        // handleToolCall sends JSON-RPC request to MCP server
+        if (url.includes("/tools/call")) {
+          return {
+            ok: true,
+            json: async () => ({
+              jsonrpc: "2.0",
+              id: 1,
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: '{"repos": [{"name": "repo1"}]}',
+                  },
+                ],
+                isError: false,
+              },
+            }),
+          } as Response;
+        }
+        return { ok: false } as Response;
+      }) as any;
+
+      global.fetch = mockFetch;
+
+      const routes = handler.toNextJsHandler();
+      const mockRequest = {
+        json: async () => ({
+          name: "github_list_own_repos",
+          arguments: {},
+        }),
+        headers: {
+          get: (key: string) => {
+            if (key === "authorization") return "Bearer github-token-123";
+            return null;
+          },
+        },
+      } as any;
+
+      const context = { params: { all: ["mcp"] } };
+      const response = await routes.POST(mockRequest, context);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.content).toHaveLength(1);
+      expect(data.content[0].type).toBe("text");
+      expect(data.content[0].text).toContain("repo1");
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should handle POST /mcp without Authorization header", async () => {
+      const mockFetch = mock(async (url: string) => {
+        if (url.includes("/tools/call")) {
+          return {
+            ok: true,
+            json: async () => ({
+              jsonrpc: "2.0",
+              id: 1,
+              result: {
+                content: [{ type: "text", text: "result" }],
+              },
+            }),
+          } as Response;
+        }
+        return { ok: false } as Response;
+      }) as any;
+
+      global.fetch = mockFetch;
+
+      const routes = handler.toNextJsHandler();
+      const mockRequest = {
+        json: async () => ({
+          name: "server_tool",
+          arguments: {},
+        }),
+        headers: {
+          get: () => null,
+        },
+      } as any;
+
+      const context = { params: { all: ["mcp"] } };
+      const response = await routes.POST(mockRequest, context);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.content).toHaveLength(1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should handle POST /mcp with error response", async () => {
+      const mockFetch = mock(async () => ({
+        ok: false,
+        status: 500,
+        text: async () => "Tool execution failed",
+      })) as any;
+
+      global.fetch = mockFetch;
+
+      const routes = handler.toNextJsHandler();
+      const mockRequest = {
+        json: async () => ({
+          name: "github_list_own_repos",
+          arguments: {},
+        }),
+        headers: {
+          get: () => "Bearer token",
+        },
+      } as any;
+
+      const context = { params: { all: ["mcp"] } };
+      const response = await routes.POST(mockRequest, context);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.error).toContain("Tool execution failed");
+    });
+
+    it("should handle mcp action in createRoutes()", async () => {
+      const mockFetch = mock(async (url: string) => {
+        if (url.includes("/tools/call")) {
+          return {
+            ok: true,
+            json: async () => ({
+              jsonrpc: "2.0",
+              id: 1,
+              result: {
+                content: [{ type: "text", text: "result" }],
+              },
+            }),
+          } as Response;
+        }
+        return { ok: false } as Response;
+      }) as any;
+
+      global.fetch = mockFetch;
+
+      const routes = handler.createRoutes();
+      const mockRequest = {
+        json: async () => ({
+          name: "github_list_own_repos",
+          arguments: {},
+        }),
+        headers: {
+          get: () => "Bearer token",
+        },
+      } as any;
+
+      const context = { params: { action: "mcp" } };
+      const response = await routes.POST(mockRequest, context);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.content).toHaveLength(1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
     it("should handle async params (Next.js 15+)", async () => {
       const mockFetch = mock(async () => ({
         ok: true,
@@ -892,6 +1049,48 @@ describe("Server-Side toNextJsHandler", () => {
     const data = await response.json();
 
     expect(data.authorizationUrl).toContain("manual-client-id");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("should handle POST /mcp route from server-side handler", async () => {
+    const mockFetch = mock(async (url: string) => {
+      if (url.includes("/tools/call")) {
+        return {
+          ok: true,
+          json: async () => ({
+            jsonrpc: "2.0",
+            id: 1,
+            result: {
+              content: [{ type: "text", text: "tool result" }],
+            },
+          }),
+        } as Response;
+      }
+      return { ok: false } as Response;
+    }) as any;
+
+    global.fetch = mockFetch;
+
+    const routes = toNextJsHandler({ client: testClient });
+    const mockRequest = {
+      json: async () => ({
+        name: "github_list_own_repos",
+        arguments: {},
+      }),
+      headers: {
+        get: (key: string) => {
+          if (key === "authorization") return "Bearer github-token-123";
+          return null;
+        },
+      },
+    } as any;
+
+    const context = { params: { all: ["mcp"] } };
+    const response = await routes.POST(mockRequest, context);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.content).toHaveLength(1);
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 });

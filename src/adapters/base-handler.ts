@@ -100,6 +100,31 @@ export interface DisconnectResponse {
 }
 
 /**
+ * Request body for MCP tool call endpoint
+ */
+export interface ToolCallRequest {
+  name: string;
+  arguments?: Record<string, unknown>;
+}
+
+/**
+ * Response from MCP tool call endpoint
+ * Matches MCPToolCallResponse structure
+ */
+export interface ToolCallResponse {
+  content: Array<{
+    type: "text" | "image" | "resource";
+    text?: string;
+    data?: string;
+    mimeType?: string;
+    [key: string]: unknown;
+  }>;
+  isError?: boolean;
+  structuredContent?: Record<string, unknown>;
+  _meta?: Record<string, unknown>;
+}
+
+/**
  * OAuth Handler
  * Handles OAuth authorization flows by proxying requests to MCP server
  * with server-side OAuth credentials from environment variables
@@ -316,6 +341,66 @@ export class OAuthHandler {
 
     const data = await response.json();
     return data as DisconnectResponse;
+  }
+
+  /**
+   * Handle MCP tool call
+   * Forwards tool call requests to MCP server with API key and provider token
+   * 
+   * @param request - Tool call request with name and arguments
+   * @param authHeader - Authorization header from client (Bearer token)
+   * @returns Tool call response
+   * 
+   * @throws Error if MCP server request fails
+   */
+  async handleToolCall(request: ToolCallRequest, authHeader: string | null): Promise<ToolCallResponse> {
+    // Build URL to MCP server tools/call endpoint
+    const url = new URL('/tools/call', this.serverUrl);
+
+    // Prepare headers with API key
+    const headers: Record<string, string> = this.getHeaders({
+      'Content-Type': 'application/json',
+    });
+
+    // Add provider token from Authorization header if present
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      headers['Authorization'] = authHeader;
+    }
+
+    // Forward to MCP server using JSON-RPC format
+    const jsonRpcRequest = {
+      jsonrpc: '2.0',
+      id: Date.now() + Math.random(),
+      method: 'tools/call',
+      params: {
+        name: request.name,
+        arguments: request.arguments || {},
+      },
+    };
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(jsonRpcRequest),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`MCP server failed to execute tool call: ${error}`);
+    }
+
+    const jsonRpcResponse = await response.json();
+
+    // Handle JSON-RPC error response
+    if (jsonRpcResponse.error) {
+      const error = new Error(jsonRpcResponse.error.message || 'Tool call failed');
+      (error as any).code = jsonRpcResponse.error.code;
+      (error as any).data = jsonRpcResponse.error.data;
+      throw error;
+    }
+
+    // Return the result (which should be ToolCallResponse)
+    return jsonRpcResponse.result as ToolCallResponse;
   }
 }
 

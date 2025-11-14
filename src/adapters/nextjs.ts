@@ -363,6 +363,10 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
             return handlers.disconnect(req);
           }
 
+          if (action === 'mcp') {
+            return handlers.mcp(req);
+          }
+
           return Response.json(
             { error: `Unknown action: ${action}` },
             { status: 404 }
@@ -390,6 +394,45 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
           );
         },
       };
+    },
+
+    /**
+     * POST /api/integrate/mcp
+     * 
+     * Handle MCP tool call requests from client
+     * 
+     * Request body:
+     * ```json
+     * {
+     *   "name": "github_list_own_repos",
+     *   "arguments": {}
+     * }
+     * ```
+     * 
+     * Headers:
+     * - Authorization: Bearer <provider_access_token>
+     * 
+     * Response:
+     * ```json
+     * {
+     *   "content": [{"type": "text", "text": "..."}],
+     *   "isError": false
+     * }
+     * ```
+     */
+    async mcp(req: NextRequest): Promise<NextResponse> {
+      try {
+        const body = await req.json();
+        const authHeader = req.headers.get('authorization');
+        const result = await handler.handleToolCall(body, authHeader);
+        return Response.json(result);
+      } catch (error: any) {
+        console.error('[MCP Tool Call] Error:', error);
+        return Response.json(
+          { error: error.message || 'Failed to execute tool call' },
+          { status: error.statusCode || 500 }
+        );
+      }
     },
 
     /**
@@ -426,6 +469,7 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
      * - GET /api/integrate/oauth/callback - Provider OAuth redirect
      * - GET /api/integrate/oauth/status - Check authorization status
      * - POST /api/integrate/oauth/disconnect - Disconnect provider
+     * - POST /api/integrate/mcp - Execute MCP tool calls
      */
     toNextJsHandler(redirectConfig?: {
       /** URL to redirect to after OAuth callback (default: '/') */
@@ -468,6 +512,11 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
               { error: `Unknown action: ${action}` },
               { status: 404 }
             );
+          }
+
+          // Route: /api/integrate/mcp
+          if (segments.length === 1 && segments[0] === 'mcp') {
+            return handlers.mcp(req);
           }
 
           return Response.json(

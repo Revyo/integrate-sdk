@@ -242,14 +242,18 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
     }
 
     // Validate route structure for catch-all routes
-    // Must be /api/integrate/oauth/[action]
+    // Must be /api/integrate/oauth/[action] or /api/integrate/mcp
     if (segments.length > 0) {
-      // For catch-all routes, expect ['oauth', 'action'] format
+      // For catch-all routes, expect ['oauth', 'action'] format or ['mcp']
       if (segments.length === 2 && segments[0] !== 'oauth') {
         return Response.json(
           { error: `Invalid route: /${segments.join('/')}` },
           { status: 404 }
         );
+      }
+      // Allow /mcp route
+      if (segments.length === 1 && segments[0] === 'mcp') {
+        // This will be handled by the POST handler
       }
     }
 
