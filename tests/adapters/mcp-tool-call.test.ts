@@ -29,7 +29,7 @@ describe("OAuthHandler - handleToolCall", () => {
 
   it("should forward tool call to MCP server with API key and provider token", async () => {
     const mockFetch = mock(async (url: string, options?: any) => {
-      expect(url).toContain("/tools/call");
+      expect(url).toContain("/api/v1/mcp");
       expect(options?.method).toBe("POST");
       expect(options?.headers?.["X-API-KEY"]).toBe("test-api-key-123");
       expect(options?.headers?.["Authorization"]).toBe("Bearer github-token-123");

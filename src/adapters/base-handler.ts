@@ -354,8 +354,8 @@ export class OAuthHandler {
    * @throws Error if MCP server request fails
    */
   async handleToolCall(request: ToolCallRequest, authHeader: string | null): Promise<ToolCallResponse> {
-    // Build URL to MCP server tools/call endpoint
-    const url = new URL('/tools/call', this.serverUrl);
+    // Use the MCP server URL directly (JSON-RPC method is in the body, not the path)
+    const url = this.serverUrl;
 
     // Prepare headers with API key
     const headers: Record<string, string> = this.getHeaders({
@@ -378,7 +378,7 @@ export class OAuthHandler {
       },
     };
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(jsonRpcRequest),

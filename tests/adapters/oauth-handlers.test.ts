@@ -659,7 +659,7 @@ describe("Next.js Catch-All Route Handler", () => {
     it("should handle POST /mcp (MCP tool call)", async () => {
       const mockFetch = mock(async (url: string, options?: any) => {
         // handleToolCall sends JSON-RPC request to MCP server
-        if (url.includes("/tools/call")) {
+        if (url.includes("/api/v1/mcp")) {
           return {
             ok: true,
             json: async () => ({
@@ -709,7 +709,7 @@ describe("Next.js Catch-All Route Handler", () => {
 
     it("should handle POST /mcp without Authorization header", async () => {
       const mockFetch = mock(async (url: string) => {
-        if (url.includes("/tools/call")) {
+        if (url.includes("/api/v1/mcp")) {
           return {
             ok: true,
             json: async () => ({
@@ -776,7 +776,7 @@ describe("Next.js Catch-All Route Handler", () => {
 
     it("should handle mcp action in createRoutes()", async () => {
       const mockFetch = mock(async (url: string) => {
-        if (url.includes("/tools/call")) {
+        if (url.includes("/api/v1/mcp")) {
           return {
             ok: true,
             json: async () => ({
@@ -1054,7 +1054,7 @@ describe("Server-Side toNextJsHandler", () => {
 
   it("should handle POST /mcp route from server-side handler", async () => {
     const mockFetch = mock(async (url: string) => {
-      if (url.includes("/tools/call")) {
+      if (url.includes("/api/v1/mcp")) {
         return {
           ok: true,
           json: async () => ({
@@ -1064,9 +1064,10 @@ describe("Server-Side toNextJsHandler", () => {
               content: [{ type: "text", text: "tool result" }],
             },
           }),
+          text: async () => "error text",
         } as Response;
       }
-      return { ok: false } as Response;
+      return { ok: false, text: async () => "error" } as Response;
     }) as any;
 
     global.fetch = mockFetch;
@@ -1098,7 +1099,7 @@ describe("Server-Side toNextJsHandler", () => {
     let apiKeyUsed: string | undefined;
     
     const mockFetch = mock(async (url: string, options?: any) => {
-      if (url.includes("/tools/call")) {
+      if (url.includes("/api/v1/mcp")) {
         // Capture the API key to verify it's being passed
         apiKeyUsed = options?.headers?.["X-API-KEY"];
         return {
@@ -1110,9 +1111,10 @@ describe("Server-Side toNextJsHandler", () => {
               content: [{ type: "text", text: "unified handler result" }],
             },
           }),
+          text: async () => "error text",
         } as Response;
       }
-      return { ok: false } as Response;
+      return { ok: false, text: async () => "error" } as Response;
     }) as any;
 
     global.fetch = mockFetch;
