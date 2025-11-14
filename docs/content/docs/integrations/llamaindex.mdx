@@ -1,0 +1,238 @@
+---
+title: LlamaIndex Integration
+description: Use MCP tools with LlamaIndex
+---
+
+The Integrate SDK provides seamless integration with LlamaIndex, allowing you to use MCP tools with LlamaIndex agents and workflows.
+
+## Installation
+
+```bash
+bun add integrate-sdk llamaindex
+```
+
+## Frontend Integration
+
+Use the `useIntegrateAI` hook for automatic token injection:
+
+```typescript
+// app/providers.tsx
+'use client';
+
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { useIntegrateAI } from 'integrate-sdk/react';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  ],
+});
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  useIntegrateAI(client);
+  return <>{children}</>;
+}
+```
+
+## Server-Side Integration
+
+### Setup Server Configuration
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ['repo', 'user'],
+    }),
+  ],
+});
+```
+
+### Create Agent API Route
+
+```typescript
+// app/api/agent/route.ts
+import { serverClient } from '@/lib/integrate-server';
+import { getLlamaIndexTools } from 'integrate-sdk/integrations/llamaindex';
+import { OpenAIAgent, tool } from 'llamaindex';
+
+export async function POST(req: Request) {
+  try {
+    // Extract provider tokens from request
+    const tokensHeader = req.headers.get('x-integrate-tokens');
+    const providerTokens = JSON.parse(tokensHeader || '{}');
+
+    // Get tool configs
+    const toolConfigs = await getLlamaIndexTools(serverClient, { providerTokens });
+
+    // Create LlamaIndex tools
+    const tools = toolConfigs.map(config => tool(config));
+
+    const { message } = await req.json();
+
+    // Create agent
+    const agent = new OpenAIAgent({ tools });
+
+    // Run agent
+    const response = await agent.chat({ message });
+
+    return Response.json({ 
+      response: response.response,
+      sources: response.sources 
+    });
+  } catch (error: any) {
+    return Response.json(
+      { error: error.message },
+      { status: 500 }
+    );
+  }
+}
+```
+
+## Complete Example
+
+### Using OpenAI Agent
+
+```typescript
+import { getLlamaIndexTools } from 'integrate-sdk/integrations/llamaindex';
+import { OpenAIAgent, tool } from 'llamaindex';
+
+const toolConfigs = await getLlamaIndexTools(serverClient, { providerTokens });
+
+const tools = toolConfigs.map(config => tool(config));
+
+const agent = new OpenAIAgent({
+  tools,
+  systemPrompt: 'You are a helpful assistant with access to GitHub.',
+});
+
+const response = await agent.chat({
+  message: 'Create a GitHub issue about bug fixes',
+});
+
+console.log(response.response);
+```
+
+### Using with Query Engine
+
+```typescript
+import { getLlamaIndexTools } from 'integrate-sdk/integrations/llamaindex';
+import { OpenAIAgent, VectorStoreIndex, tool } from 'llamaindex';
+
+// Create index from documents
+const index = await VectorStoreIndex.fromDocuments(documents);
+const queryEngine = index.asQueryEngine();
+
+// Get tools
+const toolConfigs = await getLlamaIndexTools(serverClient, { providerTokens });
+const tools = toolConfigs.map(config => tool(config));
+
+// Add query engine as a tool
+const queryTool = tool({
+  name: 'query_documents',
+  description: 'Search through documents',
+  parameters: z.object({
+    query: z.string(),
+  }),
+  execute: async ({ query }) => {
+    const response = await queryEngine.query({ query });
+    return response.toString();
+  },
+});
+
+// Create agent with both tools
+const agent = new OpenAIAgent({
+  tools: [...tools, queryTool],
+});
+
+const response = await agent.chat({
+  message: 'Search for bugs and create a GitHub issue',
+});
+```
+
+## API Reference
+
+### `getLlamaIndexTools(client, options?)`
+
+Converts all enabled MCP tools to LlamaIndex format.
+
+**Parameters:**
+- `client` - The MCP client instance
+- `options` - Optional configuration
+  - `providerTokens` - Provider tokens for server-side usage
+
+**Returns:** `Promise<LlamaIndexTool[]>` - Array of tool configurations ready for LlamaIndex
+
+## Tool Format
+
+LlamaIndex tools use this configuration format:
+
+```typescript
+{
+  name: 'github_create_issue',
+  description: 'Create a new issue in a GitHub repository',
+  parameters: z.object({
+    owner: z.string(),
+    repo: z.string(),
+    title: z.string(),
+    body: z.string().optional(),
+  }),
+  execute: async (input) => {
+    // Tool execution logic
+    return JSON.stringify(result);
+  }
+}
+```
+
+## Advanced Usage
+
+### Custom Agent Configuration
+
+```typescript
+const agent = new OpenAIAgent({
+  tools,
+  model: 'gpt-4',
+  temperature: 0.7,
+  maxTokens: 1000,
+  systemPrompt: 'You are an expert software engineer.',
+});
+```
+
+### Streaming Responses
+
+```typescript
+const response = await agent.chat({
+  message: 'List my GitHub repositories',
+  stream: true,
+});
+
+for await (const chunk of response) {
+  console.log(chunk);
+}
+```
+
+### With Custom Tool Selection
+
+```typescript
+const toolConfigs = await getLlamaIndexTools(serverClient, { providerTokens });
+
+// Only GitHub issue-related tools
+const issueTools = toolConfigs
+  .filter(config => 
+    config.name.includes('issue') || 
+    config.name.includes('create')
+  )
+  .map(config => tool(config));
+```
+
+## Next Steps
+
+- [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
+- [Explore other AI providers](/docs/integrations/vercel-ai)
+- [API Reference](/docs/reference/options)
+

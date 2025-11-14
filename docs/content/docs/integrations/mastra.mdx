@@ -1,0 +1,272 @@
+---
+title: Mastra AI Integration
+description: Use MCP tools with Mastra AI SDK
+---
+
+The Integrate SDK provides seamless integration with Mastra AI SDK, allowing you to use MCP tools with Mastra agents and workflows.
+
+## Installation
+
+```bash
+bun add integrate-sdk @mastra/core
+```
+
+## Frontend Integration
+
+Use the `useIntegrateAI` hook for automatic token injection:
+
+```typescript
+// app/providers.tsx
+'use client';
+
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { useIntegrateAI } from 'integrate-sdk/react';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  ],
+});
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  useIntegrateAI(client);
+  return <>{children}</>;
+}
+```
+
+## Server-Side Integration
+
+### Setup Server Configuration
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ['repo', 'user'],
+    }),
+  ],
+});
+```
+
+### Create Agent API Route
+
+```typescript
+// app/api/agent/route.ts
+import { serverClient } from '@/lib/integrate-server';
+import { getMastraTools } from 'integrate-sdk/integrations/mastra';
+import { Agent, createTool } from '@mastra/core';
+
+export async function POST(req: Request) {
+  try {
+    // Extract provider tokens from request
+    const tokensHeader = req.headers.get('x-integrate-tokens');
+    const providerTokens = JSON.parse(tokensHeader || '{}');
+
+    // Get tool configs
+    const toolConfigs = await getMastraTools(serverClient, { providerTokens });
+
+    // Create Mastra tools
+    const tools = Object.fromEntries(
+      Object.entries(toolConfigs).map(([id, config]) => [
+        id,
+        createTool(config)
+      ])
+    );
+
+    const { message } = await req.json();
+
+    // Create agent
+    const agent = new Agent({
+      tools,
+      model: {
+        provider: 'openai',
+        name: 'gpt-4',
+      },
+    });
+
+    // Generate response
+    const result = await agent.generate(message);
+
+    return Response.json({ result });
+  } catch (error: any) {
+    return Response.json(
+      { error: error.message },
+      { status: 500 }
+    );
+  }
+}
+```
+
+## Complete Example
+
+### Using Mastra Agent
+
+```typescript
+import { getMastraTools } from 'integrate-sdk/integrations/mastra';
+import { Agent, createTool } from '@mastra/core';
+
+const toolConfigs = await getMastraTools(serverClient, { providerTokens });
+
+const tools = Object.fromEntries(
+  Object.entries(toolConfigs).map(([id, config]) => [
+    id,
+    createTool(config)
+  ])
+);
+
+const agent = new Agent({
+  tools,
+  model: {
+    provider: 'openai',
+    name: 'gpt-4',
+  },
+  instructions: 'You are a helpful assistant with access to GitHub.',
+});
+
+const result = await agent.generate('Create a GitHub issue about bug fixes');
+console.log(result);
+```
+
+### Using with Workflows
+
+```typescript
+import { getMastraTools } from 'integrate-sdk/integrations/mastra';
+import { Workflow, createTool } from '@mastra/core';
+
+const toolConfigs = await getMastraTools(serverClient, { providerTokens });
+
+const tools = Object.fromEntries(
+  Object.entries(toolConfigs).map(([id, config]) => [
+    id,
+    createTool(config)
+  ])
+);
+
+const workflow = new Workflow({
+  name: 'github-workflow',
+  triggerSchema: z.object({
+    action: z.string(),
+  }),
+});
+
+workflow.step('analyze', async ({ context }) => {
+  // Use tools in workflow steps
+  const result = await tools.github_list_repos.execute({
+    context: { per_page: 10 },
+  });
+  
+  return { repos: result };
+});
+
+workflow.step('create-issue', async ({ context }) => {
+  const result = await tools.github_create_issue.execute({
+    context: {
+      owner: 'user',
+      repo: 'repo',
+      title: 'Automated Issue',
+      body: `Found ${context.repos.length} repositories`,
+    },
+  });
+  
+  return { issue: result };
+});
+
+const result = await workflow.execute({
+  triggerData: { action: 'analyze-and-create' },
+});
+```
+
+## API Reference
+
+### `getMastraTools(client, options?)`
+
+Converts all enabled MCP tools to Mastra AI SDK format.
+
+**Parameters:**
+- `client` - The MCP client instance
+- `options` - Optional configuration
+  - `providerTokens` - Provider tokens for server-side usage
+
+**Returns:** `Promise<Record<string, MastraTool>>` - Dictionary of tool configurations keyed by ID
+
+## Tool Format
+
+Mastra tools use this configuration format:
+
+```typescript
+{
+  id: 'github_create_issue',
+  description: 'Create a new issue in a GitHub repository',
+  inputSchema: z.object({
+    owner: z.string(),
+    repo: z.string(),
+    title: z.string(),
+    body: z.string().optional(),
+  }),
+  execute: async ({ context }) => {
+    // Tool execution logic
+    return result;
+  }
+}
+```
+
+## Advanced Usage
+
+### Custom Model Configuration
+
+```typescript
+const agent = new Agent({
+  tools,
+  model: {
+    provider: 'anthropic',
+    name: 'claude-3-5-sonnet-20241022',
+    toolChoice: 'auto',
+  },
+  temperature: 0.7,
+});
+```
+
+### With Observability
+
+```typescript
+import { Agent } from '@mastra/core';
+import { getMastraTools } from 'integrate-sdk/integrations/mastra';
+
+const tools = await getMastraTools(serverClient, { providerTokens });
+
+const agent = new Agent({
+  tools: Object.fromEntries(
+    Object.entries(tools).map(([id, config]) => [
+      id,
+      createTool(config)
+    ])
+  ),
+  model: { provider: 'openai', name: 'gpt-4' },
+  observability: {
+    enabled: true,
+    provider: 'langfuse',
+  },
+});
+```
+
+### Streaming Responses
+
+```typescript
+const stream = await agent.stream('List my GitHub repositories');
+
+for await (const chunk of stream) {
+  console.log(chunk);
+}
+```
+
+## Next Steps
+
+- [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
+- [Explore other AI providers](/docs/integrations/vercel-ai)
+- [API Reference](/docs/reference/options)
+

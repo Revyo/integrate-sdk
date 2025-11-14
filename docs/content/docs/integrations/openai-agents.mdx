@@ -1,0 +1,234 @@
+---
+title: OpenAI Agents Integration
+description: Use MCP tools with @openai/agents package
+---
+
+The Integrate SDK provides seamless integration with the `@openai/agents` package, allowing agents to access your integrations through MCP tools.
+
+## Installation
+
+```bash
+bun add integrate-sdk @openai/agents
+```
+
+## Frontend Integration
+
+Use the `useIntegrateAI` hook for automatic token injection:
+
+```typescript
+// app/providers.tsx
+'use client';
+
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { useIntegrateAI } from 'integrate-sdk/react';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  ],
+});
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  useIntegrateAI(client);
+  return <>{children}</>;
+}
+```
+
+## Server-Side Integration
+
+### Setup Server Configuration
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      clientId: process.env.GMAIL_CLIENT_ID!,
+      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      scopes: ['gmail.send'],
+    }),
+  ],
+});
+```
+
+### Create Agent API Route
+
+```typescript
+// app/api/agent/route.ts
+import { serverClient } from '@/lib/integrate-server';
+import { getOpenAIAgentsTools } from 'integrate-sdk/integrations/openai-agents';
+import { Agent } from '@openai/agents';
+
+export async function POST(req: Request) {
+  try {
+    // Extract provider tokens from request
+    const tokensHeader = req.headers.get('x-integrate-tokens');
+    const providerTokens = JSON.parse(tokensHeader || '{}');
+
+    // Get tools with user's tokens
+    const toolConfigs = await getOpenAIAgentsTools(serverClient, { providerTokens });
+
+    const { message } = await req.json();
+
+    // Create agent with tools
+    const agent = new Agent({
+      model: 'gpt-4o',
+      tools: toolConfigs,
+    });
+
+    // Run agent
+    const result = await agent.run(message);
+
+    return Response.json({ result });
+  } catch (error: any) {
+    return Response.json(
+      { error: error.message },
+      { status: 500 }
+    );
+  }
+}
+```
+
+## Complete Example
+
+### Frontend Component
+
+```typescript
+// app/agent/page.tsx
+'use client';
+
+import { useState } from 'react';
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  ],
+});
+
+export default function AgentPage() {
+  const [message, setMessage] = useState('');
+  const [result, setResult] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [authorized, setAuthorized] = useState(false);
+
+  const handleConnect = async () => {
+    await client.authorize('github');
+    setAuthorized(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      });
+
+      const data = await response.json();
+      setResult(data.result);
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!authorized) {
+    return (
+      <div>
+        <button onClick={handleConnect}>Connect GitHub</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h1>OpenAI Agent with GitHub Access</h1>
+      <form onSubmit={handleSubmit}>
+        <input
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Ask the agent to use GitHub..."
+        />
+        <button type="submit" disabled={loading}>
+          {loading ? 'Running...' : 'Run Agent'}
+        </button>
+      </form>
+      {result && <pre>{JSON.stringify(result, null, 2)}</pre>}
+    </div>
+  );
+}
+```
+
+## API Reference
+
+### `getOpenAIAgentsTools(client, options?)`
+
+Converts all enabled MCP tools to `@openai/agents` format.
+
+**Parameters:**
+- `client` - The MCP client instance
+- `options` - Optional configuration
+  - `providerTokens` - Provider tokens for server-side usage
+
+**Returns:** `Promise<OpenAIAgentsTool[]>` - Array of tool configurations
+
+## Tool Format
+
+OpenAI Agents expects tools with this structure:
+
+```typescript
+{
+  name: 'github_create_issue',
+  description: 'Create a new issue in a GitHub repository',
+  parameters: z.object({
+    owner: z.string(),
+    repo: z.string(),
+    title: z.string(),
+    body: z.string().optional(),
+  }),
+  execute: async (args) => {
+    // Tool execution logic
+    return result;
+  }
+}
+```
+
+## Advanced Usage
+
+### Custom Agent Configuration
+
+```typescript
+import { Agent } from '@openai/agents';
+import { getOpenAIAgentsTools } from 'integrate-sdk/integrations/openai-agents';
+
+const toolConfigs = await getOpenAIAgentsTools(serverClient, { providerTokens });
+
+const agent = new Agent({
+  model: 'gpt-4o',
+  tools: toolConfigs,
+  instructions: 'You are a helpful assistant with access to GitHub.',
+  temperature: 0.7,
+  maxTokens: 1000,
+});
+
+const result = await agent.run('Create a new GitHub issue about bug fixes');
+```
+
+## Next Steps
+
+- [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
+- [Explore other AI providers](/docs/integrations/vercel-ai)
+- [API Reference](/docs/reference/options)
+

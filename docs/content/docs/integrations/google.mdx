@@ -1,0 +1,225 @@
+---
+title: Google GenAI Integration
+description: Use MCP tools with Google's Generative AI SDK
+---
+
+The Integrate SDK provides seamless integration with Google's Generative AI SDK (Gemini), allowing AI models to access your integrations through MCP tools.
+
+## Installation
+
+```bash
+bun add integrate-sdk @google/generative-ai
+```
+
+## Frontend Integration
+
+Use the `useIntegrateAI` hook for automatic token injection:
+
+```typescript
+// app/providers.tsx
+'use client';
+
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { useIntegrateAI } from 'integrate-sdk/react';
+
+const client = createMCPClient({
+  plugins: [
+    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  ],
+});
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  useIntegrateAI(client);
+  return <>{children}</>;
+}
+```
+
+## Server-Side Integration
+
+### Setup Server Configuration
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+
+export const { client: serverClient } = createMCPServer({
+  plugins: [
+    githubPlugin({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      scopes: ['repo', 'user'],
+    }),
+  ],
+});
+```
+
+### Create Chat API Route
+
+```typescript
+// app/api/chat/route.ts
+import { serverClient } from '@/lib/integrate-server';
+import { getGoogleTools, executeGoogleFunctionCall } from 'integrate-sdk/integrations/google';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
+
+export async function POST(req: Request) {
+  try {
+    // Extract provider tokens from request
+    const tokensHeader = req.headers.get('x-integrate-tokens');
+    const providerTokens = JSON.parse(tokensHeader || '{}');
+
+    // Get tools with user's tokens
+    const tools = await getGoogleTools(serverClient, { providerTokens });
+
+    const { messages } = await req.json();
+
+    // Create model with tools
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash-exp',
+      tools: [{ functionDeclarations: tools }],
+    });
+
+    // Generate content
+    const result = await model.generateContent({
+      contents: messages.map((m: any) => ({
+        role: m.role,
+        parts: [{ text: m.content }],
+      })),
+    });
+
+    const response = result.response;
+
+    // Handle function calls if any
+    const functionCalls = response.functionCalls();
+    if (functionCalls && functionCalls.length > 0) {
+      const functionResults = [];
+
+      for (const call of functionCalls) {
+        const result = await executeGoogleFunctionCall(
+          serverClient,
+          {
+            name: call.name,
+            args: call.args,
+          },
+          { providerTokens }
+        );
+
+        functionResults.push({
+          functionResponse: {
+            name: call.name,
+            response: JSON.parse(result),
+          },
+        });
+      }
+
+      // Continue with function results
+      const finalResult = await model.generateContent({
+        contents: [
+          ...messages.map((m: any) => ({
+            role: m.role,
+            parts: [{ text: m.content }],
+          })),
+          {
+            role: 'model',
+            parts: functionCalls.map(call => ({
+              functionCall: { name: call.name, args: call.args },
+            })),
+          },
+          {
+            role: 'function',
+            parts: functionResults,
+          },
+        ],
+      });
+
+      return Response.json({
+        text: finalResult.response.text(),
+        functionCalls: functionCalls.length,
+      });
+    }
+
+    return Response.json({
+      text: response.text(),
+    });
+  } catch (error: any) {
+    return Response.json(
+      { error: error.message },
+      { status: 500 }
+    );
+  }
+}
+```
+
+## API Reference
+
+### `getGoogleTools(client, options?)`
+
+Converts all enabled MCP tools to Google GenAI format.
+
+**Parameters:**
+- `client` - The MCP client instance
+- `options` - Optional configuration
+  - `providerTokens` - Provider tokens for server-side usage
+
+**Returns:** `Promise<GoogleTool[]>` - Array of tools ready for Google GenAI
+
+### `executeGoogleFunctionCall(client, functionCall, options?)`
+
+Execute a function call from Google GenAI.
+
+**Parameters:**
+- `client` - The MCP client instance
+- `functionCall` - Function call object with `name` and `args`
+- `options` - Optional configuration with `providerTokens`
+
+**Returns:** `Promise<string>` - Tool execution result as JSON string
+
+## Tool Format
+
+Google GenAI expects tools in this format:
+
+```typescript
+{
+  name: 'github_create_issue',
+  description: 'Create a new issue in a GitHub repository',
+  parameters: {
+    type: 'object',
+    description: 'Parameters for creating a GitHub issue',
+    properties: {
+      owner: { type: 'string' },
+      repo: { type: 'string' },
+      title: { type: 'string' },
+      body: { type: 'string' }
+    },
+    required: ['owner', 'repo', 'title']
+  }
+}
+```
+
+## Complete Example
+
+```typescript
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getGoogleTools } from 'integrate-sdk/integrations/google';
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
+const tools = await getGoogleTools(serverClient, { providerTokens });
+
+const model = genAI.getGenerativeModel({
+  model: 'gemini-2.0-flash-exp',
+  tools: [{ functionDeclarations: tools }],
+});
+
+const chat = model.startChat();
+const result = await chat.sendMessage('Create a GitHub issue about bug fixes');
+
+console.log(result.response.text());
+```
+
+## Next Steps
+
+- [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
+- [Explore other AI providers](/docs/integrations/vercel-ai)
+- [API Reference](/docs/reference/options)
+
