@@ -4,6 +4,7 @@
  */
 
 import type { MCPPlugin, OAuthConfig } from "./types.js";
+import { getEnv } from "../utils/env.js";
 
 /**
  * Generic OAuth plugin configuration
@@ -84,8 +85,8 @@ export function genericOAuthPlugin(
   
   const oauth: OAuthConfig = {
     provider: config.provider,
-    clientId: config.clientId ?? process.env[`${providerUpper}_CLIENT_ID`],
-    clientSecret: config.clientSecret ?? process.env[`${providerUpper}_CLIENT_SECRET`],
+    clientId: config.clientId ?? getEnv(`${providerUpper}_CLIENT_ID`),
+    clientSecret: config.clientSecret ?? getEnv(`${providerUpper}_CLIENT_SECRET`),
     scopes: config.scopes,
     redirectUri: config.redirectUri,
     config,

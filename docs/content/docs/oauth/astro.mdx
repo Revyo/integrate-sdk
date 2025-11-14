@@ -19,19 +19,27 @@ Create a server configuration file with your OAuth credentials:
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+import {
+  createMCPServer,
+  githubPlugin,
+  gmailPlugin,
+} from "integrate-sdk/server";
 
-export const { client: serverClient, handler } = createMCPServer({
+export const {
+  client: serverClient,
+  POST,
+  GET,
+} = createMCPServer({
   plugins: [
     githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ['repo', 'user'],
+      clientId: import.meta.env.GITHUB_CLIENT_ID!,
+      clientSecret: import.meta.env.GITHUB_CLIENT_SECRET!,
+      scopes: ["repo", "user"],
     }),
     gmailPlugin({
-      clientId: process.env.GMAIL_CLIENT_ID!,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      scopes: ['gmail.send', 'gmail.readonly'],
+      clientId: import.meta.env.GMAIL_CLIENT_ID!,
+      clientSecret: import.meta.env.GMAIL_CLIENT_SECRET!,
+      scopes: ["gmail.send", "gmail.readonly"],
     }),
   ],
 });
@@ -39,14 +47,14 @@ export const { client: serverClient, handler } = createMCPServer({
 
 ### 2. Mount the Handler
 
-Create a catch-all API route at `pages/api/auth/[...all].ts`:
+Create a catch-all API route at `pages/api/integrate/[...all].ts`:
 
 ```typescript
-import { handler } from '@/lib/integrate-server';
-import type { APIRoute } from 'astro';
+import { handler } from "@/lib/integrate-server";
+import type { APIRoute } from "astro";
 
 export const ALL: APIRoute = async (ctx) => {
-  return handler(ctx.request);
+  return handler(ctx.request, { params: { all: ctx.params.all } });
 };
 ```
 
@@ -63,21 +71,29 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 
 ### Client-Side Authorization
 
-Use the client SDK to initiate OAuth flows from your Astro components:
+Create a client configuration file:
 
 ```typescript
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+// lib/integrate.ts
+import { createMCPClient, githubPlugin } from "integrate-sdk";
 
-const client = createMCPClient({
+export const client = createMCPClient({
   plugins: [
     githubPlugin({
-      scopes: ['repo', 'user'],
+      scopes: ["repo", "user"],
     }),
   ],
+  oauthFlow: { mode: "popup" },
 });
+```
+
+Then use it in your components:
+
+```typescript
+import { client } from "@/lib/integrate";
 
 // Start OAuth flow
-await client.authorize('github');
+await client.authorize("github");
 ```
 
 ### Callback Handling
@@ -89,7 +105,7 @@ The OAuth callback is automatically handled by your catch-all route. After succe
 Check if a provider is authorized:
 
 ```typescript
-const status = await client.checkAuthStatus('github');
+const status = await client.checkAuthStatus("github");
 console.log(status.authorized); // true/false
 ```
 
@@ -106,11 +122,11 @@ my-astro-app/
 ├── src/
 │   ├── pages/
 │   │   ├── api/
-│   │   │   └── auth/
-│   │   │       └── [... all].ts
+│   │   │   └── integrate/
+│   │   │       └── [...all].ts
 │   │   └── index.astro
 │   └── lib/
-│       └── integrate-client.ts
+│       ├── integrate-server.ts
+│       └── integrate.ts
 └── .env
 ```
-

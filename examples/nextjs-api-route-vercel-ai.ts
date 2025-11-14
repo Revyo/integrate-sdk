@@ -226,53 +226,52 @@ export async function GET(req: Request) {
 }
 
 // =============================================================================
+// CLIENT CONFIGURATION (lib/integrate.ts)
+// =============================================================================
+
+/*
+import { createMCPClient, githubPlugin, gmailPlugin } from 'integrate-sdk';
+
+export const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ['repo', 'user'],
+    }),
+    gmailPlugin({
+      scopes: ['gmail.send', 'gmail.readonly'],
+    }),
+  ],
+  oauthFlow: { mode: 'popup' },
+});
+*/
+
+// =============================================================================
 // CLIENT COMPONENT (app/components/ChatInterface.tsx)
 // =============================================================================
 
 /*
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createMCPClient, githubPlugin, gmailPlugin } from 'integrate-sdk';
+import { useState } from 'react';
+import { client } from '@/lib/integrate';
 
 export function ChatInterface() {
-  const [client, setClient] = useState<any>(null);
   const [message, setMessage] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Initialize client
-  useEffect(() => {
-    const mcpClient = createMCPClient({
-      plugins: [
-        githubPlugin({
-          clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
-        }),
-        gmailPlugin({
-          clientId: process.env.NEXT_PUBLIC_GMAIL_CLIENT_ID!,
-        }),
-      ],
-    });
-
-    mcpClient.connect().then(() => {
-      setClient(mcpClient);
-    });
-  }, []);
-
   const handleAuthorize = async (provider: string) => {
-    if (!client) return;
-    
     try {
       await client.authorize(provider);
       alert(`${provider} connected successfully!`);
-    } catch (error) {
+    } catch (error: any) {
       alert(`Failed to connect ${provider}: ${error.message}`);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!client || !message.trim()) return;
+    if (!message.trim()) return;
 
     setLoading(true);
     try {
@@ -337,7 +336,7 @@ export function ChatInterface() {
         />
         <button
           type="submit"
-          disabled={loading || !client}
+          disabled={loading}
           className="px-6 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
         >
           {loading ? 'Processing...' : 'Send'}

@@ -4,6 +4,7 @@
  */
 
 import type { MCPPlugin, OAuthConfig } from "./types.js";
+import { getEnv } from "../utils/env.js";
 
 /**
  * GitHub plugin configuration
@@ -103,8 +104,8 @@ const GITHUB_TOOLS = [
 export function githubPlugin(config: GitHubPluginConfig = {}): MCPPlugin {
   const oauth: OAuthConfig = {
     provider: "github",
-    clientId: config.clientId ?? process.env.GITHUB_CLIENT_ID,
-    clientSecret: config.clientSecret ?? process.env.GITHUB_CLIENT_SECRET,
+    clientId: config.clientId ?? getEnv('GITHUB_CLIENT_ID'),
+    clientSecret: config.clientSecret ?? getEnv('GITHUB_CLIENT_SECRET'),
     scopes: config.scopes || ["repo", "user"],
     redirectUri: config.redirectUri,
     config: {

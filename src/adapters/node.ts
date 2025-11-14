@@ -98,7 +98,7 @@ async function sendWebResponse(webRes: Response, nodeRes: ServerResponse): Promi
  * });
  * 
  * createServer(async (req, res) => {
- *   if (req.url?.startsWith('/api/auth/')) {
+ *   if (req.url?.startsWith('/api/integrate/')) {
  *     await handler(req, res);
  *   } else {
  *     res.statusCode = 404;

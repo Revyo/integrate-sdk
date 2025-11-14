@@ -15,7 +15,7 @@ type ResolveFunction = any;
  * @param authConfig - Handler function from createMCPServer
  * @param event - SvelteKit RequestEvent
  * @param resolve - SvelteKit resolve function
- * @param basePath - Base path for OAuth routes (default: '/api/auth')
+ * @param basePath - Base path for OAuth routes (default: '/api/integrate')
  * @returns Response from OAuth handler or resolved request
  * 
  * @example
@@ -45,7 +45,7 @@ export async function svelteKitHandler({
     authConfig,
     event,
     resolve,
-    basePath = '/api/auth',
+    basePath = '/api/integrate',
 }: {
     authConfig: (request: Request) => Promise<Response>;
     event: RequestEvent;
@@ -87,7 +87,7 @@ export async function svelteKitHandler({
  *   ],
  * });
  * 
- * // routes/api/auth/[...all]/+server.ts
+ * // routes/api/integrate/[...all]/+server.ts
  * import { toSvelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
  * import { handler } from '$lib/integrate-server';
  * 

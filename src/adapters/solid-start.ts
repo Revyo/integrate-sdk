@@ -26,7 +26,7 @@
  *   ],
  * });
  * 
- * // src/routes/api/auth/[...all].ts
+ * // src/routes/api/integrate/[...all].ts
  * import { toSolidStartHandler } from 'integrate-sdk/adapters/solid-start';
  * import { handler } from '@/lib/integrate-server';
  * 

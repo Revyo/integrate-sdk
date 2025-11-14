@@ -24,14 +24,14 @@ const handler = toNodeHandler({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
+      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
     },
   },
 });
 
 createServer(async (req, res) => {
   // Handle OAuth routes
-  if (req.url?.startsWith('/api/auth/')) {
+  if (req.url?.startsWith('/api/integrate/')) {
     await handler(req, res);
   } else {
     res.statusCode = 404;
@@ -70,7 +70,7 @@ createServer(async (req, res) => {
     return;
   }
 
-  if (req.url?.startsWith('/api/auth/')) {
+  if (req.url?.startsWith('/api/integrate/')) {
     await handler(req, res);
   } else {
     res.statusCode = 404;

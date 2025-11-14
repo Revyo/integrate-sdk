@@ -10,7 +10,7 @@ import { OAuthHandler } from 'integrate-sdk';
 const app = new Hono();
 
 // Enable CORS
-app.use('/api/auth/*', cors({
+app.use('/api/integrate/*', cors({
   origin: 'http://localhost:3001',
   credentials: true,
 }));
@@ -21,18 +21,18 @@ const handler = new OAuthHandler({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
+      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
     },
     gmail: {
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
+      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
     },
   },
 });
 
 // Register OAuth routes with catch-all
-app.on(['POST', 'GET'], '/api/auth/*', (c) => {
+app.on(['POST', 'GET'], '/api/integrate/*', (c) => {
   return handler.handler(c.req.raw);
 });
 

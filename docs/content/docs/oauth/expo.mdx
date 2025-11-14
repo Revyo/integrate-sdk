@@ -39,7 +39,7 @@ export const { client: serverClient, handler } = createMCPServer({
 
 ### 2. Mount the Handler
 
-If using Expo's API Routes feature, create a catch-all route at `app/api/auth/[...auth]+api.ts`:
+If using Expo's API Routes feature, create a catch-all route at `app/api/integrate/[...auth]+api.ts`:
 
 ```typescript
 import { handler } from '@/lib/integrate-server';
@@ -74,16 +74,26 @@ Configure deep linking in your `app.json`:
 
 ### Client-Side Authorization
 
+Create a client configuration file:
+
 ```typescript
+// lib/integrate.ts
 import { createMCPClient, githubPlugin } from 'integrate-sdk';
 
-const client = createMCPClient({
+export const client = createMCPClient({
   plugins: [
     githubPlugin({
       scopes: ['repo', 'user'],
     }),
   ],
+  oauthFlow: { mode: 'popup' },
 });
+```
+
+Then use it in your components:
+
+```typescript
+import { client } from '@/lib/integrate';
 
 // Start OAuth flow
 await client.authorize('github');

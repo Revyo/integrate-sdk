@@ -7,6 +7,7 @@ import { MCPClient } from './client.js';
 import type { MCPServerConfig } from './config/types.js';
 import type { MCPPlugin } from './plugins/types.js';
 import { createNextOAuthHandler } from './adapters/nextjs.js';
+import { getEnv } from './utils/env.js';
 
 /**
  * Global registry for server configuration
@@ -35,13 +36,15 @@ function getDefaultRedirectUri(): string {
   }
 
   // Integrate URL (primary option)
-  if (process.env.INTEGRATE_URL) {
-    return `${process.env.INTEGRATE_URL}/api/integrate/oauth/callback`;
+  const integrateUrl = getEnv('INTEGRATE_URL');
+  if (integrateUrl) {
+    return `${integrateUrl}/api/integrate/oauth/callback`;
   }
 
   // Vercel deployment
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}/api/integrate/oauth/callback`;
+  const vercelUrl = getEnv('VERCEL_URL');
+  if (vercelUrl) {
+    return `https://${vercelUrl}/api/integrate/oauth/callback`;
   }
 
   // Development fallback
@@ -145,7 +148,7 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
   }) as unknown as TPlugins;
 
   // Register config globally for singleton handlers
-  globalServerConfig = { 
+  globalServerConfig = {
     providers,
     serverUrl: config.serverUrl,
     apiKey: config.apiKey,
@@ -159,25 +162,72 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
     singleton: config.singleton ?? true,
   };
   const client = new MCPClient(clientConfig);
-  
+
   // Set API key header for authentication and usage tracking (server-side only)
   if (config.apiKey) {
     client.setRequestHeader('X-API-KEY', config.apiKey);
   }
 
   // Attach OAuth config to the client for toNextJsHandler access
-  (client as any).__oauthConfig = { 
+  (client as any).__oauthConfig = {
     providers,
     serverUrl: config.serverUrl,
     apiKey: config.apiKey,
   };
 
   // Create route handlers with the provider configuration
-  const { POST, GET } = createOAuthRouteHandlers({ 
+  const { POST, GET } = createOAuthRouteHandlers({
     providers,
     serverUrl: config.serverUrl,
     apiKey: config.apiKey,
   });
+
+  /**
+   * Unified handler function that handles both POST and GET requests
+   * Useful for frameworks like Astro, Remix, etc. that use a single handler
+   * 
+   * @param request - The incoming request
+   * @param context - Optional context with params (for frameworks that support it)
+   * @returns Response
+   */
+  const handler = async (
+    request: Request,
+    context?: { params?: { action?: string; all?: string | string[] } }
+  ): Promise<Response> => {
+    const method = request.method.toUpperCase();
+
+    // Extract action from context params or URL
+    let action: string | undefined;
+    if (context?.params?.action) {
+      action = context.params.action;
+    } else if (context?.params?.all) {
+      // For catch-all routes like [...all]
+      const all = context.params.all;
+      if (Array.isArray(all)) {
+        action = all[all.length - 1];
+      } else if (typeof all === 'string') {
+        action = all.split('/').pop();
+      }
+    } else {
+      // Try to extract from URL path
+      const url = new URL(request.url);
+      const pathParts = url.pathname.split('/').filter(Boolean);
+      action = pathParts[pathParts.length - 1] || 'callback';
+    }
+
+    const handlerContext = { params: { action: action || 'callback' } };
+
+    if (method === 'POST') {
+      return POST(request, handlerContext);
+    } else if (method === 'GET') {
+      return GET(request, handlerContext);
+    } else {
+      return Response.json(
+        { error: `Method ${method} not allowed` },
+        { status: 405 }
+      );
+    }
+  };
 
   return {
     /** Server-side MCP client instance with auto-connection */
@@ -188,6 +238,9 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
 
     /** OAuth GET handler - export this from your route file */
     GET,
+
+    /** Unified handler function - handles both POST and GET requests */
+    handler,
   };
 }
 

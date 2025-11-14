@@ -39,7 +39,7 @@ export const { client: serverClient, handler } = createMCPServer({
 
 ### 2. Mount the Handler
 
-Create a catch-all API route at `src/pages/api/auth/[...route].ts`:
+Create a catch-all API route at `src/pages/api/integrate/[...route].ts`:
 
 ```typescript
 import { handler } from '@/lib/integrate-server';
@@ -61,16 +61,26 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 
 ### Client-Side Authorization
 
+Create a client configuration file:
+
 ```typescript
+// lib/integrate.ts
 import { createMCPClient, githubPlugin } from 'integrate-sdk';
 
-const client = createMCPClient({
+export const client = createMCPClient({
   plugins: [
     githubPlugin({
       scopes: ['repo', 'user'],
     }),
   ],
+  oauthFlow: { mode: 'popup' },
 });
+```
+
+Then use it in your components:
+
+```typescript
+import { client } from '@/lib/integrate';
 
 // Start OAuth flow
 await client.authorize('github');

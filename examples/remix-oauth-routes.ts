@@ -14,12 +14,12 @@ const handler = new OAuthHandler({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
+      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
     },
     gmail: {
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
+      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
     },
   },
 });

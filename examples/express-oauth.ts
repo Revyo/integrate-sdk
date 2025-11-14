@@ -24,12 +24,12 @@ const oauthHandler = new OAuthHandler({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
+      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
     },
     gmail: {
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
+      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
     },
   },
 });
@@ -38,7 +38,7 @@ const oauthHandler = new OAuthHandler({
 const handler = toNodeHandler(oauthHandler.handler.bind(oauthHandler));
 
 // Register OAuth catch-all route
-app.all('/api/auth/*', handler);
+app.all('/api/integrate/*', handler);
 
 // Example protected route
 app.get('/api/user', (req, res) => {
@@ -49,6 +49,6 @@ app.get('/api/user', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Express server running on port ${PORT}`);
-  console.log(`OAuth endpoints available at http://localhost:${PORT}/api/auth/*`);
+  console.log(`OAuth endpoints available at http://localhost:${PORT}/api/integrate/*`);
 });
 

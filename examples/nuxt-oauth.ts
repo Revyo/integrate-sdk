@@ -1,6 +1,6 @@
 /**
  * Nuxt OAuth Example
- * File: server/api/auth/[...all].ts
+ * File: server/api/integrate/[...all].ts
  * 
  * This file should be placed in your Nuxt project's server/api/ directory.
  * It creates a catch-all route that handles all OAuth actions.
@@ -14,12 +14,12 @@ const handler = new OAuthHandler({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
+      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
     },
     gmail: {
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/auth/callback',
+      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
     },
   },
 });

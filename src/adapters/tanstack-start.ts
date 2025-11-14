@@ -26,13 +26,13 @@
  *   ],
  * });
  * 
- * // app/routes/api/auth/$.ts
+ * // app/routes/api/integrate/$.ts
  * import { toTanStackStartHandler } from 'integrate-sdk/adapters/tanstack-start';
  * import { handler } from '@/lib/integrate-server';
  * 
  * const handlers = toTanStackStartHandler(handler);
  * 
- * export const Route = createFileRoute('/api/auth/$')({
+ * export const Route = createFileRoute('/api/integrate/$')({
  *   server: {
  *     handlers: {
  *       GET: handlers.GET,

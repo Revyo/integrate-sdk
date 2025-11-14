@@ -53,7 +53,7 @@ app.use(express.json());
 const nodeHandler = toNodeHandler(handler);
 
 // Register OAuth catch-all route
-app.all('/api/auth/*', nodeHandler);
+app.all('/api/integrate/*', nodeHandler);
 
 app.listen(3000, () => {
   console.log('Server running on port 3000');

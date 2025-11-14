@@ -48,7 +48,7 @@ import { handler } from './lib/integrate-server';
 const app = new Elysia();
 
 // Register OAuth routes with catch-all
-app.on(['POST', 'GET'], '/api/auth/*', (context) => {
+app.on(['POST', 'GET'], '/api/integrate/*', (context) => {
   return handler(context.request);
 });
 

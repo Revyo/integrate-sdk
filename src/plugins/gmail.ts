@@ -4,6 +4,7 @@
  */
 
 import type { MCPPlugin, OAuthConfig } from "./types.js";
+import { getEnv } from "../utils/env.js";
 
 /**
  * Gmail plugin configuration
@@ -87,8 +88,8 @@ const GMAIL_TOOLS = [
 export function gmailPlugin(config: GmailPluginConfig = {}): MCPPlugin {
   const oauth: OAuthConfig = {
     provider: "gmail",
-    clientId: config.clientId ?? process.env.GMAIL_CLIENT_ID,
-    clientSecret: config.clientSecret ?? process.env.GMAIL_CLIENT_SECRET,
+    clientId: config.clientId ?? getEnv('GMAIL_CLIENT_ID'),
+    clientSecret: config.clientSecret ?? getEnv('GMAIL_CLIENT_SECRET'),
     scopes: config.scopes || [
       "https://www.googleapis.com/auth/gmail.send",
       "https://www.googleapis.com/auth/gmail.readonly",

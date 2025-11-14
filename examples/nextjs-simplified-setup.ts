@@ -80,27 +80,33 @@ export async function GET() {
 }
 
 // =============================================================================
+// FILE 3: lib/integrate.ts (Client-side configuration)
+// =============================================================================
+// Create a shared client instance for use across your app
+
+import { createMCPClient, githubPlugin } from 'integrate-sdk';
+
+export const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ['repo', 'user'],
+      // No clientId or clientSecret needed on client!
+    }),
+  ],
+  oauthFlow: { mode: 'popup' },
+});
+
+// =============================================================================
 // FILE 4: app/components/GitHubConnect.tsx (Example client component)
 // =============================================================================
 // Use the client SDK in your React components
 
 'use client';
 
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { client } from '@/lib/integrate';
 import { useState, useEffect } from 'react';
 
 export function GitHubConnect() {
-  const [client] = useState(() =>
-    createMCPClient({
-      plugins: [
-        githubPlugin({
-          scopes: ['repo', 'user'],
-          // No clientId or clientSecret needed on client!
-        }),
-      ],
-      oauthFlow: { mode: 'popup' },
-    })
-  );
 
   const [authorized, setAuthorized] = useState(false);
 

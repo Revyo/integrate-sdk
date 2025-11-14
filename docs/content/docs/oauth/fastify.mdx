@@ -50,7 +50,7 @@ const fastify = Fastify({ logger: true });
 // Register OAuth catch-all route
 fastify.route({
   method: ['GET', 'POST'],
-  url: '/api/auth/*',
+  url: '/api/integrate/*',
   handler: async (request, reply) => {
     // Construct Web Request from Fastify request
     const url = new URL(request.url, `http://${request.headers.host}`);

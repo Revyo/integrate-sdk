@@ -359,20 +359,25 @@ export const { POST, GET } = toNextJsHandler({
 ```
 
 ```typescript
-// app/components/GitHubConnect.tsx
-'use client';
-
+// lib/integrate.ts
 import { createMCPClient, githubPlugin } from 'integrate-sdk';
-import { useState, useEffect } from 'react';
 
-const client = createMCPClient({
+export const client = createMCPClient({
   plugins: [
     githubPlugin({
-      clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
+      scopes: ['repo', 'user'],
     }),
   ],
   oauthFlow: { mode: 'popup' },
 });
+```
+
+```typescript
+// app/components/GitHubConnect.tsx
+'use client';
+
+import { client } from '@/lib/integrate';
+import { useState, useEffect } from 'react';
 
 export function GitHubConnect() {
   const [authorized, setAuthorized] = useState(false);

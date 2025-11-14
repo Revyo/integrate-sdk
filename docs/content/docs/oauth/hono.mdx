@@ -48,7 +48,7 @@ import { handler } from './lib/integrate-server';
 const app = new Hono();
 
 // Register OAuth routes with catch-all
-app.on(['POST', 'GET'], '/api/auth/*', (c) => {
+app.on(['POST', 'GET'], '/api/integrate/*', (c) => {
   return handler(c.req.raw);
 });
 
@@ -71,7 +71,7 @@ Configure CORS using Hono's CORS middleware:
 ```typescript
 import { cors } from 'hono/cors';
 
-app.use('/api/auth/*', cors({
+app.use('/api/integrate/*', cors({
   origin: 'http://localhost:3001',
   credentials: true,
 }));
