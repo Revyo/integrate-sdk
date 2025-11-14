@@ -46,10 +46,13 @@ export const { client: serverClient, handler } = createMCPServer({
 Create a catch-all API route at `src/routes/api/integrate/[...all].ts`:
 
 ```typescript
-import { toSolidStartHandler } from "integrate-sdk/adapters/solid-start";
+import { toSolidStartHandler } from "integrate-sdk/server";
 import { handler } from "@/lib/integrate-server";
 
-const handlers = toSolidStartHandler(handler);
+const handlers = toSolidStartHandler(handler, {
+  redirectUrl: "/dashboard", // Where to redirect after successful OAuth
+  errorRedirectUrl: "/auth-error", // Where to redirect on OAuth errors
+});
 
 export const { GET, POST, PATCH, PUT, DELETE } = handlers;
 ```

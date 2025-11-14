@@ -70,8 +70,7 @@ export async function svelteKitHandler({
  * Use this to create secure OAuth API routes in your SvelteKit application
  * that handle authorization with server-side secrets.
  * 
- * @param baseHandler - Handler function from createMCPServer
- * @returns Handler function for SvelteKit routes
+ * Re-exports from server.ts for convenience
  * 
  * @example
  * ```typescript
@@ -88,18 +87,17 @@ export async function svelteKitHandler({
  * });
  * 
  * // routes/api/integrate/[...all]/+server.ts
- * import { toSvelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
+ * import { toSvelteKitHandler } from 'integrate-sdk/server';
  * import { handler } from '$lib/integrate-server';
  * 
- * const svelteKitRoute = toSvelteKitHandler(handler);
+ * const svelteKitRoute = toSvelteKitHandler(handler, {
+ *   redirectUrl: '/dashboard',
+ *   errorRedirectUrl: '/auth-error',
+ * });
  * 
  * export const POST = svelteKitRoute;
  * export const GET = svelteKitRoute;
  * ```
  */
-export function toSvelteKitHandler(baseHandler: (request: Request) => Promise<Response>) {
-    return async (event: RequestEvent): Promise<Response> => {
-        return baseHandler(event.request);
-    };
-}
+export { toSvelteKitHandler } from '../server.js';
 

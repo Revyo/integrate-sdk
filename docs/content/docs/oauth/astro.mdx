@@ -25,11 +25,7 @@ import {
   gmailPlugin,
 } from "integrate-sdk/server";
 
-export const {
-  client: serverClient,
-  POST,
-  GET,
-} = createMCPServer({
+export const { client: serverClient, handler } = createMCPServer({
   plugins: [
     githubPlugin({
       clientId: import.meta.env.GITHUB_CLIENT_ID!,
@@ -50,12 +46,14 @@ export const {
 Create a catch-all API route at `pages/api/integrate/[...all].ts`:
 
 ```typescript
+import { toAstroHandler } from "integrate-sdk/server";
 import { handler } from "@/lib/integrate-server";
 import type { APIRoute } from "astro";
 
-export const ALL: APIRoute = async (ctx) => {
-  return handler(ctx.request, { params: { all: ctx.params.all } });
-};
+export const ALL: APIRoute = toAstroHandler(handler, {
+  redirectUrl: "/dashboard", // Where to redirect after successful OAuth
+  errorRedirectUrl: "/auth-error", // Where to redirect on OAuth errors
+});
 ```
 
 ## Configuration

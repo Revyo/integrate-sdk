@@ -44,10 +44,13 @@ export const { client: serverClient, handler } = createMCPServer({
 Create a catch-all API route at `src/routes/api/integrate/[...all]/+server.ts`:
 
 ```typescript
-import { toSvelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
+import { toSvelteKitHandler } from 'integrate-sdk/server';
 import { handler } from '$lib/integrate-server';
 
-const svelteKitRoute = toSvelteKitHandler(handler);
+const svelteKitRoute = toSvelteKitHandler(handler, {
+  redirectUrl: "/dashboard", // Where to redirect after successful OAuth
+  errorRedirectUrl: "/auth-error", // Where to redirect on OAuth errors
+});
 
 export const POST = svelteKitRoute;
 export const GET = svelteKitRoute;

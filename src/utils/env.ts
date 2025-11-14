@@ -9,20 +9,13 @@
  * @returns Environment variable value or undefined
  */
 export function getEnv(key: string): string | undefined {
-  // Try import.meta.env first (Vite/browser)
-  // Check if we're in a Vite environment
+  // Try import.meta.env first (Vite/Astro)
+  // In Vite, import.meta.env is available at runtime in server-side code
+  // We need to access it directly since import.meta is a compile-time construct
   try {
-    // Use a function to safely access import.meta
-    const getMetaEnv = () => {
-      try {
-        // @ts-ignore - import.meta is a special syntax that may not be available in all environments
-        return typeof import.meta !== 'undefined' ? import.meta.env : undefined;
-      } catch {
-        return undefined;
-      }
-    };
-
-    const metaEnv = getMetaEnv();
+    // Direct access to import.meta.env (works in Vite/Astro server-side)
+    // @ts-ignore - import.meta.env is Vite-specific and may not be available in all environments
+    const metaEnv = import.meta.env;
     if (metaEnv && typeof metaEnv === 'object' && metaEnv !== null) {
       const value = (metaEnv as Record<string, any>)[key];
       if (value !== undefined && value !== null && value !== '') {
@@ -30,9 +23,9 @@ export function getEnv(key: string): string | undefined {
       }
     }
   } catch {
-    // import.meta might not be available in all contexts
+    // import.meta might not be available in all contexts (e.g., pure Node.js), fall through
   }
-
+  
   // Fallback to process.env (Node.js)
   if (typeof process !== 'undefined' && process.env) {
     const value = process.env[key];
@@ -40,7 +33,7 @@ export function getEnv(key: string): string | undefined {
       return value;
     }
   }
-
+  
   return undefined;
 }
 

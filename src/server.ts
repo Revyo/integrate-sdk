@@ -197,22 +197,130 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
     const method = request.method.toUpperCase();
 
     // Extract action from context params or URL
+    // Route structure: /api/integrate/oauth/[action]
+    // For catch-all routes [...all], the all param would be ['oauth', 'callback'] or ['oauth', 'authorize'], etc.
     let action: string | undefined;
+    let segments: string[] = [];
+
     if (context?.params?.action) {
       action = context.params.action;
     } else if (context?.params?.all) {
       // For catch-all routes like [...all]
       const all = context.params.all;
+
       if (Array.isArray(all)) {
-        action = all[all.length - 1];
+        segments = all;
       } else if (typeof all === 'string') {
-        action = all.split('/').pop();
+        segments = all.split('/').filter(Boolean);
+      }
+
+      // Handle route structure: /api/integrate/oauth/[action]
+      // segments should be ['oauth', 'callback'] or ['oauth', 'authorize'], etc.
+      if (segments.length === 2 && segments[0] === 'oauth') {
+        action = segments[1];
+      } else if (segments.length === 1) {
+        // If only one segment, use it as the action (for routes like /api/integrate/[action])
+        action = segments[0];
+      } else if (segments.length > 0) {
+        // Fallback: use the last segment
+        action = segments[segments.length - 1];
       }
     } else {
       // Try to extract from URL path
       const url = new URL(request.url);
       const pathParts = url.pathname.split('/').filter(Boolean);
-      action = pathParts[pathParts.length - 1] || 'callback';
+      segments = pathParts;
+      // Look for 'oauth' in the path and get the next segment
+      const oauthIndex = pathParts.indexOf('oauth');
+      if (oauthIndex >= 0 && oauthIndex < pathParts.length - 1) {
+        action = pathParts[oauthIndex + 1];
+      } else if (pathParts.length > 0) {
+        action = pathParts[pathParts.length - 1];
+      } else {
+        action = 'callback';
+      }
+    }
+
+    // Validate route structure for catch-all routes
+    // Must be /api/integrate/oauth/[action]
+    if (segments.length > 0) {
+      // For catch-all routes, expect ['oauth', 'action'] format
+      if (segments.length === 2 && segments[0] !== 'oauth') {
+        return Response.json(
+          { error: `Invalid route: /${segments.join('/')}` },
+          { status: 404 }
+        );
+      }
+    }
+
+    // Special handling for GET /oauth/callback (OAuth provider redirect)
+    if (method === 'GET' && action === 'callback') {
+      const url = new URL(request.url);
+      const searchParams = url.searchParams;
+
+      const code = searchParams.get('code');
+      const state = searchParams.get('state');
+      const error = searchParams.get('error');
+      const errorDescription = searchParams.get('error_description');
+
+      // Use default redirect URLs (can be overridden by wrapper functions)
+      const defaultRedirectUrl = '/';
+      const errorRedirectUrl = '/auth-error';
+
+      // Handle OAuth error
+      if (error) {
+        const errorMsg = errorDescription || error;
+        console.error('[OAuth Redirect] Error:', errorMsg);
+
+        return Response.redirect(
+          new URL(`${errorRedirectUrl}?error=${encodeURIComponent(errorMsg)}`, request.url)
+        );
+      }
+
+      // Validate required parameters
+      if (!code || !state) {
+        console.error('[OAuth Redirect] Missing code or state parameter');
+
+        return Response.redirect(
+          new URL(`${errorRedirectUrl}?error=${encodeURIComponent('Invalid OAuth callback')}`, request.url)
+        );
+      }
+
+      // Extract returnUrl from state parameter (with fallbacks)
+      let returnUrl = defaultRedirectUrl;
+
+      try {
+        // Try to parse state to extract returnUrl
+        const { parseState } = await import('./oauth/pkce.js');
+        const stateData = parseState(state);
+        if (stateData.returnUrl) {
+          returnUrl = stateData.returnUrl;
+        }
+      } catch (e) {
+        // If parsing fails, try to use referrer as fallback
+        try {
+          const referrer = request.headers.get('referer') || request.headers.get('referrer');
+          if (referrer) {
+            const referrerUrl = new URL(referrer);
+            const currentUrl = new URL(request.url);
+
+            // Only use referrer if it's from the same origin (security)
+            if (referrerUrl.origin === currentUrl.origin) {
+              returnUrl = referrerUrl.pathname + referrerUrl.search;
+            }
+          }
+        } catch {
+          // If referrer parsing fails, use default
+          // (already set to defaultRedirectUrl)
+        }
+      }
+
+      // Redirect to the return URL with OAuth params in the hash
+      // Using hash to avoid sending sensitive params to the server
+      const targetUrl = new URL(returnUrl, request.url);
+      targetUrl.hash = `oauth_callback=${encodeURIComponent(JSON.stringify({ code, state }))}`;
+
+      return Response.redirect(targetUrl);
     }
 
     const handlerContext = { params: { action: action || 'callback' } };
@@ -437,5 +545,236 @@ export function toNextJsHandler(options: {
   };
 
   return { POST, GET };
+}
+
+/**
+ * Create Astro handler with configurable redirect URLs
+ * 
+ * Wraps the unified handler with redirect URL configuration
+ * 
+ * @param baseHandler - Handler function from createMCPServer
+ * @param options - Redirect URL configuration
+ * @returns Wrapped handler function for Astro
+ * 
+ * @example
+ * ```typescript
+ * // lib/integrate-server.ts
+ * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * 
+ * export const { handler } = createMCPServer({
+ *   plugins: [
+ *     githubPlugin({
+ *       clientId: import.meta.env.GITHUB_CLIENT_ID!,
+ *       clientSecret: import.meta.env.GITHUB_CLIENT_SECRET!,
+ *     }),
+ *   ],
+ * });
+ * 
+ * // pages/api/integrate/[...all].ts
+ * import { toAstroHandler } from 'integrate-sdk/server';
+ * import { handler } from '@/lib/integrate-server';
+ * 
+ * export const ALL = toAstroHandler(handler, {
+ *   redirectUrl: '/dashboard',
+ *   errorRedirectUrl: '/auth-error',
+ * });
+ * ```
+ */
+export function toAstroHandler(
+  baseHandler: (request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>,
+  options?: {
+    /** URL to redirect to after successful OAuth callback (default: '/') */
+    redirectUrl?: string;
+    /** URL to redirect to on OAuth error (default: '/auth-error') */
+    errorRedirectUrl?: string;
+  }
+) {
+  const defaultRedirectUrl = options?.redirectUrl || '/';
+  const errorRedirectUrl = options?.errorRedirectUrl || '/auth-error';
+
+  return async (ctx: { request: Request; params: { all?: string | string[] } }) => {
+    // Wrap the handler to inject redirect URLs into the callback handling
+    const wrappedHandler = async (
+      request: Request,
+      context?: { params?: { action?: string; all?: string | string[] } }
+    ): Promise<Response> => {
+      const url = new URL(request.url);
+      const method = request.method.toUpperCase();
+      const pathParts = url.pathname.split('/').filter(Boolean);
+      const oauthIndex = pathParts.indexOf('oauth');
+
+      // Intercept GET /oauth/callback to use custom redirect URLs
+      if (method === 'GET' && oauthIndex >= 0 && pathParts[oauthIndex + 1] === 'callback') {
+        const searchParams = url.searchParams;
+        const code = searchParams.get('code');
+        const state = searchParams.get('state');
+        const error = searchParams.get('error');
+        const errorDescription = searchParams.get('error_description');
+
+        // Handle OAuth error
+        if (error) {
+          const errorMsg = errorDescription || error;
+          console.error('[OAuth Redirect] Error:', errorMsg);
+          return Response.redirect(
+            new URL(`${errorRedirectUrl}?error=${encodeURIComponent(errorMsg)}`, request.url)
+          );
+        }
+
+        // Validate required parameters
+        if (!code || !state) {
+          console.error('[OAuth Redirect] Missing code or state parameter');
+          return Response.redirect(
+            new URL(`${errorRedirectUrl}?error=${encodeURIComponent('Invalid OAuth callback')}`, request.url)
+          );
+        }
+
+        // Extract returnUrl from state parameter (with fallbacks)
+        let returnUrl = defaultRedirectUrl;
+
+        try {
+          const { parseState } = await import('./oauth/pkce.js');
+          const stateData = parseState(state);
+          if (stateData.returnUrl) {
+            returnUrl = stateData.returnUrl;
+          }
+        } catch (e) {
+          try {
+            const referrer = request.headers.get('referer') || request.headers.get('referrer');
+            if (referrer) {
+              const referrerUrl = new URL(referrer);
+              const currentUrl = new URL(request.url);
+              if (referrerUrl.origin === currentUrl.origin) {
+                returnUrl = referrerUrl.pathname + referrerUrl.search;
+              }
+            }
+          } catch {
+            // Use default
+          }
+        }
+
+        const targetUrl = new URL(returnUrl, request.url);
+        targetUrl.hash = `oauth_callback=${encodeURIComponent(JSON.stringify({ code, state }))}`;
+        return Response.redirect(targetUrl);
+      }
+
+      // For all other requests, use the base handler
+      return baseHandler(request, context);
+    };
+
+    return wrappedHandler(ctx.request, { params: { all: ctx.params.all } });
+  };
+}
+
+/**
+ * Create SolidStart handler with configurable redirect URLs
+ * 
+ * Wraps the unified handler with redirect URL configuration
+ * 
+ * @param baseHandler - Handler function from createMCPServer
+ * @param options - Redirect URL configuration
+ * @returns Object with GET, POST, PATCH, PUT, DELETE handlers
+ * 
+ * @example
+ * ```typescript
+ * // lib/integrate-server.ts
+ * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * 
+ * export const { handler } = createMCPServer({
+ *   plugins: [
+ *     githubPlugin({
+ *       clientId: process.env.GITHUB_CLIENT_ID!,
+ *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+ *     }),
+ *   ],
+ * });
+ * 
+ * // src/routes/api/integrate/[...all].ts
+ * import { toSolidStartHandler } from 'integrate-sdk/server';
+ * import { handler } from '@/lib/integrate-server';
+ * 
+ * const handlers = toSolidStartHandler(handler, {
+ *   redirectUrl: '/dashboard',
+ *   errorRedirectUrl: '/auth-error',
+ * });
+ * 
+ * export const { GET, POST, PATCH, PUT, DELETE } = handlers;
+ * ```
+ */
+export function toSolidStartHandler(
+  baseHandler: (request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>,
+  options?: {
+    /** URL to redirect to after successful OAuth callback (default: '/') */
+    redirectUrl?: string;
+    /** URL to redirect to on OAuth error (default: '/auth-error') */
+    errorRedirectUrl?: string;
+  }
+) {
+  const wrappedHandler = toAstroHandler(baseHandler, options);
+
+  const handler = async (event: { request: Request }): Promise<Response> => {
+    return wrappedHandler({ request: event.request, params: {} });
+  };
+
+  return {
+    GET: handler,
+    POST: handler,
+    PATCH: handler,
+    PUT: handler,
+    DELETE: handler,
+  };
+}
+
+/**
+ * Create SvelteKit handler with configurable redirect URLs
+ * 
+ * Wraps the unified handler with redirect URL configuration
+ * 
+ * @param baseHandler - Handler function from createMCPServer
+ * @param options - Redirect URL configuration
+ * @returns Handler function for SvelteKit routes
+ * 
+ * @example
+ * ```typescript
+ * // lib/integrate-server.ts
+ * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * 
+ * export const { handler } = createMCPServer({
+ *   plugins: [
+ *     githubPlugin({
+ *       clientId: process.env.GITHUB_CLIENT_ID!,
+ *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+ *     }),
+ *   ],
+ * });
+ * 
+ * // routes/api/integrate/[...all]/+server.ts
+ * import { toSvelteKitHandler } from 'integrate-sdk/server';
+ * import { handler } from '$lib/integrate-server';
+ * 
+ * const svelteKitRoute = toSvelteKitHandler(handler, {
+ *   redirectUrl: '/dashboard',
+ *   errorRedirectUrl: '/auth-error',
+ * });
+ * 
+ * export const POST = svelteKitRoute;
+ * export const GET = svelteKitRoute;
+ * ```
+ */
+export function toSvelteKitHandler(
+  baseHandler: (request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>,
+  options?: {
+    /** URL to redirect to after successful OAuth callback (default: '/') */
+    redirectUrl?: string;
+    /** URL to redirect to on OAuth error (default: '/auth-error') */
+    errorRedirectUrl?: string;
+  }
+) {
+  const wrappedHandler = toAstroHandler(baseHandler, options);
+
+  return async (event: any): Promise<Response> => {
+    // Extract all param from SvelteKit event
+    const all = event.params?.all;
+    return wrappedHandler({ request: event.request, params: { all } });
+  };
 }
 
