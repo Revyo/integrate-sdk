@@ -3,7 +3,7 @@
  * Tests that don't require a full HTTP streaming server
  */
 
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, mock } from "bun:test";
 import { createMCPClient } from "../../src/client.js";
 import { createSimplePlugin, genericOAuthPlugin } from "../../src/plugins/generic.js";
 import { githubPlugin } from "../../src/plugins/github.js";
@@ -102,21 +102,37 @@ describe("Integration - Client Configuration", () => {
 });
 
 describe("Integration - Error Handling", () => {
-  test("throws error when calling tool before initialization with manual mode", async () => {
+  test("can call tools through API handler without initialization", async () => {
+    const mockFetch = mock(async (url: string) => {
+      if (url.includes("/api/integrate/mcp")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            content: [{ type: "text", text: "api handler result" }],
+          }),
+          headers: new Headers(),
+        } as Response;
+      }
+      return { ok: false } as Response;
+    }) as any;
+
+    global.fetch = mockFetch;
+
     const client = createMCPClient({
       plugins: [
         githubPlugin({
           clientId: "test-id",
-          clientSecret: "test-secret",
         }),
       ],
-      connectionMode: 'manual',  // Use manual mode to test initialization requirement
+      connectionMode: 'manual',  // Manual mode - no auto-connect
       singleton: false,
     });
 
-    await expect(client.github.getRepo({ owner: "test", repo: "test" })).rejects.toThrow(
-      "Client not connected"
-    );
+    // Should work through API handler without calling connect()
+    const result = await client.github.getRepo({ owner: "test", repo: "test" });
+    expect(result.content).toHaveLength(1);
+    expect(result.content[0].text).toBe("api handler result");
   });
 
   test.skip("handles connection to invalid URL", async () => {

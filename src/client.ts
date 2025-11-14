@@ -141,8 +141,6 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   private onReauthRequired?: ReauthHandler;
   private maxReauthRetries: number;
   private authState: Map<string, { authenticated: boolean; lastError?: AuthenticationError }> = new Map();
-  private connectionMode: 'lazy' | 'eager' | 'manual';
-  private connecting: Promise<void> | null = null;
   private oauthManager: OAuthManager;
   private eventEmitter: SimpleEventEmitter = new SimpleEventEmitter();
   private apiRouteBase: string;
@@ -195,7 +193,6 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     };
     this.onReauthRequired = config.onReauthRequired;
     this.maxReauthRetries = config.maxReauthRetries ?? 1;
-    this.connectionMode = config.connectionMode ?? 'lazy';
 
     // Initialize OAuth manager
     this.oauthManager = new OAuthManager(
@@ -254,35 +251,6 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   }
 
   /**
-   * Ensure the client is connected (for lazy connection mode)
-   */
-  private async ensureConnected(): Promise<void> {
-    // If already connected, return immediately
-    if (this.initialized && this.transport.isConnected()) {
-      return;
-    }
-
-    // If already connecting, wait for it to complete
-    if (this.connecting) {
-      return this.connecting;
-    }
-
-    // If manual mode, throw error
-    if (this.connectionMode === 'manual' && !this.initialized) {
-      throw new Error("Client not connected. Call connect() first when using manual connection mode.");
-    }
-
-    // Start connection
-    this.connecting = this.connect();
-
-    try {
-      await this.connecting;
-    } finally {
-      this.connecting = null;
-    }
-  }
-
-  /**
    * Create a proxy for a plugin namespace that intercepts method calls
    * and routes them to the appropriate tool
    */
@@ -291,8 +259,8 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       get: (_target, methodName: string) => {
         // Return a function that calls the tool
         return async (args?: Record<string, unknown>) => {
-          // Ensure connected before calling tool
-          await this.ensureConnected();
+          // When routing through API handlers, skip ensureConnected
+          // The tool will be validated by the server-side handler
           const toolName = methodToToolName(methodName, pluginId);
           return await this.callToolWithRetry(toolName, args, 0);
         };
@@ -308,8 +276,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
       get: (_target, methodName: string) => {
         // Return a function that calls the server tool directly
         return async (args?: Record<string, unknown>) => {
-          // Ensure connected before calling tool
-          await this.ensureConnected();
+          // When routing through API handlers, skip ensureConnected
           const toolName = methodToToolName(methodName, "");
           // Remove leading underscore if present
           const finalToolName = toolName.startsWith("_") ? toolName.substring(1) : toolName;
@@ -326,18 +293,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     name: string,
     args?: Record<string, unknown>
   ): Promise<MCPToolCallResponse> {
-    if (!this.initialized) {
-      throw new Error("Client not initialized. Call connect() first.");
-    }
-
-    if (!this.availableTools.has(name)) {
-      throw new Error(
-        `Tool "${name}" is not available on the server. Available tools: ${Array.from(
-          this.availableTools.keys()
-        ).join(", ")}`
-      );
-    }
-
+    // When routing through API handlers, server-side validates tools
     try {
       // Route through API handler (server tools don't have providers)
       const response = await this.callToolThroughHandler(name, args);
@@ -460,18 +416,8 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     name: string,
     args?: Record<string, unknown>
   ): Promise<MCPToolCallResponse> {
-    if (!this.initialized) {
-      throw new Error("Client not initialized. Call connect() first.");
-    }
-
-    if (!this.availableTools.has(name)) {
-      throw new Error(
-        `Tool "${name}" is not available on the server. Available tools: ${Array.from(
-          this.availableTools.keys()
-        ).join(", ")}`
-      );
-    }
-
+    // When routing through API handlers, no initialization required
+    // The server-side handler will validate tools
     try {
       // Route through API handler (server tools don't have providers)
       const response = await this.callToolThroughHandler(name, args);
@@ -559,21 +505,11 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     args?: Record<string, unknown>,
     retryCount = 0
   ): Promise<MCPToolCallResponse> {
-    if (!this.initialized) {
-      throw new Error("Client not initialized. Call connect() first.");
-    }
-
+    // When routing through API handlers, we don't need to check initialization
+    // The server-side handler will validate tools and permissions
     if (!this.enabledToolNames.has(name)) {
       throw new Error(
         `Tool "${name}" is not enabled. Enable it by adding the appropriate plugin.`
-      );
-    }
-
-    if (!this.availableTools.has(name)) {
-      throw new Error(
-        `Tool "${name}" is not available on the server. Available tools: ${Array.from(
-          this.availableTools.keys()
-        ).join(", ")}`
       );
     }
 
