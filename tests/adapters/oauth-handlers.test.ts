@@ -906,8 +906,7 @@ describe("Server-Side toNextJsHandler", () => {
     global.fetch = mockFetch;
 
     // Create catch-all routes by passing client
-    const routes = toNextJsHandler({
-      client: testClient,
+    const routes = toNextJsHandler(testClient, {
       redirectUrl: "/dashboard",
     });
 
@@ -940,7 +939,7 @@ describe("Server-Side toNextJsHandler", () => {
 
     global.fetch = mockFetch;
 
-    const routes = toNextJsHandler({ client: testClient });
+    const routes = toNextJsHandler(testClient);
     const mockRequest = {
       json: async () => ({
         provider: "github",
@@ -958,8 +957,7 @@ describe("Server-Side toNextJsHandler", () => {
   });
 
   it("should handle GET /oauth/callback (provider redirect)", async () => {
-    const routes = toNextJsHandler({
-      client: testClient,
+    const routes = toNextJsHandler(testClient, {
       redirectUrl: "/dashboard",
     });
 
@@ -989,7 +987,7 @@ describe("Server-Side toNextJsHandler", () => {
 
     global.fetch = mockFetch;
 
-    const routes = toNextJsHandler({ client: testClient });
+    const routes = toNextJsHandler(testClient);
     const mockRequest = {
       nextUrl: {
         searchParams: new URLSearchParams("provider=github"),
@@ -1024,13 +1022,11 @@ describe("Server-Side toNextJsHandler", () => {
 
     // Use manual config instead of global server config
     const routes = toNextJsHandler({
-      config: {
-        providers: {
-          github: {
-            clientId: "manual-client-id",
-            clientSecret: "manual-client-secret",
-            redirectUri: "https://manual.com/callback",
-          },
+      providers: {
+        github: {
+          clientId: "manual-client-id",
+          clientSecret: "manual-client-secret",
+          redirectUri: "https://manual.com/callback",
         },
       },
       redirectUrl: "/custom-redirect",
@@ -1072,7 +1068,7 @@ describe("Server-Side toNextJsHandler", () => {
 
     global.fetch = mockFetch;
 
-    const routes = toNextJsHandler({ client: testClient });
+    const routes = toNextJsHandler(testClient);
     const mockRequest = {
       json: async () => ({
         name: "github_list_own_repos",

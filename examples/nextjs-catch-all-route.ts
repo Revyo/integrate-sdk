@@ -37,8 +37,7 @@
 // import { serverClient } from '@/lib/integrate-server';
 // import { toNextJsHandler } from 'integrate-sdk/server';
 //
-// export const { POST, GET } = toNextJsHandler({
-//   client: serverClient,  // Pass the client
+// export const { POST, GET } = toNextJsHandler(serverClient, {
 //   redirectUrl: '/dashboard',
 //   errorRedirectUrl: '/auth-error',
 // });

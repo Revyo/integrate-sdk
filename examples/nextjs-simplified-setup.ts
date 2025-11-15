@@ -33,22 +33,19 @@ export const { client: serverClient } = createMCPServer({
 import { serverClient } from '@/lib/integrate-server';
 import { toNextJsHandler } from 'integrate-sdk/server';
 
-// Just pass the serverClient - config is extracted automatically!
-export const { POST, GET } = toNextJsHandler({
-  client: serverClient,             // Pass the client from createMCPServer
+// Just pass the serverClient and options separately!
+export const { POST, GET } = toNextJsHandler(serverClient, {
   redirectUrl: '/dashboard',        // Where to redirect after OAuth success
   errorRedirectUrl: '/auth-error',  // Where to redirect on OAuth error
 });
 
 // Alternative: Provide config inline without importing
 // export const { POST, GET } = toNextJsHandler({
-//   config: {
-//     providers: {
-//       github: {
-//         clientId: process.env.GITHUB_CLIENT_ID!,
-//         clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-//         redirectUri: process.env.GITHUB_REDIRECT_URI,
-//       },
+//   providers: {
+//     github: {
+//       clientId: process.env.GITHUB_CLIENT_ID!,
+//       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+//       redirectUri: process.env.GITHUB_REDIRECT_URI,
 //     },
 //   },
 //   redirectUrl: '/dashboard',
