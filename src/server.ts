@@ -554,9 +554,9 @@ export const GET = async (
  * });
  * ```
  */
-export function toNextJsHandler(
+export function toNextJsHandler<TPlugins extends readonly MCPPlugin[] = any>(
   clientOrOptions?:
-    | any  // Client instance from createMCPServer
+    | MCPServerClient<TPlugins>  // Client instance from createMCPServer
     | {
       /** OAuth provider configurations */
       providers?: Record<string, {
@@ -598,14 +598,15 @@ export function toNextJsHandler(
     errorRedirectUrl = redirectOptions?.errorRedirectUrl;
   }
   // Pattern 3: Config object provided (use it directly)
-  else if (typeof clientOrOptions === 'object' && clientOrOptions.providers) {
+  else if (typeof clientOrOptions === 'object' && (clientOrOptions as any).providers) {
+    const options = clientOrOptions as any;
     config = {
-      providers: clientOrOptions.providers,
-      serverUrl: clientOrOptions.serverUrl,
-      apiKey: clientOrOptions.apiKey,
+      providers: options.providers,
+      serverUrl: options.serverUrl,
+      apiKey: options.apiKey,
     };
-    redirectUrl = clientOrOptions.redirectUrl;
-    errorRedirectUrl = clientOrOptions.errorRedirectUrl;
+    redirectUrl = options.redirectUrl;
+    errorRedirectUrl = options.errorRedirectUrl;
   }
   else {
     // Invalid config
@@ -714,9 +715,9 @@ export function toNextJsHandler(
  * export const { GET, POST, PATCH, PUT, DELETE } = handlers;
  * ```
  */
-export function toSolidStartHandler(
+export function toSolidStartHandler<TPlugins extends readonly MCPPlugin[] = any>(
   clientOrHandlerOrOptions:
-    | any  // Client instance from createMCPServer (with .handler property)
+    | MCPServerClient<TPlugins>  // Client instance from createMCPServer (with .handler property)
     | ((request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>)
     | {
       /** OAuth provider configurations */
@@ -779,7 +780,7 @@ export function toSolidStartHandler(
   }
 
   // Pattern 3: Config object provided (create handler from scratch)
-  const options = clientOrHandlerOrOptions;
+  const options = clientOrHandlerOrOptions as any;
 
   if (!options.providers || Object.keys(options.providers).length === 0) {
     throw new Error('toSolidStartHandler requires either a handler function or a providers config object');
@@ -897,9 +898,9 @@ export function toSolidStartHandler(
  * export const GET = handler;
  * ```
  */
-export function toSvelteKitHandler(
+export function toSvelteKitHandler<TPlugins extends readonly MCPPlugin[] = any>(
   clientOrHandlerOrOptions:
-    | any  // Client instance from createMCPServer (with .handler property)
+    | MCPServerClient<TPlugins>  // Client instance from createMCPServer (with .handler property)
     | ((request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>)
     | {
       /** OAuth provider configurations */
@@ -950,7 +951,7 @@ export function toSvelteKitHandler(
   }
 
   // Pattern 3: Config object provided (create handler from scratch)
-  const options = clientOrHandlerOrOptions;
+  const options = clientOrHandlerOrOptions as any;
 
   if (!options.providers || Object.keys(options.providers).length === 0) {
     throw new Error('toSvelteKitHandler requires either a handler function or a providers config object');
