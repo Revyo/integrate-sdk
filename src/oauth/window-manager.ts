@@ -4,6 +4,7 @@
  */
 
 import type { PopupOptions, OAuthCallbackParams } from "./types.js";
+import { safeReplaceState } from '../utils/env.js';
 
 /**
  * Check if we're in a browser environment
@@ -228,8 +229,8 @@ export class OAuthWindowManager {
             code = parsed.code;
             state = parsed.state;
             
-            // Clean up hash
-            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            // Clean up hash (uses SvelteKit-safe navigation if available)
+            safeReplaceState(window.location.pathname + window.location.search);
           }
         } catch (e) {
           console.error('Failed to parse OAuth callback params from hash:', e);

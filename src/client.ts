@@ -20,6 +20,7 @@ import {
   type AuthenticationError,
 } from "./errors.js";
 import { methodToToolName } from "./utils/naming.js";
+import { safeReplaceState } from "./utils/env.js";
 import type { GitHubPluginClient } from "./plugins/github-client.js";
 import type { GmailPluginClient } from "./plugins/gmail-client.js";
 import type { ServerPluginClient } from "./plugins/server-client.js";
@@ -1266,8 +1267,8 @@ function processOAuthCallbackFromHash(client: MCPClient<any>): void {
             console.error('Failed to process OAuth callback:', error);
           });
 
-          // Clean up URL hash
-          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          // Clean up URL hash (uses SvelteKit-safe navigation if available)
+          safeReplaceState(window.location.pathname + window.location.search);
         }
       }
     }
