@@ -62,35 +62,29 @@ export function isBrowser(): boolean {
  * 
  * @param url - The URL to replace with (path + search params)
  */
-export function safeReplaceState(url: string): void {
+export async function safeReplaceState(url: string): Promise<void> {
   if (!isBrowser()) {
     return;
   }
 
+  // Try to detect and use SvelteKit's navigation
   try {
-    // Check if we're in a SvelteKit environment by looking for the goto function
-    // SvelteKit apps have a global __sveltekit property
-    const sveltekit = (globalThis as any).__sveltekit;
+    // Try to dynamically import SvelteKit's navigation module
+    // This will only work in SvelteKit apps
+    // @ts-ignore - $app/navigation only exists in SvelteKit environments
+    const navigation = await import('$app/navigation').catch(() => null);
     
-    if (sveltekit) {
-      // In SvelteKit, we need to use replaceState from $app/navigation
-      // But we can't import it directly since this SDK works in multiple frameworks
-      // Instead, we'll use the global navigation that SvelteKit provides
-      
-      // Try to get the replaceState from SvelteKit's internal navigation
-      // This is accessed via window.__sveltekit_navigation or similar
-      const goto = (globalThis as any).goto;
-      if (typeof goto === 'function') {
-        // Use goto with replaceState option
-        goto(url, { replaceState: true, keepFocus: true, noScroll: true }).catch(() => {
-          // If SvelteKit's goto fails, fall back to standard API
-          window.history.replaceState(null, '', url);
-        });
-        return;
-      }
+    if (navigation && typeof navigation.goto === 'function') {
+      // Use SvelteKit's goto with replaceState
+      await navigation.goto(url, { 
+        replaceState: true, 
+        keepFocus: true, 
+        noScroll: true 
+      });
+      return;
     }
   } catch (e) {
-    // SvelteKit navigation not available, fall through to standard API
+    // Not in SvelteKit or module not available
   }
 
   // Fall back to standard History API for non-SvelteKit environments

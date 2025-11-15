@@ -1268,7 +1268,9 @@ function processOAuthCallbackFromHash(client: MCPClient<any>): void {
           });
 
           // Clean up URL hash (uses SvelteKit-safe navigation if available)
-          safeReplaceState(window.location.pathname + window.location.search);
+          safeReplaceState(window.location.pathname + window.location.search).catch(() => {
+            // Ignore errors from URL cleanup
+          });
         }
       }
     }
