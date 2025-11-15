@@ -10,6 +10,18 @@ import { createNextOAuthHandler } from './adapters/nextjs.js';
 import { getEnv } from './utils/env.js';
 
 /**
+ * Server client with attached handler, POST, and GET route handlers
+ */
+export type MCPServerClient<TPlugins extends readonly MCPPlugin[]> = MCPClient<TPlugins> & {
+  /** Unified handler function that handles both POST and GET requests */
+  handler: (request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>;
+  /** OAuth POST handler - for Next.js route exports */
+  POST: (req: any, context: { params: { action: string } | Promise<{ action: string }> }) => Promise<Response>;
+  /** OAuth GET handler - for Next.js route exports */
+  GET: (req: any, context: { params: { action: string } | Promise<{ action: string }> }) => Promise<Response>;
+};
+
+/**
  * Global registry for server configuration
  * Stores OAuth provider configuration for singleton handlers
  */
@@ -394,13 +406,14 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
   };
 
   // Attach handler, POST, and GET to the client for convenient access
-  (client as any).handler = handler;
-  (client as any).POST = POST;
-  (client as any).GET = GET;
+  const serverClient = client as MCPServerClient<TPlugins>;
+  serverClient.handler = handler;
+  serverClient.POST = POST;
+  serverClient.GET = GET;
 
   return {
     /** Server-side MCP client instance with auto-connection and attached handler */
-    client,
+    client: serverClient,
 
     /** OAuth POST handler - export this from your route file */
     POST,
