@@ -1092,20 +1092,26 @@ function registerCleanupHandlers() {
     );
   };
 
-  if (typeof process !== 'undefined') {
-    process.on('SIGINT', async () => {
-      await cleanup();
-      process.exit(0);
-    });
+  // Only register signal handlers in proper Node.js environments
+  // Check for process.on and process.exit to avoid issues with bundlers/edge runtimes
+  if (typeof process !== 'undefined' && typeof process.on === 'function' && typeof process.exit === 'function') {
+    try {
+      process.on('SIGINT', async () => {
+        await cleanup();
+        process.exit(0);
+      });
 
-    process.on('SIGTERM', async () => {
-      await cleanup();
-      process.exit(0);
-    });
+      process.on('SIGTERM', async () => {
+        await cleanup();
+        process.exit(0);
+      });
 
-    process.on('beforeExit', async () => {
-      await cleanup();
-    });
+      process.on('beforeExit', async () => {
+        await cleanup();
+      });
+    } catch (error) {
+      // Silently ignore if we can't register handlers (e.g., in bundlers/edge runtimes)
+    }
   }
 }
 
