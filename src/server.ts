@@ -762,37 +762,33 @@ export function toAstroHandler(
  * ```
  */
 export function toSolidStartHandler(
-  handlerOrOptions:
+  handlerOrOptions: 
     | ((request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>)
     | {
-      /** OAuth provider configurations */
-      providers?: Record<string, {
-        clientId: string;
-        clientSecret: string;
-        redirectUri?: string;
-      }>;
-      /** Server URL for MCP server */
-      serverUrl?: string;
-      /** API key for authentication */
-      apiKey?: string;
-      /** URL to redirect to after successful OAuth callback (default: '/') */
-      redirectUrl?: string;
-      /** URL to redirect to on OAuth error (default: '/auth-error') */
-      errorRedirectUrl?: string;
-    },
-  redirectOptions?: {
-    /** URL to redirect to after successful OAuth callback (default: '/') */
-    redirectUrl?: string;
-    /** URL to redirect to on OAuth error (default: '/auth-error') */
-    errorRedirectUrl?: string;
-  }
+        /** OAuth provider configurations */
+        providers?: Record<string, {
+          clientId: string;
+          clientSecret: string;
+          redirectUri?: string;
+        }>;
+        /** Server URL for MCP server */
+        serverUrl?: string;
+        /** API key for authentication */
+        apiKey?: string;
+        /** URL to redirect to after successful OAuth callback (default: '/') */
+        redirectUrl?: string;
+        /** URL to redirect to on OAuth error (default: '/auth-error') */
+        errorRedirectUrl?: string;
+      }
 ) {
-  // Pattern 1: Handler function provided (wrap it)
+  // Pattern 1: Handler function provided (wrap it) - like Astro
   if (typeof handlerOrOptions === 'function') {
-    const wrappedHandler = toAstroHandler(handlerOrOptions, redirectOptions);
+    const baseHandler = handlerOrOptions;
 
     const handler = async (event: { request: Request }): Promise<Response> => {
-      return wrappedHandler({ request: event.request, params: {} });
+      // Call the handler directly with request, like Astro does
+      // Handler will extract route info from URL
+      return baseHandler(event.request);
     };
 
     return {
@@ -806,7 +802,7 @@ export function toSolidStartHandler(
 
   // Pattern 2: Config object provided (create handler from scratch)
   const options = handlerOrOptions;
-
+  
   if (!options.providers || Object.keys(options.providers).length === 0) {
     throw new Error('toSolidStartHandler requires either a handler function or a providers config object');
   }
@@ -832,7 +828,7 @@ export function toSolidStartHandler(
     const method = event.request.method.toUpperCase();
     const url = new URL(event.request.url);
     const pathParts = url.pathname.split('/').filter(Boolean);
-
+    
     // Extract the path segments after 'api/integrate'
     const integrateIndex = pathParts.indexOf('integrate');
     const segments = integrateIndex >= 0 ? pathParts.slice(integrateIndex + 1) : [];
@@ -927,36 +923,31 @@ export function toSvelteKitHandler(
   handlerOrOptions:
     | ((request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>)
     | {
-      /** OAuth provider configurations */
-      providers?: Record<string, {
-        clientId: string;
-        clientSecret: string;
-        redirectUri?: string;
-      }>;
-      /** Server URL for MCP server */
-      serverUrl?: string;
-      /** API key for authentication */
-      apiKey?: string;
-      /** URL to redirect to after successful OAuth callback (default: '/') */
-      redirectUrl?: string;
-      /** URL to redirect to on OAuth error (default: '/auth-error') */
-      errorRedirectUrl?: string;
-    },
-  redirectOptions?: {
-    /** URL to redirect to after successful OAuth callback (default: '/') */
-    redirectUrl?: string;
-    /** URL to redirect to on OAuth error (default: '/auth-error') */
-    errorRedirectUrl?: string;
-  }
+        /** OAuth provider configurations */
+        providers?: Record<string, {
+          clientId: string;
+          clientSecret: string;
+          redirectUri?: string;
+        }>;
+        /** Server URL for MCP server */
+        serverUrl?: string;
+        /** API key for authentication */
+        apiKey?: string;
+        /** URL to redirect to after successful OAuth callback (default: '/') */
+        redirectUrl?: string;
+        /** URL to redirect to on OAuth error (default: '/auth-error') */
+        errorRedirectUrl?: string;
+      }
 ) {
-  // Pattern 1: Handler function provided (wrap it)
+  // Pattern 1: Handler function provided (wrap it) - like Astro
   if (typeof handlerOrOptions === 'function') {
-    const wrappedHandler = toAstroHandler(handlerOrOptions, redirectOptions);
+    const baseHandler = handlerOrOptions;
 
     return async (event: any): Promise<Response> => {
       // Extract all param from SvelteKit event
       const all = event.params?.all;
-      return wrappedHandler({ request: event.request, params: { all } });
+      // Call the handler directly with request and context, just like Astro does
+      return baseHandler(event.request, { params: { all } });
     };
   }
 
