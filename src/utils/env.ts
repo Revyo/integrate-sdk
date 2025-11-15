@@ -10,30 +10,33 @@
  */
 export function getEnv(key: string): string | undefined {
   // Try import.meta.env first (Vite/Astro)
-  // In Vite, import.meta.env is available at runtime in server-side code
-  // We need to access it directly since import.meta is a compile-time construct
+  // Use indirect access to avoid bundler issues with Expo and other tools
+  // that don't support import.meta
   try {
-    // Direct access to import.meta.env (works in Vite/Astro server-side)
-    // @ts-ignore - import.meta.env is Vite-specific and may not be available in all environments
-    const metaEnv = import.meta.env;
-    if (metaEnv && typeof metaEnv === 'object' && metaEnv !== null) {
-      const value = (metaEnv as Record<string, any>)[key];
+    // Use Function constructor to avoid direct import.meta reference that causes
+    // bundler parse errors in environments like Expo
+    // @ts-ignore - Dynamic access to avoid bundler issues
+    const getImportMeta = new Function('return typeof import.meta !== "undefined" ? import.meta : undefined');
+    const importMeta = getImportMeta();
+
+    if (importMeta && typeof importMeta.env === 'object' && importMeta.env !== null) {
+      const value = (importMeta.env as Record<string, any>)[key];
       if (value !== undefined && value !== null && value !== '') {
         return String(value);
       }
     }
   } catch {
-    // import.meta might not be available in all contexts (e.g., pure Node.js), fall through
+    // import.meta might not be available in all contexts, fall through
   }
-  
-  // Fallback to process.env (Node.js)
+
+  // Fallback to process.env (Node.js/React Native/Expo)
   if (typeof process !== 'undefined' && process.env) {
     const value = process.env[key];
     if (value !== undefined && value !== null && value !== '') {
       return value;
     }
   }
-  
+
   return undefined;
 }
 
