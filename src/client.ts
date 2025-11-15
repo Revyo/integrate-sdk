@@ -1267,8 +1267,10 @@ function processOAuthCallbackFromHash(client: MCPClient<any>): void {
             console.error('Failed to process OAuth callback:', error);
           });
 
-          // Clean up URL hash (skips in SvelteKit to avoid router conflicts)
-          safeReplaceState(window.location.pathname + window.location.search);
+          // Clean up URL hash (uses SvelteKit's replaceState if available)
+          safeReplaceState(window.location.pathname + window.location.search).catch(() => {
+            // Ignore errors from URL cleanup
+          });
         }
       }
     }

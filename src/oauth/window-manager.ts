@@ -229,8 +229,10 @@ export class OAuthWindowManager {
             code = parsed.code;
             state = parsed.state;
             
-            // Clean up hash (skips in SvelteKit to avoid router conflicts)
-            safeReplaceState(window.location.pathname + window.location.search);
+            // Clean up hash (uses SvelteKit's replaceState if available)
+            safeReplaceState(window.location.pathname + window.location.search).catch(() => {
+              // Ignore errors from URL cleanup
+            });
           }
         } catch (e) {
           console.error('Failed to parse OAuth callback params from hash:', e);

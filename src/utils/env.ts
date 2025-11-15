@@ -62,18 +62,31 @@ export function isBrowser(): boolean {
  * 
  * @param url - The URL to replace with (path + search params)
  */
-export function safeReplaceState(url: string): void {
+export async function safeReplaceState(url: string): Promise<void> {
   if (!isBrowser()) {
     return;
   }
 
-  // Detect if we're in a SvelteKit environment by checking for SvelteKit-specific globals
-  // SvelteKit sets __sveltekit on the global object
+  // Detect if we're in a SvelteKit environment
   if (typeof (globalThis as any).__sveltekit !== 'undefined') {
-    // In SvelteKit, skip the history manipulation to avoid the warning
-    // SvelteKit's routing will handle URL updates through its own navigation
-    // The hash cleanup is aesthetic anyway - the OAuth params are already processed
-    return;
+    try {
+      // Dynamically import SvelteKit's navigation using a string variable
+      // This prevents Vite from trying to resolve it at build time
+      const modulePath = '$app/navigation';
+      // Use Function constructor to eval the import without Vite analyzing it
+      const importFn = new Function('path', 'return import(path)');
+      const navigation = await importFn(modulePath);
+      
+      if (navigation && typeof navigation.replaceState === 'function') {
+        // Use SvelteKit's replaceState to avoid the warning
+        navigation.replaceState(url, {});
+        return;
+      }
+    } catch (e) {
+      // If import fails, just skip the URL cleanup
+      // The OAuth params are already processed, so this is just aesthetic
+      return;
+    }
   }
 
   // For non-SvelteKit environments, use the standard History API
