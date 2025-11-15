@@ -8,7 +8,16 @@
 
 import { toSvelteKitHandler } from 'integrate-sdk/adapters/svelte-kit';
 
-// Create the OAuth handler with your provider configuration
+// Pattern 1: Using serverClient (Recommended)
+// import { serverClient } from '$lib/integrate-server';
+// const svelteKitRoute = toSvelteKitHandler(serverClient, {
+//   redirectUrl: '/dashboard',
+//   errorRedirectUrl: '/auth-error',
+// });
+// export const POST = svelteKitRoute;
+// export const GET = svelteKitRoute;
+
+// Pattern 2: Inline configuration
 const handler = toSvelteKitHandler({
   providers: {
     github: {
@@ -22,6 +31,8 @@ const handler = toSvelteKitHandler({
       redirectUri: 'http://localhost:5173/api/integrate/oauth/callback',
     },
   },
+  redirectUrl: '/dashboard',
+  errorRedirectUrl: '/auth-error',
 });
 
 // Export handlers for both GET and POST requests

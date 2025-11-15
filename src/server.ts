@@ -60,6 +60,8 @@ function getDefaultRedirectUri(): string {
  * The redirectUri can be specified globally and will be used for all plugins.
  * If not provided, it will auto-detect from INTEGRATE_URL or VERCEL_URL
  * 
+ * The returned client has `handler`, `POST`, and `GET` attached for easy access.
+ * 
  * ⚠️ SECURITY: The API key should NEVER be exposed to client-side code.
  * Use environment variables WITHOUT the NEXT_PUBLIC_ prefix.
  * 
@@ -89,10 +91,13 @@ function getDefaultRedirectUri(): string {
  * });
  * ```
  * 
- * Then in your route file:
+ * Then use the handler directly from the client:
  * ```typescript
- * // app/api/integrate/oauth/[action]/route.ts
- * export { POST, GET } from 'integrate-sdk/server';
+ * // routes/api/integrate/[...all]/+server.ts (SvelteKit)
+ * import { serverClient } from '$lib/integrate-server';
+ * 
+ * export const POST = serverClient.handler;
+ * export const GET = serverClient.handler;
  * ```
  */
 export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
@@ -185,6 +190,8 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
   /**
    * Unified handler function that handles both POST and GET requests
    * Useful for frameworks like Astro, Remix, etc. that use a single handler
+   * 
+   * Available as `client.handler` for convenience
    * 
    * @param request - The incoming request
    * @param context - Optional context with params (for frameworks that support it)
@@ -375,8 +382,13 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
     }
   };
 
+  // Attach handler, POST, and GET to the client for convenient access
+  (client as any).handler = handler;
+  (client as any).POST = POST;
+  (client as any).GET = GET;
+
   return {
-    /** Server-side MCP client instance with auto-connection */
+    /** Server-side MCP client instance with auto-connection and attached handler */
     client,
 
     /** OAuth POST handler - export this from your route file */
@@ -525,21 +537,21 @@ export function toNextJsHandler(
   clientOrOptions?:
     | any  // Client instance from createMCPServer
     | {
-        /** OAuth provider configurations */
-        providers?: Record<string, {
-          clientId: string;
-          clientSecret: string;
-          redirectUri?: string;
-        }>;
-        /** Server URL for MCP server */
-        serverUrl?: string;
-        /** API key for authentication */
-        apiKey?: string;
-        /** URL to redirect to after successful OAuth callback (default: '/') */
-        redirectUrl?: string;
-        /** URL to redirect to on OAuth error (default: '/auth-error') */
-        errorRedirectUrl?: string;
-      },
+      /** OAuth provider configurations */
+      providers?: Record<string, {
+        clientId: string;
+        clientSecret: string;
+        redirectUri?: string;
+      }>;
+      /** Server URL for MCP server */
+      serverUrl?: string;
+      /** API key for authentication */
+      apiKey?: string;
+      /** URL to redirect to after successful OAuth callback (default: '/') */
+      redirectUrl?: string;
+      /** URL to redirect to on OAuth error (default: '/auth-error') */
+      errorRedirectUrl?: string;
+    },
   redirectOptions?: {
     /** URL to redirect to after successful OAuth callback (default: '/') */
     redirectUrl?: string;
@@ -637,7 +649,7 @@ export function toNextJsHandler(
  * // lib/integrate-server.ts
  * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
  * 
- * export const { handler } = createMCPServer({
+ * export const { client: serverClient } = createMCPServer({
  *   plugins: [
  *     githubPlugin({
  *       clientId: import.meta.env.GITHUB_CLIENT_ID!,
@@ -648,9 +660,9 @@ export function toNextJsHandler(
  * 
  * // pages/api/integrate/[...all].ts
  * import { toAstroHandler } from 'integrate-sdk/server';
- * import { handler } from '@/lib/integrate-server';
+ * import { serverClient } from '@/lib/integrate-server';
  * 
- * export const ALL = toAstroHandler(handler, {
+ * export const ALL = toAstroHandler(serverClient.handler, {
  *   redirectUrl: '/dashboard',
  *   errorRedirectUrl: '/auth-error',
  * });
@@ -753,12 +765,12 @@ export function toAstroHandler(
  * @returns Object with GET, POST, PATCH, PUT, DELETE handlers
  * 
  * @example
- * **Pattern 1: Using handler from createMCPServer (Recommended)**
+ * **Pattern 1: Using serverClient from createMCPServer (Recommended)**
  * ```typescript
  * // lib/integrate-server.ts
  * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
  * 
- * export const { handler } = createMCPServer({
+ * export const { client: serverClient } = createMCPServer({
  *   plugins: [
  *     githubPlugin({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -769,9 +781,9 @@ export function toAstroHandler(
  * 
  * // src/routes/api/integrate/[...all].ts
  * import { toSolidStartHandler } from 'integrate-sdk/server';
- * import { handler } from '@/lib/integrate-server';
+ * import { serverClient } from '@/lib/integrate-server';
  * 
- * const handlers = toSolidStartHandler(handler, {
+ * const handlers = toSolidStartHandler(serverClient, {
  *   redirectUrl: '/dashboard',
  *   errorRedirectUrl: '/auth-error',
  * });
@@ -800,28 +812,53 @@ export function toAstroHandler(
  * ```
  */
 export function toSolidStartHandler(
-  handlerOrOptions: 
+  clientOrHandlerOrOptions:
+    | any  // Client instance from createMCPServer (with .handler property)
     | ((request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>)
     | {
-        /** OAuth provider configurations */
-        providers?: Record<string, {
-          clientId: string;
-          clientSecret: string;
-          redirectUri?: string;
-        }>;
-        /** Server URL for MCP server */
-        serverUrl?: string;
-        /** API key for authentication */
-        apiKey?: string;
-        /** URL to redirect to after successful OAuth callback (default: '/') */
-        redirectUrl?: string;
-        /** URL to redirect to on OAuth error (default: '/auth-error') */
-        errorRedirectUrl?: string;
-      }
+      /** OAuth provider configurations */
+      providers?: Record<string, {
+        clientId: string;
+        clientSecret: string;
+        redirectUri?: string;
+      }>;
+      /** Server URL for MCP server */
+      serverUrl?: string;
+      /** API key for authentication */
+      apiKey?: string;
+      /** URL to redirect to after successful OAuth callback (default: '/') */
+      redirectUrl?: string;
+      /** URL to redirect to on OAuth error (default: '/auth-error') */
+      errorRedirectUrl?: string;
+    },
+  _redirectOptions?: {
+    /** URL to redirect to after successful OAuth callback (default: '/') */
+    redirectUrl?: string;
+    /** URL to redirect to on OAuth error (default: '/auth-error') */
+    errorRedirectUrl?: string;
+  }
 ) {
-  // Pattern 1: Handler function provided (wrap it) - like Astro
-  if (typeof handlerOrOptions === 'function') {
-    const baseHandler = handlerOrOptions;
+  // Pattern 1: Client instance provided (extract handler from it)
+  if (clientOrHandlerOrOptions && (clientOrHandlerOrOptions as any).handler && typeof (clientOrHandlerOrOptions as any).handler === 'function') {
+    const baseHandler = (clientOrHandlerOrOptions as any).handler;
+    // _redirectOptions is ignored when passing a client (handler already has redirect logic)
+
+    const handler = async (event: { request: Request }): Promise<Response> => {
+      return baseHandler(event.request);
+    };
+
+    return {
+      GET: handler,
+      POST: handler,
+      PATCH: handler,
+      PUT: handler,
+      DELETE: handler,
+    };
+  }
+
+  // Pattern 2: Handler function provided (wrap it)
+  if (typeof clientOrHandlerOrOptions === 'function') {
+    const baseHandler = clientOrHandlerOrOptions;
 
     const handler = async (event: { request: Request }): Promise<Response> => {
       // Call the handler directly with request, like Astro does
@@ -838,9 +875,9 @@ export function toSolidStartHandler(
     };
   }
 
-  // Pattern 2: Config object provided (create handler from scratch)
-  const options = handlerOrOptions;
-  
+  // Pattern 3: Config object provided (create handler from scratch)
+  const options = clientOrHandlerOrOptions;
+
   if (!options.providers || Object.keys(options.providers).length === 0) {
     throw new Error('toSolidStartHandler requires either a handler function or a providers config object');
   }
@@ -866,7 +903,7 @@ export function toSolidStartHandler(
     const method = event.request.method.toUpperCase();
     const url = new URL(event.request.url);
     const pathParts = url.pathname.split('/').filter(Boolean);
-    
+
     // Extract the path segments after 'api/integrate'
     const integrateIndex = pathParts.indexOf('integrate');
     const segments = integrateIndex >= 0 ? pathParts.slice(integrateIndex + 1) : [];
@@ -909,12 +946,12 @@ export function toSolidStartHandler(
  * @returns Handler function for SvelteKit routes
  * 
  * @example
- * **Pattern 1: Using handler from createMCPServer (Recommended)**
+ * **Pattern 1: Using serverClient from createMCPServer (Recommended)**
  * ```typescript
  * // lib/integrate-server.ts
  * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
  * 
- * export const { handler } = createMCPServer({
+ * export const { client: serverClient } = createMCPServer({
  *   plugins: [
  *     githubPlugin({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -925,9 +962,9 @@ export function toSolidStartHandler(
  * 
  * // routes/api/integrate/[...all]/+server.ts
  * import { toSvelteKitHandler } from 'integrate-sdk/server';
- * import { handler } from '$lib/integrate-server';
+ * import { serverClient } from '$lib/integrate-server';
  * 
- * const svelteKitRoute = toSvelteKitHandler(handler, {
+ * const svelteKitRoute = toSvelteKitHandler(serverClient, {
  *   redirectUrl: '/dashboard',
  *   errorRedirectUrl: '/auth-error',
  * });
@@ -958,28 +995,48 @@ export function toSolidStartHandler(
  * ```
  */
 export function toSvelteKitHandler(
-  handlerOrOptions:
+  clientOrHandlerOrOptions:
+    | any  // Client instance from createMCPServer (with .handler property)
     | ((request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>)
     | {
-        /** OAuth provider configurations */
-        providers?: Record<string, {
-          clientId: string;
-          clientSecret: string;
-          redirectUri?: string;
-        }>;
-        /** Server URL for MCP server */
-        serverUrl?: string;
-        /** API key for authentication */
-        apiKey?: string;
-        /** URL to redirect to after successful OAuth callback (default: '/') */
-        redirectUrl?: string;
-        /** URL to redirect to on OAuth error (default: '/auth-error') */
-        errorRedirectUrl?: string;
-      }
+      /** OAuth provider configurations */
+      providers?: Record<string, {
+        clientId: string;
+        clientSecret: string;
+        redirectUri?: string;
+      }>;
+      /** Server URL for MCP server */
+      serverUrl?: string;
+      /** API key for authentication */
+      apiKey?: string;
+      /** URL to redirect to after successful OAuth callback (default: '/') */
+      redirectUrl?: string;
+      /** URL to redirect to on OAuth error (default: '/auth-error') */
+      errorRedirectUrl?: string;
+    },
+  _redirectOptions?: {
+    /** URL to redirect to after successful OAuth callback (default: '/') */
+    redirectUrl?: string;
+    /** URL to redirect to on OAuth error (default: '/auth-error') */
+    errorRedirectUrl?: string;
+  }
 ) {
-  // Pattern 1: Handler function provided (wrap it) - like Astro
-  if (typeof handlerOrOptions === 'function') {
-    const baseHandler = handlerOrOptions;
+  // Pattern 1: Client instance provided (extract handler from it)
+  if (clientOrHandlerOrOptions && (clientOrHandlerOrOptions as any).handler && typeof (clientOrHandlerOrOptions as any).handler === 'function') {
+    const baseHandler = (clientOrHandlerOrOptions as any).handler;
+    // _redirectOptions is ignored when passing a client (handler already has redirect logic)
+
+    return async (event: any): Promise<Response> => {
+      // Extract all param from SvelteKit event
+      const all = event.params?.all;
+      // Call the handler directly with request and context
+      return baseHandler(event.request, { params: { all } });
+    };
+  }
+
+  // Pattern 2: Handler function provided (wrap it)
+  if (typeof clientOrHandlerOrOptions === 'function') {
+    const baseHandler = clientOrHandlerOrOptions;
 
     return async (event: any): Promise<Response> => {
       // Extract all param from SvelteKit event
@@ -989,8 +1046,8 @@ export function toSvelteKitHandler(
     };
   }
 
-  // Pattern 2: Config object provided (create handler from scratch)
-  const options = handlerOrOptions;
+  // Pattern 3: Config object provided (create handler from scratch)
+  const options = clientOrHandlerOrOptions;
 
   if (!options.providers || Object.keys(options.providers).length === 0) {
     throw new Error('toSvelteKitHandler requires either a handler function or a providers config object');
