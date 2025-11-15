@@ -1118,7 +1118,7 @@ describe("Server-Side toNextJsHandler", () => {
     // Create a fresh server with API key for this test
     (global as any).window = undefined; // Ensure server-side mode
     
-    const { handler: unifiedHandler } = createMCPServer({
+    const { client } = createMCPServer({
       apiKey: "test-api-key-unified",
       plugins: [{
         id: "github",
@@ -1147,8 +1147,8 @@ describe("Server-Side toNextJsHandler", () => {
       }),
     } as any;
 
-    // Call the unified handler directly with params
-    const response = await unifiedHandler(mockRequest, { params: { all: ["mcp"] } });
+    // Call the unified handler directly with params (use client.handler)
+    const response = await (client as any).handler(mockRequest, { params: { all: ["mcp"] } });
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -1179,7 +1179,7 @@ describe("SvelteKit Handler - toSvelteKitHandler", () => {
       // Make sure we're in server mode
       (global as any).window = undefined;
 
-      const { handler, client } = createMCPServer({
+      const { client } = createMCPServer({
         plugins: [{
           id: "github",
           tools: [],
@@ -1193,7 +1193,7 @@ describe("SvelteKit Handler - toSvelteKitHandler", () => {
 
       // Import and use toSvelteKitHandler
       const { toSvelteKitHandler } = await import("../../src/server");
-      const svelteKitHandler = toSvelteKitHandler(handler, {
+      const svelteKitHandler = toSvelteKitHandler(client, {
         redirectUrl: "/dashboard",
         errorRedirectUrl: "/error",
       });
@@ -1466,7 +1466,7 @@ describe("SolidStart Handler - toSolidStartHandler", () => {
       // Make sure we're in server mode
       (global as any).window = undefined;
 
-      const { handler } = createMCPServer({
+      const { client } = createMCPServer({
         plugins: [{
           id: "github",
           tools: [],
@@ -1480,7 +1480,7 @@ describe("SolidStart Handler - toSolidStartHandler", () => {
 
       // Import and use toSolidStartHandler
       const { toSolidStartHandler } = await import("../../src/server");
-      const handlers = toSolidStartHandler(handler, {
+      const handlers = toSolidStartHandler(client, {
         redirectUrl: "/dashboard",
         errorRedirectUrl: "/error",
       });
