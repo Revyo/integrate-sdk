@@ -62,32 +62,21 @@ export function isBrowser(): boolean {
  * 
  * @param url - The URL to replace with (path + search params)
  */
-export async function safeReplaceState(url: string): Promise<void> {
+export function safeReplaceState(url: string): void {
   if (!isBrowser()) {
     return;
   }
 
-  // Try to detect and use SvelteKit's navigation
-  try {
-    // Try to dynamically import SvelteKit's navigation module
-    // This will only work in SvelteKit apps
-    // @ts-ignore - $app/navigation only exists in SvelteKit environments
-    const navigation = await import('$app/navigation').catch(() => null);
-    
-    if (navigation && typeof navigation.goto === 'function') {
-      // Use SvelteKit's goto with replaceState
-      await navigation.goto(url, { 
-        replaceState: true, 
-        keepFocus: true, 
-        noScroll: true 
-      });
-      return;
-    }
-  } catch (e) {
-    // Not in SvelteKit or module not available
+  // Detect if we're in a SvelteKit environment by checking for SvelteKit-specific globals
+  // SvelteKit sets __sveltekit on the global object
+  if (typeof (globalThis as any).__sveltekit !== 'undefined') {
+    // In SvelteKit, skip the history manipulation to avoid the warning
+    // SvelteKit's routing will handle URL updates through its own navigation
+    // The hash cleanup is aesthetic anyway - the OAuth params are already processed
+    return;
   }
 
-  // Fall back to standard History API for non-SvelteKit environments
+  // For non-SvelteKit environments, use the standard History API
   window.history.replaceState(null, '', url);
 }
 
