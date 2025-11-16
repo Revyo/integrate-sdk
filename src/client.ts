@@ -430,15 +430,56 @@ export class MCPClient<TIntegrations extends readonly MCPIntegration[] = readonl
   }
 
   /**
-   * Call a tool through the API handler (server-side route)
-   * Routes tool calls through /api/integrate/mcp instead of directly to MCP server
+   * Call a tool through the API handler (server-side route) for browser clients,
+   * or directly through transport for server-side clients with API keys
    */
   private async callToolThroughHandler(
     name: string,
     args?: Record<string, unknown>,
     provider?: string
   ): Promise<MCPToolCallResponse> {
-    // Build the API endpoint URL
+    // Check if this is a server-side client (has API key in transport headers)
+    const transportHeaders = (this.transport as any).headers || {};
+    const hasApiKey = !!transportHeaders['X-API-KEY'];
+
+    // Server-side clients with API key should call MCP server directly through transport
+    if (hasApiKey) {
+      // Add provider token to transport if available
+      if (provider) {
+        const tokenData = this.oauthManager.getProviderToken(provider);
+        if (tokenData && this.transport.setHeader) {
+          const previousAuthHeader = transportHeaders['Authorization'];
+          
+          try {
+            // Temporarily set the authorization header
+            this.transport.setHeader('Authorization', `Bearer ${tokenData.accessToken}`);
+            
+            // Call through transport (goes directly to MCP server with API key)
+            const result = await this.transport.sendRequest('tools/call', {
+              name,
+              arguments: args || {},
+            });
+            return result as MCPToolCallResponse;
+          } finally {
+            // Restore previous auth header
+            if (previousAuthHeader && this.transport.setHeader) {
+              this.transport.setHeader('Authorization', previousAuthHeader);
+            } else if (this.transport.removeHeader) {
+              this.transport.removeHeader('Authorization');
+            }
+          }
+        }
+      }
+
+      // No provider token needed or available - call directly
+      const result = await this.transport.sendRequest('tools/call', {
+        name,
+        arguments: args || {},
+      });
+      return result as MCPToolCallResponse;
+    }
+
+    // Browser clients (no API key) - route through API handler
     const url = `${this.apiRouteBase}/mcp`;
 
     // Prepare headers

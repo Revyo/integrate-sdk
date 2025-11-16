@@ -529,10 +529,14 @@ describe("Vercel AI SDK Integration", () => {
         return "github";
       };
 
-      let headerDuringExecution: string | undefined;
+      let tokenDuringExecution: string | undefined;
+      const originalCallToolByName = client._callToolByName.bind(client);
       client._callToolByName = async (name: string, args?: Record<string, unknown>) => {
-        // Capture the Authorization header during execution
-        headerDuringExecution = mockTransport.headers['Authorization'];
+        // Capture the provider token from OAuthManager during execution
+        const oauthManager = (client as any).oauthManager;
+        const tokenData = oauthManager?.getProviderToken('github');
+        tokenDuringExecution = tokenData ? `Bearer ${tokenData.accessToken}` : undefined;
+        
         return {
           content: [{ type: "text", text: "success" }],
           isError: false,
@@ -545,8 +549,8 @@ describe("Vercel AI SDK Integration", () => {
 
       await tools["github_create_issue"].execute({ title: "Test" });
 
-      // Verify that the Authorization header was set during execution
-      expect(headerDuringExecution).toBe("Bearer test_token_123");
+      // Verify that the provider token was injected into OAuthManager during execution
+      expect(tokenDuringExecution).toBe("Bearer test_token_123");
     });
 
     test("cleans up Authorization header after tool execution", async () => {
@@ -673,7 +677,12 @@ describe("Vercel AI SDK Integration", () => {
 
       const executionTokens: Record<string, string> = {};
       client._callToolByName = async (name: string) => {
-        executionTokens[name] = mockTransport.headers['Authorization'] || '';
+        // Capture provider token from OAuthManager during execution
+        const oauthManager = (client as any).oauthManager;
+        const provider = (client as any).getProviderForTool(name);
+        const tokenData = provider ? oauthManager?.getProviderToken(provider) : undefined;
+        executionTokens[name] = tokenData ? `Bearer ${tokenData.accessToken}` : '';
+        
         return {
           content: [{ type: "text", text: "success" }],
           isError: false,
@@ -690,7 +699,7 @@ describe("Vercel AI SDK Integration", () => {
       await tools["github_create_issue"].execute({ title: "Test" });
       await tools["gmail_send_email"].execute({ to: "test@example.com" });
 
-      // Verify correct tokens were used
+      // Verify correct tokens were used (from OAuthManager)
       expect(executionTokens["github_create_issue"]).toBe("Bearer github_token_123");
       expect(executionTokens["gmail_send_email"]).toBe("Bearer gmail_token_456");
     });

@@ -190,7 +190,7 @@ export function jsonSchemaToZod(schema: any): z.ZodObject<any> {
 
 /**
  * Execute a tool with provider token injection
- * Temporarily sets the Authorization header for the tool call
+ * For server-side usage, temporarily injects provider tokens into the OAuthManager
  * @internal
  */
 export async function executeToolWithToken(
@@ -199,28 +199,32 @@ export async function executeToolWithToken(
   args: Record<string, unknown>,
   options?: AIToolsOptions
 ): Promise<any> {
-  // If provider tokens are provided, inject the appropriate token
+  // If provider tokens are provided, inject them into the OAuthManager
   if (options?.providerTokens) {
     const provider = getProviderForTool(client, toolName);
     if (provider && options.providerTokens[provider]) {
-      // Get the transport from the client and set the Authorization header
-      const transport = (client as any).transport;
-      if (transport && typeof transport.setHeader === 'function') {
-        const previousAuthHeader = transport.headers?.['Authorization'];
+      // Access the OAuth manager to temporarily set the provider token
+      const oauthManager = (client as any).oauthManager;
+      if (oauthManager && typeof oauthManager.setProviderToken === 'function') {
+        // Check if token already exists
+        const existingToken = oauthManager.getProviderToken(provider);
 
         try {
-          // Set the authorization header for this tool call
-          transport.setHeader('Authorization', `Bearer ${options.providerTokens[provider]}`);
+          // Temporarily inject the provider token
+          oauthManager.setProviderToken(provider, {
+            accessToken: options.providerTokens[provider],
+            tokenType: 'Bearer',
+          });
 
-          // Execute the tool with the injected token
+          // Execute the tool (will use the injected token from OAuthManager)
           const result = await client._callToolByName(toolName, args);
           return result;
         } finally {
-          // Clean up: restore previous auth header or remove it
-          if (previousAuthHeader) {
-            transport.setHeader('Authorization', previousAuthHeader);
-          } else if (transport.removeHeader) {
-            transport.removeHeader('Authorization');
+          // Clean up: restore previous token or remove it
+          if (existingToken) {
+            oauthManager.setProviderToken(provider, existingToken);
+          } else if (typeof oauthManager.removeProviderToken === 'function') {
+            oauthManager.removeProviderToken(provider);
           }
         }
       }
