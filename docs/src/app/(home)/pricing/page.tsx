@@ -88,7 +88,7 @@ export default function PricingPage() {
               Choose the plan that fits your needs
             </h1>
             <p className="mx-auto max-w-2xl text-lg text-zinc-600 dark:text-zinc-300">
-              Start free, scale as you grow. All plans include access to our full plugin library and MCP server infrastructure.
+              Start free, scale as you grow. All plans include access to our full integration library and MCP server infrastructure.
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <a href="https://app.integrate.dev" className={primaryCtaClass}>

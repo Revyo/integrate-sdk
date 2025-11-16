@@ -5,8 +5,8 @@
 
 import { describe, it, expect, beforeEach, mock, afterEach } from "bun:test";
 import { MCPClient, createMCPClient } from "../../src/client.js";
-import { githubPlugin } from "../../src/plugins/github.js";
-import { createSimplePlugin } from "../../src/plugins/generic.js";
+import { githubIntegration } from "../../src/integrations/github.js";
+import { createSimpleIntegration } from "../../src/integrations/generic.js";
 
 describe("MCP Client - API Routing", () => {
   let originalFetch: typeof fetch;
@@ -16,9 +16,9 @@ describe("MCP Client - API Routing", () => {
     // Mock localStorage
     global.localStorage = {
       getItem: mock(() => null),
-      setItem: mock(() => {}),
-      removeItem: mock(() => {}),
-      clear: mock(() => {}),
+      setItem: mock(() => { }),
+      removeItem: mock(() => { }),
+      clear: mock(() => { }),
       length: 0,
       key: mock(() => null),
     } as any;
@@ -82,23 +82,23 @@ describe("MCP Client - API Routing", () => {
         accessToken: "github-token-123",
         expiresAt: Date.now() + 3600000,
       })),
-      loadAllProviderTokens: mock(() => {}),
+      loadAllProviderTokens: mock(() => { }),
       getAllProviderTokens: mock(() => new Map()),
-      setProviderToken: mock(() => {}),
-      clearAllProviderTokens: mock(() => {}),
-      clearAllPendingAuths: mock(() => {}),
+      setProviderToken: mock(() => { }),
+      clearAllProviderTokens: mock(() => { }),
+      clearAllPendingAuths: mock(() => { }),
       checkAuthStatus: mock(() => Promise.resolve({ authorized: true })),
       initiateFlow: mock(() => Promise.resolve()),
       handleCallback: mock(() => Promise.resolve({ provider: "github", accessToken: "token", expiresAt: Date.now() })),
       disconnectProvider: mock(() => Promise.resolve()),
     };
 
-    const plugin = githubPlugin({
+    const integration = githubIntegration({
       clientId: "test-id",
     });
 
     const client = new MCPClient({
-      plugins: [plugin],
+      integrations: [integration],
       apiRouteBase,
       connectionMode: "manual",
     });
@@ -116,7 +116,7 @@ describe("MCP Client - API Routing", () => {
     });
     (client as any).enabledToolNames.add("github_list_own_repos");
 
-    // Call tool through plugin namespace
+    // Call tool through integration namespace
     const result = await (client as any).github.listOwnRepos({});
 
     expect(apiHandlerCalled).toBe(true);
@@ -155,24 +155,24 @@ describe("MCP Client - API Routing", () => {
 
     const mockOAuthManager = {
       getProviderToken: mock(() => null),
-      loadAllProviderTokens: mock(() => {}),
+      loadAllProviderTokens: mock(() => { }),
       getAllProviderTokens: mock(() => new Map()),
-      setProviderToken: mock(() => {}),
-      clearAllProviderTokens: mock(() => {}),
-      clearAllPendingAuths: mock(() => {}),
+      setProviderToken: mock(() => { }),
+      clearAllProviderTokens: mock(() => { }),
+      clearAllPendingAuths: mock(() => { }),
       checkAuthStatus: mock(() => Promise.resolve({ authorized: false })),
       initiateFlow: mock(() => Promise.resolve()),
       handleCallback: mock(() => Promise.resolve({ provider: "github", accessToken: "token", expiresAt: Date.now() })),
       disconnectProvider: mock(() => Promise.resolve()),
     };
 
-    const plugin = createSimplePlugin({
+    const integration = createSimpleIntegration({
       id: "test",
       tools: ["test_tool"],
     });
 
     const client = new MCPClient({
-      plugins: [plugin],
+      integrations: [integration],
       connectionMode: "manual",
     });
 
@@ -230,23 +230,23 @@ describe("MCP Client - API Routing", () => {
         }
         return null;
       }),
-      loadAllProviderTokens: mock(() => {}),
+      loadAllProviderTokens: mock(() => { }),
       getAllProviderTokens: mock(() => new Map()),
-      setProviderToken: mock(() => {}),
-      clearAllProviderTokens: mock(() => {}),
-      clearAllPendingAuths: mock(() => {}),
+      setProviderToken: mock(() => { }),
+      clearAllProviderTokens: mock(() => { }),
+      clearAllPendingAuths: mock(() => { }),
       checkAuthStatus: mock(() => Promise.resolve({ authorized: true })),
       initiateFlow: mock(() => Promise.resolve()),
       handleCallback: mock(() => Promise.resolve({ provider: "github", accessToken: "token", expiresAt: Date.now() })),
       disconnectProvider: mock(() => Promise.resolve()),
     };
 
-    const plugin = githubPlugin({
+    const integration = githubIntegration({
       clientId: "test-id",
     });
 
     const client = new MCPClient({
-      plugins: [plugin],
+      integrations: [integration],
       apiRouteBase: "/api/integrate",
       connectionMode: "manual",
     });
@@ -296,24 +296,24 @@ describe("MCP Client - API Routing", () => {
 
     const mockOAuthManager = {
       getProviderToken: mock(() => null),
-      loadAllProviderTokens: mock(() => {}),
+      loadAllProviderTokens: mock(() => { }),
       getAllProviderTokens: mock(() => new Map()),
-      setProviderToken: mock(() => {}),
-      clearAllProviderTokens: mock(() => {}),
-      clearAllPendingAuths: mock(() => {}),
+      setProviderToken: mock(() => { }),
+      clearAllProviderTokens: mock(() => { }),
+      clearAllPendingAuths: mock(() => { }),
       checkAuthStatus: mock(() => Promise.resolve({ authorized: false })),
       initiateFlow: mock(() => Promise.resolve()),
       handleCallback: mock(() => Promise.resolve({ provider: "github", accessToken: "token", expiresAt: Date.now() })),
       disconnectProvider: mock(() => Promise.resolve()),
     };
 
-    const plugin = createSimplePlugin({
+    const integration = createSimpleIntegration({
       id: "test",
       tools: ["test_tool"],
     });
 
     const client = new MCPClient({
-      plugins: [plugin],
+      integrations: [integration],
       apiRouteBase: "/api/integrate",
       connectionMode: "manual",
     });
@@ -363,24 +363,24 @@ describe("MCP Client - API Routing", () => {
 
     const mockOAuthManager = {
       getProviderToken: mock(() => null),
-      loadAllProviderTokens: mock(() => {}),
+      loadAllProviderTokens: mock(() => { }),
       getAllProviderTokens: mock(() => new Map()),
-      setProviderToken: mock(() => {}),
-      clearAllProviderTokens: mock(() => {}),
-      clearAllPendingAuths: mock(() => {}),
+      setProviderToken: mock(() => { }),
+      clearAllProviderTokens: mock(() => { }),
+      clearAllPendingAuths: mock(() => { }),
       checkAuthStatus: mock(() => Promise.resolve({ authorized: false })),
       initiateFlow: mock(() => Promise.resolve()),
       handleCallback: mock(() => Promise.resolve({ provider: "github", accessToken: "token", expiresAt: Date.now() })),
       disconnectProvider: mock(() => Promise.resolve()),
     };
 
-    const plugin = createSimplePlugin({
+    const integration = createSimpleIntegration({
       id: "test",
       tools: ["test_tool"],
     });
 
     const client = new MCPClient({
-      plugins: [plugin],
+      integrations: [integration],
       apiRouteBase: "/api/integrate",
       connectionMode: "manual",
     });
@@ -429,24 +429,24 @@ describe("MCP Client - API Routing", () => {
 
     const mockOAuthManager = {
       getProviderToken: mock(() => null),
-      loadAllProviderTokens: mock(() => {}),
+      loadAllProviderTokens: mock(() => { }),
       getAllProviderTokens: mock(() => new Map()),
-      setProviderToken: mock(() => {}),
-      clearAllProviderTokens: mock(() => {}),
-      clearAllPendingAuths: mock(() => {}),
+      setProviderToken: mock(() => { }),
+      clearAllProviderTokens: mock(() => { }),
+      clearAllPendingAuths: mock(() => { }),
       checkAuthStatus: mock(() => Promise.resolve({ authorized: false })),
       initiateFlow: mock(() => Promise.resolve()),
       handleCallback: mock(() => Promise.resolve({ provider: "github", accessToken: "token", expiresAt: Date.now() })),
       disconnectProvider: mock(() => Promise.resolve()),
     };
 
-    const plugin = createSimplePlugin({
+    const integration = createSimpleIntegration({
       id: "test",
       tools: ["test_tool"],
     });
 
     const client = new MCPClient({
-      plugins: [plugin],
+      integrations: [integration],
       apiRouteBase: customApiRouteBase,
       connectionMode: "manual",
     });

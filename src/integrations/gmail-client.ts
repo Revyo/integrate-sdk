@@ -1,6 +1,6 @@
 /**
- * Gmail Plugin Client Types
- * Fully typed interface for Gmail plugin methods
+ * Gmail Integration Client Types
+ * Fully typed interface for Gmail integration methods
  */
 
 import type { MCPToolCallResponse } from "../protocol/messages.js";
@@ -59,10 +59,10 @@ export interface GmailDraft {
 }
 
 /**
- * Gmail Plugin Client Interface
+ * Gmail Integration Client Interface
  * Provides type-safe methods for all Gmail operations
  */
-export interface GmailPluginClient {
+export interface GmailIntegrationClient {
   /**
    * Send a message
    */

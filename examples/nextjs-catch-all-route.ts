@@ -10,17 +10,17 @@
  * Step 1: Create server config file
  * File: lib/integrate-server.ts
  */
-// import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+// import { createMCPServer, githubIntegration, gmailIntegration } from 'integrate-sdk/server';
 // 
 // export const { client: serverClient } = createMCPServer({
 //   apiKey: process.env.INTEGRATE_API_KEY,
-//   plugins: [
-//     githubPlugin({
+//   integrations: [
+//     githubIntegration({
 //       clientId: process.env.GITHUB_CLIENT_ID!,
 //       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
 //       scopes: ['repo', 'user'],
 //     }),
-//     gmailPlugin({
+//     gmailIntegration({
 //       clientId: process.env.GMAIL_CLIENT_ID!,
 //       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
 //       scopes: ['gmail.readonly'],

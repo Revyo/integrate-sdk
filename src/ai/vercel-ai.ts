@@ -7,11 +7,11 @@
 import { z } from "zod";
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
-import { 
-  jsonSchemaToZod, 
+import {
+  jsonSchemaToZod,
   executeToolWithToken,
   ensureClientConnected,
-  type AIToolsOptions 
+  type AIToolsOptions
 } from "./utils.js";
 
 /**
@@ -27,7 +27,7 @@ export interface VercelAITool {
 /**
  * Options for converting MCP tools to Vercel AI SDK format
  */
-export interface VercelAIToolsOptions extends AIToolsOptions {}
+export interface VercelAIToolsOptions extends AIToolsOptions { }
 
 /**
  * Convert a single MCP tool to Vercel AI SDK format
@@ -61,12 +61,12 @@ export function convertMCPToolToVercelAI(
  * @example
  * ```typescript
  * // Client-side usage
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
  * import { convertMCPToolsToVercelAI } from 'integrate-sdk/vercel-ai';
  * import { generateText } from 'ai';
  * 
  * const mcpClient = createMCPClient({
- *   plugins: [githubPlugin({ clientId: '...', clientSecret: '...' })],
+ *   integrations: [githubIntegration({ clientId: '...', clientSecret: '...' })],
  * });
  * 
  * await mcpClient.connect();
@@ -83,11 +83,11 @@ export function convertMCPToolToVercelAI(
  * @example
  * ```typescript
  * // Server-side usage with token passing
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
  * import { convertMCPToolsToVercelAI } from 'integrate-sdk/vercel-ai';
  * 
  * const { client: serverClient } = createMCPServer({
- *   plugins: [githubPlugin({ clientId: '...', clientSecret: '...' })],
+ *   integrations: [githubIntegration({ clientId: '...', clientSecret: '...' })],
  * });
  * 
  * // In your API route handler
@@ -112,11 +112,11 @@ export function convertMCPToolsToVercelAI(
 ): Record<string, any> {
   const mcpTools = client.getEnabledTools();
   const vercelTools: Record<string, any> = {};
-  
+
   for (const mcpTool of mcpTools) {
     vercelTools[mcpTool.name] = convertMCPToolToVercelAI(mcpTool, client, options);
   }
-  
+
   return vercelTools;
 }
 
@@ -149,7 +149,7 @@ export async function getVercelAITools(
 ) {
   // Auto-connect if not connected (lazy connection)
   await ensureClientConnected(client);
-  
+
   return convertMCPToolsToVercelAI(client, options);
 }
 

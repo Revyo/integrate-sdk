@@ -69,37 +69,37 @@ export {
   parseServerError,
 } from "./errors.js";
 
-// Plugin system
+// Integration system
 export type {
-  MCPPlugin,
+  MCPIntegration,
   OAuthConfig,
-  ExtractPluginIds,
-  ExtractPluginTools,
-} from "./plugins/types.js";
+  ExtractIntegrationIds,
+  ExtractIntegrationTools,
+} from "./integrations/types.js";
 
-// Built-in plugins
-export { githubPlugin } from "./plugins/github.js";
-export type { GitHubPluginConfig, GitHubTools, GitHubPluginClient } from "./plugins/github.js";
+// Built-in integrations
+export { githubIntegration } from "./integrations/github.js";
+export type { GitHubIntegrationConfig, GitHubTools, GitHubIntegrationClient } from "./integrations/github.js";
 
-export { gmailPlugin } from "./plugins/gmail.js";
-export type { GmailPluginConfig, GmailTools, GmailPluginClient } from "./plugins/gmail.js";
+export { gmailIntegration } from "./integrations/gmail.js";
+export type { GmailIntegrationConfig, GmailTools, GmailIntegrationClient } from "./integrations/gmail.js";
 
 // Server client
-export type { ServerPluginClient } from "./plugins/server-client.js";
+export type { ServerIntegrationClient } from "./integrations/server-client.js";
 
 export {
-  genericOAuthPlugin,
-  createSimplePlugin,
-} from "./plugins/generic.js";
-export type { GenericOAuthPluginConfig } from "./plugins/generic.js";
+  genericOAuthIntegration,
+  createSimpleIntegration,
+} from "./integrations/generic.js";
+export type { GenericOAuthIntegrationConfig } from "./integrations/generic.js";
 
 // Integrations
 export {
   convertMCPToolToVercelAI,
   convertMCPToolsToVercelAI,
   getVercelAITools,
-} from "./integrations/vercel-ai.js";
-export type { VercelAITool } from "./integrations/vercel-ai.js";
+} from "./ai/vercel-ai.js";
+export type { VercelAITool } from "./ai/vercel-ai.js";
 
 // Protocol types
 export type {

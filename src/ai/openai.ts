@@ -138,11 +138,11 @@ export async function executeOpenAIToolCall(
  * @example
  * ```typescript
  * // Client-side usage
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
- * import { getOpenAITools } from 'integrate-sdk/integrations/openai';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
+ * import { getOpenAITools } from 'integrate-sdk/ai/openai';
  * 
  * const client = createMCPClient({
- *   plugins: [githubPlugin({ clientId: '...' })],
+ *   integrations: [githubIntegration({ clientId: '...' })],
  * });
  * 
  * const tools = await getOpenAITools(client);
@@ -158,11 +158,11 @@ export async function executeOpenAIToolCall(
  * @example
  * ```typescript
  * // Server-side usage with tokens from client
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
- * import { getOpenAITools, executeOpenAIToolCall } from 'integrate-sdk/integrations/openai';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
+ * import { getOpenAITools, executeOpenAIToolCall } from 'integrate-sdk/ai/openai';
  * 
  * const { client: serverClient } = createMCPServer({
- *   plugins: [githubPlugin({ 
+ *   integrations: [githubIntegration({ 
  *     clientId: '...', 
  *     clientSecret: '...' 
  *   })],

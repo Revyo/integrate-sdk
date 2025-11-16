@@ -7,20 +7,20 @@
 
 import {
   createMCPClient,
-  githubPlugin,
-  gmailPlugin,
+  githubIntegration,
+  gmailIntegration,
   getVercelAITools,
 } from "../src/index.js";
 
 async function main() {
   // 1. Create and connect the MCP client
-  // Plugins automatically use GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
+  // Integrations automatically use GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
   const mcpClient = createMCPClient({
-    plugins: [
-      githubPlugin({
+    integrations: [
+      githubIntegration({
         scopes: ["repo", "user"],
       }),
-      gmailPlugin(),
+      gmailIntegration(),
     ],
   });
 

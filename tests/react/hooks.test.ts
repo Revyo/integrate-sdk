@@ -6,7 +6,7 @@
 
 import { describe, test, expect, beforeEach, mock } from "bun:test";
 import { createMCPClient } from "../../src/client.js";
-import { createSimplePlugin } from "../../src/plugins/generic.js";
+import { createSimpleIntegration } from "../../src/integrations/generic.js";
 import type { MCPClient } from "../../src/client.js";
 
 // Mock React hooks for testing
@@ -38,7 +38,7 @@ describe("useIntegrateTokens Hook", () => {
     mockSetState = null;
     mockEffectCleanups = [];
     mockEffects = [];
-    
+
     // Clear any global client
     (globalThis as any).__INTEGRATE_SDK_CLIENT__ = undefined;
   });
@@ -59,14 +59,14 @@ describe("useIntegrateTokens Hook", () => {
   describe("Client detection", () => {
     test("handles null client gracefully", async () => {
       const { useIntegrateTokens } = await import("../../src/react/hooks.js");
-      
+
       // The hook should handle null client without errors
       expect(useIntegrateTokens).toBeDefined();
     });
 
     test("handles undefined client gracefully", async () => {
       const { useIntegrateTokens } = await import("../../src/react/hooks.js");
-      
+
       // The hook should handle undefined client without errors
       expect(useIntegrateTokens).toBeDefined();
     });
@@ -74,8 +74,8 @@ describe("useIntegrateTokens Hook", () => {
     test("accepts client as parameter", async () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -86,7 +86,7 @@ describe("useIntegrateTokens Hook", () => {
       (client as any).getAllProviderTokens = mock(() => ({}));
 
       const { useIntegrateTokens } = await import("../../src/react/hooks.js");
-      
+
       // The hook accepts a client parameter
       expect(useIntegrateTokens).toBeDefined();
     });
@@ -94,8 +94,8 @@ describe("useIntegrateTokens Hook", () => {
     test("singleton mode creates client successfully", () => {
       const client = createMCPClient({
         singleton: true, // This uses internal caching
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -112,8 +112,8 @@ describe("useIntegrateTokens Hook", () => {
     test("getAllProviderTokens is called", () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -146,8 +146,8 @@ describe("useIntegrateTokens Hook", () => {
     test("client has required event methods", () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -162,20 +162,20 @@ describe("useIntegrateTokens Hook", () => {
     test("auth:complete event can be registered", () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
         ],
       });
 
-      const handler = mock(() => {});
+      const handler = mock(() => { });
       client.on("auth:complete", handler);
 
       // Verify handler was registered
       expect(handler).toBeDefined();
-      
+
       // Clean up
       client.off("auth:complete", handler);
     });
@@ -183,20 +183,20 @@ describe("useIntegrateTokens Hook", () => {
     test("auth:disconnect event can be registered", () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
         ],
       });
 
-      const handler = mock(() => {});
+      const handler = mock(() => { });
       client.on("auth:disconnect", handler);
-      
+
       // Verify handler was registered
       expect(handler).toBeDefined();
-      
+
       // Clean up
       client.off("auth:disconnect", handler);
     });
@@ -204,20 +204,20 @@ describe("useIntegrateTokens Hook", () => {
     test("auth:logout event can be registered", () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
         ],
       });
 
-      const handler = mock(() => {});
+      const handler = mock(() => { });
       client.on("auth:logout", handler);
-      
+
       // Verify handler was registered
       expect(handler).toBeDefined();
-      
+
       // Clean up
       client.off("auth:logout", handler);
     });
@@ -226,7 +226,7 @@ describe("useIntegrateTokens Hook", () => {
   describe("Return value structure", () => {
     test("hook return type has correct structure", async () => {
       const { useIntegrateTokens } = await import("../../src/react/hooks.js");
-      
+
       // The hook should return an object with tokens, headers, and isLoading
       // We verify this by checking the TypeScript types compile correctly
       expect(useIntegrateTokens).toBeDefined();
@@ -234,11 +234,11 @@ describe("useIntegrateTokens Hook", () => {
   });
 
   describe("Integration with MCP Client", () => {
-    test("works with client that has OAuth plugins", () => {
+    test("works with client that has OAuth integrations", () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "github",
             tools: ["github_get_repo"],
             oauth: {
@@ -263,8 +263,8 @@ describe("useIntegrateTokens Hook", () => {
     test("works with multiple OAuth providers", () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "github",
             tools: ["github_get_repo"],
             oauth: {
@@ -274,7 +274,7 @@ describe("useIntegrateTokens Hook", () => {
               scopes: ["repo"],
             },
           }),
-          createSimplePlugin({
+          createSimpleIntegration({
             id: "gmail",
             tools: ["gmail_send"],
             oauth: {
@@ -304,7 +304,7 @@ describe("useIntegrateTokens Hook", () => {
   describe("Return value completeness", () => {
     test("hook returns all expected properties", async () => {
       const { useIntegrateTokens } = await import("../../src/react/hooks.js");
-      
+
       // Verify the hook exports and structure
       expect(useIntegrateTokens).toBeDefined();
       expect(typeof useIntegrateTokens).toBe("function");
@@ -315,15 +315,15 @@ describe("useIntegrateTokens Hook", () => {
     test("hook handles SSR environment (typeof window === 'undefined')", async () => {
       // Save original window
       const originalWindow = globalThis.window;
-      
+
       try {
         // Simulate SSR by making window undefined
         (globalThis as any).window = undefined;
-        
+
         // Re-import to get fresh module
         // Note: In a real SSR scenario, the hook would return fallback values
         const { useIntegrateTokens } = await import("../../src/react/hooks.js");
-        
+
         expect(useIntegrateTokens).toBeDefined();
       } finally {
         // Restore window
@@ -336,7 +336,7 @@ describe("useIntegrateTokens Hook", () => {
       const safeTokens = {};
       const safeHeaders = {};
       const safeIsLoading = true; // Loading because waiting for client
-      
+
       // Verify safe fallback structure
       expect(safeTokens).toEqual({});
       expect(safeHeaders).toEqual({});
@@ -348,7 +348,7 @@ describe("useIntegrateTokens Hook", () => {
       const safeTokens = {};
       const safeHeaders = {};
       const safeIsLoading = true; // Loading because waiting for client
-      
+
       // Verify safe fallback structure
       expect(safeTokens).toEqual({});
       expect(safeHeaders).toEqual({});
@@ -357,7 +357,7 @@ describe("useIntegrateTokens Hook", () => {
 
     test("hook parameter is optional", async () => {
       const { useIntegrateTokens } = await import("../../src/react/hooks.js");
-      
+
       // Should be able to call without parameters
       // TypeScript should allow: useIntegrateTokens()
       expect(useIntegrateTokens).toBeDefined();
@@ -366,14 +366,14 @@ describe("useIntegrateTokens Hook", () => {
     test("hook handles React initialization timing issues", async () => {
       // This test verifies that the hook is properly defined and exports the expected interface
       // In real scenarios with React initialization issues, isReactHooksAvailable() would return false
-      
+
       const { useIntegrateTokens } = await import("../../src/react/hooks.js");
-      const client = createMCPClient({ singleton: false, plugins: [] });
-      
+      const client = createMCPClient({ singleton: false, integrations: [] });
+
       // The hook should be properly defined and callable
       expect(useIntegrateTokens).toBeDefined();
       expect(typeof useIntegrateTokens).toBe("function");
-      
+
       // Verify the isReactHooksAvailable check exists by testing fallback behavior
       // When React hooks aren't available, the hook should return safe fallback
       // (Testing the actual condition is done in the "warns when React hooks are not available" test)
@@ -396,7 +396,7 @@ describe("useIntegrateTokens Hook", () => {
         // Re-import to get fresh module evaluation
         // In this case, isReactHooksAvailable() should return false
         const { useIntegrateTokens } = await import("../../src/react/hooks.js");
-        const client = createMCPClient({ singleton: false, plugins: [] });
+        const client = createMCPClient({ singleton: false, integrations: [] });
 
         // Call the hook - it should warn and return safe fallback
         const result = useIntegrateTokens(client);
@@ -436,9 +436,9 @@ describe("useIntegrateAI Hook", () => {
 
   describe("Fetch interception", () => {
     test("intercepts requests matching API pattern", async () => {
-      const client = createMCPClient({ singleton: false, plugins: [] });
+      const client = createMCPClient({ singleton: false, integrations: [] });
       (client as any).getAllProviderTokens = mock(() => ({ github: "token123" }));
-      
+
       // Verify the hook is callable
       const { useIntegrateAI } = await import("../../src/react/hooks.js");
       expect(useIntegrateAI).toBeDefined();
@@ -448,14 +448,14 @@ describe("useIntegrateAI Hook", () => {
       // Test that requests not matching the pattern pass through
       const url = "/some/other/endpoint";
       const pattern = /\/api\/chat/;
-      
+
       expect(pattern.test(url)).toBe(false);
     });
 
     test("supports string pattern matching", () => {
       const url = "/api/chat/messages";
       const pattern = "/api/chat";
-      
+
       expect(url.includes(pattern)).toBe(true);
     });
 
@@ -463,7 +463,7 @@ describe("useIntegrateAI Hook", () => {
       const url1 = "/api/chat";
       const url2 = "/v1/chat/completions";
       const pattern = /\/chat/;
-      
+
       expect(pattern.test(url1)).toBe(true);
       expect(pattern.test(url2)).toBe(true);
     });
@@ -473,7 +473,7 @@ describe("useIntegrateAI Hook", () => {
     test("injects tokens into matching requests", () => {
       const tokens = { github: "ghp_123", gmail: "ya29_456" };
       const headersString = JSON.stringify(tokens);
-      
+
       expect(headersString).toContain("ghp_123");
       expect(headersString).toContain("ya29_456");
     });
@@ -484,16 +484,16 @@ describe("useIntegrateAI Hook", () => {
     });
 
     test("updates tokens on auth events", () => {
-      const client = createMCPClient({ singleton: false, plugins: [] });
-      
+      const client = createMCPClient({ singleton: false, integrations: [] });
+
       // Mock token methods
       let currentTokens = {};
       (client as any).getAllProviderTokens = mock(() => currentTokens);
-      
+
       // Simulate auth event updating tokens
       currentTokens = { github: "token123" };
       const updatedTokens = client.getAllProviderTokens();
-      
+
       expect(updatedTokens).toEqual({ github: "token123" });
     });
   });
@@ -501,7 +501,7 @@ describe("useIntegrateAI Hook", () => {
   describe("Options", () => {
     test("accepts custom API pattern", () => {
       const customPattern = /\/(api|chat)\//;
-      
+
       expect(customPattern.test("/api/chat")).toBe(true);
       expect(customPattern.test("/chat/messages")).toBe(true);
       expect(customPattern.test("/other/endpoint")).toBe(false);
@@ -514,7 +514,7 @@ describe("useIntegrateAI Hook", () => {
 
     test("uses default pattern when not provided", () => {
       const defaultPattern = /\/api\/chat/;
-      
+
       expect(defaultPattern.test("/api/chat")).toBe(true);
       expect(defaultPattern.test("/api/chat/messages")).toBe(true);
     });
@@ -525,7 +525,7 @@ describe("useIntegrateAI Hook", () => {
       // In Node/Bun test environment, window might not exist
       if (typeof window !== 'undefined' && window.fetch) {
         const originalFetch = window.fetch;
-        
+
         // Verify we can restore it
         expect(originalFetch).toBeDefined();
         expect(typeof originalFetch).toBe("function");
@@ -536,17 +536,17 @@ describe("useIntegrateAI Hook", () => {
     });
 
     test("removes event listeners on cleanup", () => {
-      const client = createMCPClient({ singleton: false, plugins: [] });
-      
+      const client = createMCPClient({ singleton: false, integrations: [] });
+
       // Mock event methods
-      const offSpy = mock(() => {});
+      const offSpy = mock(() => { });
       client.off = offSpy;
-      
+
       // Simulate cleanup
-      client.off('auth:complete', () => {});
-      client.off('auth:disconnect', () => {});
-      client.off('auth:logout', () => {});
-      
+      client.off('auth:complete', () => { });
+      client.off('auth:disconnect', () => { });
+      client.off('auth:logout', () => { });
+
       expect(offSpy).toHaveBeenCalledTimes(3);
     });
   });
@@ -555,7 +555,7 @@ describe("useIntegrateAI Hook", () => {
     test("skips interceptor setup during SSR", () => {
       // When typeof window === 'undefined', the hook should skip setup
       const isSSR = typeof window === 'undefined';
-      
+
       // Test environment might be Node/Bun (no window) or jsdom (has window)
       // Either way is valid, we just verify the check works
       expect(typeof isSSR).toBe('boolean');
@@ -563,7 +563,7 @@ describe("useIntegrateAI Hook", () => {
 
     test("handles null client gracefully", () => {
       const client = null;
-      
+
       // Hook should handle null without errors
       expect(client).toBeNull();
     });

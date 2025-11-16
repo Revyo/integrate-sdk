@@ -1,16 +1,16 @@
 /**
- * Generic OAuth Plugin
+ * Generic OAuth Integration
  * Configure OAuth and enable tools for any integration supported by the server
  */
 
-import type { MCPPlugin, OAuthConfig } from "./types.js";
+import type { MCPIntegration, OAuthConfig } from "./types.js";
 import { getEnv } from "../utils/env.js";
 
 /**
- * Generic OAuth plugin configuration
+ * Generic OAuth integration configuration
  */
-export interface GenericOAuthPluginConfig {
-  /** Plugin unique identifier (must match the integration ID on the server) */
+export interface GenericOAuthIntegrationConfig {
+  /** Integration unique identifier (must match the integration ID on the server) */
   id: string;
   /** OAuth provider name */
   provider: string;
@@ -35,7 +35,7 @@ export interface GenericOAuthPluginConfig {
 }
 
 /**
- * Generic OAuth Plugin
+ * Generic OAuth Integration
  * 
  * Configure OAuth and enable tools for any integration supported by the Integrate MCP server.
  * Note: This does NOT create new tools - it only configures access to existing server-side tools.
@@ -47,7 +47,7 @@ export interface GenericOAuthPluginConfig {
  * @example Minimal (uses env vars):
  * ```typescript
  * // Automatically uses SLACK_CLIENT_ID and SLACK_CLIENT_SECRET from env
- * const slackPlugin = genericOAuthPlugin({
+ * const slackIntegration = genericOAuthIntegration({
  *   id: 'slack',
  *   provider: 'slack',
  *   scopes: ['chat:write', 'channels:read'],
@@ -58,7 +58,7 @@ export interface GenericOAuthPluginConfig {
  * });
  * 
  * const client = createMCPClient({
- *   plugins: [slackPlugin],
+ *   integrations: [slackIntegration],
  * });
  * 
  * await client.connect();
@@ -68,7 +68,7 @@ export interface GenericOAuthPluginConfig {
  * 
  * @example With explicit override:
  * ```typescript
- * const slackPlugin = genericOAuthPlugin({
+ * const slackIntegration = genericOAuthIntegration({
  *   id: 'slack',
  *   provider: 'slack',
  *   clientId: process.env.CUSTOM_SLACK_ID!,
@@ -78,11 +78,11 @@ export interface GenericOAuthPluginConfig {
  * });
  * ```
  */
-export function genericOAuthPlugin(
-  config: GenericOAuthPluginConfig
-): MCPPlugin {
+export function genericOAuthIntegration(
+  config: GenericOAuthIntegrationConfig
+): MCPIntegration {
   const providerUpper = config.provider.toUpperCase().replace(/[^A-Z0-9]/g, '_');
-  
+
   const oauth: OAuthConfig = {
     provider: config.provider,
     clientId: config.clientId ?? getEnv(`${providerUpper}_CLIENT_ID`),
@@ -96,7 +96,7 @@ export function genericOAuthPlugin(
     id: config.id,
     tools: config.tools,
     oauth,
-    
+
     onInit: config.onInit,
     onAfterConnect: config.onAfterConnect,
     onDisconnect: config.onDisconnect,
@@ -104,26 +104,26 @@ export function genericOAuthPlugin(
 }
 
 /**
- * Create a simple plugin without OAuth
+ * Create a simple integration without OAuth
  * Enable server-provided tools that don't require authentication
  * Note: Tools must exist on the server - this does not create new tools
  * 
  * @example
  * ```typescript
  * // Enable server-provided math tools (if they exist on the server)
- * const mathPlugin = createSimplePlugin({
+ * const mathIntegration = createSimpleIntegration({
  *   id: 'math',
  *   tools: ['math_add', 'math_subtract', 'math_multiply', 'math_divide'],
  * });
  * ```
  */
-export function createSimplePlugin(config: {
+export function createSimpleIntegration(config: {
   id: string;
   tools: string[];
   onInit?: (client: any) => Promise<void> | void;
   onAfterConnect?: (client: any) => Promise<void> | void;
   onDisconnect?: (client: any) => Promise<void> | void;
-}): MCPPlugin {
+}): MCPIntegration {
   return {
     id: config.id,
     tools: config.tools,

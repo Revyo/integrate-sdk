@@ -6,16 +6,20 @@ description: Get up and running with Integrate SDK in minutes
 Here's a complete example that connects to the MCP server and calls a GitHub tool:
 
 ```typescript
-import { createMCPClient, githubPlugin, gmailPlugin } from "integrate-sdk";
+import {
+  createMCPClient,
+  githubIntegration,
+  gmailIntegration,
+} from "integrate-sdk";
 
-// Create a client with plugins
-// Plugins automatically read GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
+// Create a client with integrations
+// Integrations automatically read GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ["repo", "user"],
     }),
-    gmailPlugin(),
+    gmailIntegration(),
   ],
   // OAuth flow configuration (browser only)
   oauthFlow: {
@@ -59,8 +63,8 @@ The SDK works in both browser and Node.js environments, but with different capab
 ```typescript
 // Server-side usage (Node.js)
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       /* ... */
     }),
   ],
@@ -88,7 +92,11 @@ await client.authorize("github");
 ### 1. Import the SDK
 
 ```typescript
-import { createMCPClient, githubPlugin, gmailPlugin } from "integrate-sdk";
+import {
+  createMCPClient,
+  githubIntegration,
+  gmailIntegration,
+} from "integrate-sdk";
 ```
 
 ### 2. Set Up OAuth Credentials
@@ -109,24 +117,24 @@ GMAIL_CLIENT_SECRET=your_gmail_client_secret
 
 ### 3. Create the Client
 
-Plugins automatically read credentials from standard environment variables:
+Integrations automatically read credentials from standard environment variables:
 
 ```typescript
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ["repo", "user"],
     }),
   ],
 });
 ```
 
-The `githubPlugin` automatically looks for `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in your environment. Similarly, `gmailPlugin` looks for `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET`.
+The `githubIntegration` automatically looks for `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in your environment. Similarly, `gmailIntegration` looks for `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET`.
 
 ### 4. Call Tools
 
 ```typescript
-// Use typed methods for built-in plugins
+// Use typed methods for built-in integrations
 const result = await client.github.createIssue({
   owner: "owner",
   repo: "repo",
@@ -167,6 +175,6 @@ try {
 ## Next Steps
 
 - Learn about [OAuth Authorization Flow](/docs/guides/oauth-flow) to handle user authentication
-- Explore [Built-in Plugins](/docs/plugins) to see what integrations are available
+- Explore [Built-in Integrations](/docs/integrations) to see what integrations are available
 - Check out [Advanced Usage](/docs/guides/advanced-usage) for re-authentication, error handling, and more
-- Integrate with [Vercel AI SDK](/docs/integrations/vercel-ai) to give AI models access to your tools
+- Integrate with [Vercel AI SDK](/docs/ai/vercel-ai) to give AI models access to your tools

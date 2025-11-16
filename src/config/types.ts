@@ -3,14 +3,14 @@
  * Type-safe configuration with inference
  */
 
-import type { MCPPlugin } from "../plugins/types.js";
+import type { MCPIntegration } from "../integrations/types.js";
 import type { AuthenticationError } from "../errors.js";
 
 /**
  * Re-authentication context provided to the callback
  */
 export interface ReauthContext {
-  /** The plugin/provider that needs re-authentication */
+  /** The integration/provider that needs re-authentication */
   provider: string;
   /** The error that triggered re-authentication */
   error: AuthenticationError;
@@ -30,7 +30,7 @@ export type ReauthHandler = (context: ReauthContext) => Promise<boolean> | boole
  * 
  * API key is only available server-side for security reasons.
  */
-export interface MCPServerConfig<TPlugins extends readonly MCPPlugin[]> extends MCPClientConfig<TPlugins> {
+export interface MCPServerConfig<TIntegrations extends readonly MCPIntegration[]> extends MCPClientConfig<TIntegrations> {
   /**
    * API Key for authentication and usage tracking (SERVER-SIDE ONLY)
    * Sent as X-API-KEY header to the MCP server for tracking API usage
@@ -44,13 +44,13 @@ export interface MCPServerConfig<TPlugins extends readonly MCPPlugin[]> extends 
    * // ✅ CORRECT - Server-side only
    * createMCPServer({
    *   apiKey: process.env.INTEGRATE_API_KEY, // No NEXT_PUBLIC_ prefix
-   *   plugins: [...]
+   *   integrations: [...]
    * })
    * 
    * // ❌ WRONG - Never do this
    * createMCPClient({
    *   apiKey: process.env.NEXT_PUBLIC_INTEGRATE_API_KEY, // Exposed to browser!
-   *   plugins: [...]
+   *   integrations: [...]
    * })
    * ```
    */
@@ -60,9 +60,9 @@ export interface MCPServerConfig<TPlugins extends readonly MCPPlugin[]> extends 
 /**
  * Main client configuration
  */
-export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
-  /** Array of plugins to enable */
-  plugins: TPlugins;
+export interface MCPClientConfig<TIntegrations extends readonly MCPIntegration[]> {
+  /** Array of integrations to enable */
+  integrations: TIntegrations;
 
   /**
    * MCP Server URL
@@ -74,7 +74,7 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * // For local development
    * createMCPClient({
    *   serverUrl: 'http://localhost:8080/api/v1/mcp',
-   *   plugins: [githubPlugin({ ... })]
+   *   integrations: [githubIntegration({ ... })]
    * })
    * ```
    */
@@ -102,7 +102,7 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * @example
    * ```typescript
    * const client = createMCPClient({
-   *   plugins: [githubPlugin(...)],
+   *   integrations: [githubIntegration(...)],
    *   onReauthRequired: async (context) => {
    *     console.log(`Re-auth needed for ${context.provider}`);
    *     // Trigger your OAuth flow here
@@ -156,7 +156,7 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * @example
    * ```typescript
    * const client = createMCPClient({
-   *   plugins: [githubPlugin({ ... })],
+   *   integrations: [githubIntegration({ ... })],
    *   oauthFlow: {
    *     mode: 'popup',
    *     popupOptions: { width: 600, height: 700 }
@@ -184,7 +184,7 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * @example
    * ```typescript
    * const client = createMCPClient({
-   *   plugins: [githubPlugin({ ... })],
+   *   integrations: [githubIntegration({ ... })],
    *   sessionToken: 'existing-session-token'
    * });
    * ```
@@ -205,7 +205,7 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * @example
    * ```typescript
    * const client = createMCPClient({
-   *   plugins: [githubPlugin({ ... })],
+   *   integrations: [githubIntegration({ ... })],
    *   oauthApiBase: '/api/integrate/oauth'
    * });
    * ```
@@ -224,7 +224,7 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * @example
    * ```typescript
    * const client = createMCPClient({
-   *   plugins: [githubPlugin({ ... })],
+   *   integrations: [githubIntegration({ ... })],
    *   apiRouteBase: '/api/integrate'
    * });
    * ```
@@ -240,7 +240,7 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * @example
    * ```typescript
    * const client = createMCPClient({
-   *   plugins: [githubPlugin({ ... })],
+   *   integrations: [githubIntegration({ ... })],
    *   autoHandleOAuthCallback: false // Disable automatic callback handling
    * });
    * ```
@@ -249,7 +249,7 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
 
   /**
    * Global OAuth redirect URI for all providers
-   * Used as fallback when individual plugins don't specify their own redirectUri
+   * Used as fallback when individual integrations don't specify their own redirectUri
    * 
    * **Server-side (createMCPServer):** If not provided, auto-detects from environment:
    * - INTEGRATE_URL (primary)
@@ -265,17 +265,17 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
    * // Explicit redirectUri (server-side)
    * createMCPServer({
    *   redirectUri: 'https://myapp.com/oauth/callback',
-   *   plugins: [...]
+   *   integrations: [...]
    * })
    * 
    * // Auto-detection (server-side) - uses process.env.INTEGRATE_URL
    * createMCPServer({
-   *   plugins: [...]
+   *   integrations: [...]
    * })
    * 
    * // Auto-detection (client-side) - uses window.location.origin
    * createMCPClient({
-   *   plugins: [...]
+   *   integrations: [...]
    * })
    * ```
    */
@@ -283,15 +283,15 @@ export interface MCPClientConfig<TPlugins extends readonly MCPPlugin[]> {
 }
 
 /**
- * Helper type to infer enabled tools from plugins
+ * Helper type to infer enabled tools from integrations
  */
-export type InferEnabledTools<TPlugins extends readonly MCPPlugin[]> =
-  TPlugins[number]["tools"][number];
+export type InferEnabledTools<TIntegrations extends readonly MCPIntegration[]> =
+  TIntegrations[number]["tools"][number];
 
 /**
- * Helper type to create a tools object type from plugin array
+ * Helper type to create a tools object type from integration array
  */
-export type InferToolsObject<TPlugins extends readonly MCPPlugin[]> = {
-  [K in TPlugins[number]as K["id"]]: K["tools"];
+export type InferToolsObject<TIntegrations extends readonly MCPIntegration[]> = {
+  [K in TIntegrations[number]as K["id"]]: K["tools"];
 };
 

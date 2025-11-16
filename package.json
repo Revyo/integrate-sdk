@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.7.18",
+  "version": "0.7.20",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
@@ -35,37 +35,37 @@
       "types": "./dist/integrations.d.ts",
       "import": "./dist/integrations.js"
     },
-    "./integrations/openai": {
-      "types": "./dist/integrations/openai.d.ts",
-      "import": "./dist/integrations/openai.js"
+    "./ai/openai": {
+      "types": "./dist/ai/openai.d.ts",
+      "import": "./dist/ai/openai.js"
     },
-    "./integrations/openai-agents": {
-      "types": "./dist/integrations/openai-agents.d.ts",
-      "import": "./dist/integrations/openai-agents.js"
+    "./ai/openai-agents": {
+      "types": "./dist/ai/openai-agents.d.ts",
+      "import": "./dist/ai/openai-agents.js"
     },
-    "./integrations/anthropic": {
-      "types": "./dist/integrations/anthropic.d.ts",
-      "import": "./dist/integrations/anthropic.js"
+    "./ai/anthropic": {
+      "types": "./dist/ai/anthropic.d.ts",
+      "import": "./dist/ai/anthropic.js"
     },
-    "./integrations/google": {
-      "types": "./dist/integrations/google.d.ts",
-      "import": "./dist/integrations/google.js"
+    "./ai/google": {
+      "types": "./dist/ai/google.d.ts",
+      "import": "./dist/ai/google.js"
     },
-    "./integrations/cloudflare": {
-      "types": "./dist/integrations/cloudflare.d.ts",
-      "import": "./dist/integrations/cloudflare.js"
+    "./ai/cloudflare": {
+      "types": "./dist/ai/cloudflare.d.ts",
+      "import": "./dist/ai/cloudflare.js"
     },
-    "./integrations/langchain": {
-      "types": "./dist/integrations/langchain.d.ts",
-      "import": "./dist/integrations/langchain.js"
+    "./ai/langchain": {
+      "types": "./dist/ai/langchain.d.ts",
+      "import": "./dist/ai/langchain.js"
     },
-    "./integrations/llamaindex": {
-      "types": "./dist/integrations/llamaindex.d.ts",
-      "import": "./dist/integrations/llamaindex.js"
+    "./ai/llamaindex": {
+      "types": "./dist/ai/llamaindex.d.ts",
+      "import": "./dist/ai/llamaindex.js"
     },
-    "./integrations/mastra": {
-      "types": "./dist/integrations/mastra.d.ts",
-      "import": "./dist/integrations/mastra.js"
+    "./ai/mastra": {
+      "types": "./dist/ai/mastra.d.ts",
+      "import": "./dist/ai/mastra.js"
     },
     "./adapters/nextjs": {
       "types": "./dist/adapters/nextjs.d.ts",
@@ -105,7 +105,7 @@
     "type-check": "tsc --noEmit",
     "test": "bun test tests/",
     "test:watch": "bun test --watch tests/",
-    "test:unit": "bun test tests/protocol tests/plugins tests/client tests/integrations tests/oauth tests/transport tests/utils tests/errors",
+    "test:unit": "bun test tests/protocol tests/integrations tests/client tests/integrations tests/oauth tests/transport tests/utils tests/errors",
     "test:integration": "bun test tests/integration/simple-integration.test.ts",
     "test:coverage": "bun test --coverage tests/"
   },
@@ -115,7 +115,7 @@
     "sdk",
     "typescript",
     "oauth",
-    "plugin"
+    "integrations"
   ],
   "author": "",
   "license": "MIT",

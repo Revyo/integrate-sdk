@@ -1,6 +1,6 @@
 /**
- * GitHub Plugin Client Types
- * Fully typed interface for GitHub plugin methods
+ * GitHub Integration Client Types
+ * Fully typed interface for GitHub integration methods
  */
 
 import type { MCPToolCallResponse } from "../protocol/messages.js";
@@ -136,10 +136,10 @@ export interface GitHubCommit {
 }
 
 /**
- * GitHub Plugin Client Interface
+ * GitHub Integration Client Interface
  * Provides type-safe methods for all GitHub operations
  */
-export interface GitHubPluginClient {
+export interface GitHubIntegrationClient {
   /**
    * Create a new issue in a repository
    */

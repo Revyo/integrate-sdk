@@ -3,7 +3,7 @@
  * Orchestrates OAuth 2.0 Authorization Code Flow with PKCE
  */
 
-import type { OAuthConfig } from "../plugins/types.js";
+import type { OAuthConfig } from "../integrations/types.js";
 import type {
   OAuthFlowConfig,
   PendingAuth,
@@ -37,7 +37,7 @@ export class OAuthManager {
       popupOptions: flowConfig?.popupOptions,
       onAuthCallback: flowConfig?.onAuthCallback,
     };
-    
+
     // Clean up any expired pending auth entries from localStorage
     this.cleanupExpiredPendingAuths();
   }
@@ -93,7 +93,7 @@ export class OAuthManager {
     // 5. Open authorization URL (popup or redirect)
     if (this.flowConfig.mode === 'popup') {
       this.windowManager.openPopup(authUrl, this.flowConfig.popupOptions);
-      
+
       // Wait for callback from popup
       try {
         const callbackParams = await this.windowManager.listenForCallback('popup');
@@ -127,12 +127,12 @@ export class OAuthManager {
   async handleCallback(code: string, state: string): Promise<ProviderTokenData & { provider: string }> {
     // 1. Verify state and get pending auth
     let pendingAuth = this.pendingAuths.get(state);
-    
+
     // If not in memory (page reload), try to load from localStorage
     if (!pendingAuth) {
       pendingAuth = this.loadPendingAuthFromStorage(state);
     }
-    
+
     if (!pendingAuth) {
       throw new Error('Invalid state parameter: no matching OAuth flow found');
     }
@@ -172,7 +172,7 @@ export class OAuthManager {
         expiresAt: response.expiresAt,
         scopes: response.scopes,
       };
-      
+
       this.providerTokens.set(pendingAuth.provider, tokenData);
 
       // 4. Save to localStorage
@@ -210,7 +210,7 @@ export class OAuthManager {
    */
   async checkAuthStatus(provider: string): Promise<AuthStatus> {
     const tokenData = this.providerTokens.get(provider);
-    
+
     if (!tokenData) {
       return {
         authorized: false,
@@ -247,7 +247,7 @@ export class OAuthManager {
    */
   async disconnectProvider(provider: string): Promise<void> {
     const tokenData = this.providerTokens.get(provider);
-    
+
     if (!tokenData) {
       throw new Error(`No access token available for provider "${provider}". Cannot disconnect provider.`);
     }
@@ -299,7 +299,7 @@ export class OAuthManager {
   clearAllProviderTokens(): void {
     const providers = Array.from(this.providerTokens.keys());
     this.providerTokens.clear();
-    
+
     if (typeof window !== 'undefined' && window.localStorage) {
       for (const provider of providers) {
         try {
@@ -318,20 +318,20 @@ export class OAuthManager {
   clearAllPendingAuths(): void {
     // Clear in-memory pending auths
     this.pendingAuths.clear();
-    
+
     // Clear all pending auths from localStorage
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const prefix = 'integrate_oauth_pending_';
         const keysToRemove: string[] = [];
-        
+
         for (let i = 0; i < window.localStorage.length; i++) {
           const key = window.localStorage.key(i);
           if (key && key.startsWith(prefix)) {
             keysToRemove.push(key);
           }
         }
-        
+
         keysToRemove.forEach(key => window.localStorage.removeItem(key));
       } catch (error) {
         console.error('Failed to clear pending auths from localStorage:', error);
@@ -444,7 +444,7 @@ export class OAuthManager {
         const prefix = 'integrate_oauth_pending_';
         const fiveMinutes = 5 * 60 * 1000;
         const now = Date.now();
-        
+
         // Iterate through localStorage keys
         const keysToRemove: string[] = [];
         for (let i = 0; i < window.localStorage.length; i++) {
@@ -465,7 +465,7 @@ export class OAuthManager {
             }
           }
         }
-        
+
         // Remove expired entries
         keysToRemove.forEach(key => window.localStorage.removeItem(key));
       } catch (error) {

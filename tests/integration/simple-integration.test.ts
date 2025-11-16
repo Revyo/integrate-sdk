@@ -5,20 +5,20 @@
 
 import { describe, test, expect, mock } from "bun:test";
 import { createMCPClient } from "../../src/client.js";
-import { createSimplePlugin, genericOAuthPlugin } from "../../src/plugins/generic.js";
-import { githubPlugin } from "../../src/plugins/github.js";
-import { gmailPlugin } from "../../src/plugins/gmail.js";
+import { createSimpleIntegration, genericOAuthIntegration } from "../../src/integrations/generic.js";
+import { githubIntegration } from "../../src/integrations/github.js";
+import { gmailIntegration } from "../../src/integrations/gmail.js";
 
 describe("Integration - Client Configuration", () => {
-  test("creates client with multiple plugins", () => {
+  test("creates client with multiple integrations", () => {
     const client = createMCPClient({
       serverUrl: "https://mcp.integrate.dev:8080/api/v1/mcp",
-      plugins: [
-        githubPlugin({
+      integrations: [
+        githubIntegration({
           clientId: "test-id",
           clientSecret: "test-secret",
         }),
-        gmailPlugin({
+        gmailIntegration({
           clientId: "gmail-id",
           clientSecret: "gmail-secret",
         }),
@@ -27,48 +27,48 @@ describe("Integration - Client Configuration", () => {
 
     expect(client).toBeDefined();
     expect(client.isConnected()).toBe(false);
-    
+
     const oauthConfigs = client.getAllOAuthConfigs();
     expect(oauthConfigs.size).toBe(2);
     expect(oauthConfigs.has("github")).toBe(true);
     expect(oauthConfigs.has("gmail")).toBe(true);
   });
 
-  test("properly initializes plugins with lifecycle hooks", async () => {
+  test("properly initializes integrations with lifecycle hooks", async () => {
     let initOrder: string[] = [];
 
-    const plugin1 = createSimplePlugin({
-      id: "plugin1",
-      tools: ["plugin1/tool"],
+    const integration1 = createSimpleIntegration({
+      id: "integration1",
+      tools: ["integration1/tool"],
       onInit: () => {
-        initOrder.push("plugin1-init");
+        initOrder.push("integration1-init");
       },
     });
 
-    const plugin2 = createSimplePlugin({
-      id: "plugin2",
-      tools: ["plugin2/tool"],
+    const integration2 = createSimpleIntegration({
+      id: "integration2",
+      tools: ["integration2/tool"],
       onInit: () => {
-        initOrder.push("plugin2-init");
+        initOrder.push("integration2-init");
       },
     });
 
     createMCPClient({
       serverUrl: "https://mcp.integrate.dev:8080/api/v1/mcp",
-      plugins: [plugin1, plugin2],
+      integrations: [integration1, integration2],
     });
 
     // Wait for async initialization
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    expect(initOrder).toEqual(["plugin1-init", "plugin2-init"]);
+    expect(initOrder).toEqual(["integration1-init", "integration2-init"]);
   });
 
-  test("correctly filters tools by enabled plugins", () => {
+  test("correctly filters tools by enabled integrations", () => {
     const client = createMCPClient({
       serverUrl: "https://mcp.integrate.dev:8080/api/v1/mcp",
-      plugins: [
-        createSimplePlugin({
+      integrations: [
+        createSimpleIntegration({
           id: "test",
           tools: ["test/tool1", "test/tool2", "test/tool3"],
         }),
@@ -80,7 +80,7 @@ describe("Integration - Client Configuration", () => {
   });
 
   test("supports custom OAuth providers", () => {
-    const slackPlugin = genericOAuthPlugin({
+    const slackIntegration = genericOAuthIntegration({
       id: "slack",
       provider: "slack",
       clientId: "slack-id",
@@ -91,7 +91,7 @@ describe("Integration - Client Configuration", () => {
 
     const client = createMCPClient({
       serverUrl: "https://mcp.integrate.dev:8080/api/v1/mcp",
-      plugins: [slackPlugin],
+      integrations: [slackIntegration],
     });
 
     const config = client.getOAuthConfig("slack");
@@ -120,8 +120,8 @@ describe("Integration - Error Handling", () => {
     global.fetch = mockFetch;
 
     const client = createMCPClient({
-      plugins: [
-        githubPlugin({
+      integrations: [
+        githubIntegration({
           clientId: "test-id",
         }),
       ],
@@ -142,16 +142,16 @@ describe("Integration - Error Handling", () => {
   }, 5000);
 });
 
-describe("Integration - Plugin Combinations", () => {
-  test("works with mix of OAuth and simple plugins", () => {
+describe("Integration - Integration Combinations", () => {
+  test("works with mix of OAuth and simple integrations", () => {
     const client = createMCPClient({
       serverUrl: "https://mcp.integrate.dev:8080/api/v1/mcp",
-      plugins: [
-        githubPlugin({
+      integrations: [
+        githubIntegration({
           clientId: "github-id",
           clientSecret: "github-secret",
         }),
-        createSimplePlugin({
+        createSimpleIntegration({
           id: "local",
           tools: ["local/tool1", "local/tool2"],
         }),
@@ -164,18 +164,18 @@ describe("Integration - Plugin Combinations", () => {
     expect(configs.has("local")).toBe(false);
   });
 
-  test("handles duplicate tool names across plugins", () => {
-    // This tests that the client can handle plugins with overlapping tool names
+  test("handles duplicate tool names across integrations", () => {
+    // This tests that the client can handle integrations with overlapping tool names
     const client = createMCPClient({
       serverUrl: "https://mcp.integrate.dev:8080/api/v1/mcp",
-      plugins: [
-        createSimplePlugin({
-          id: "plugin1",
-          tools: ["shared/tool", "plugin1/tool"],
+      integrations: [
+        createSimpleIntegration({
+          id: "integration1",
+          tools: ["shared/tool", "integration1/tool"],
         }),
-        createSimplePlugin({
-          id: "plugin2",
-          tools: ["shared/tool", "plugin2/tool"],
+        createSimpleIntegration({
+          id: "integration2",
+          tools: ["shared/tool", "integration2/tool"],
         }),
       ],
     });

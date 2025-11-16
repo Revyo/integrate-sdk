@@ -5,17 +5,17 @@
  * without requiring OAuth credentials.
  */
 
-import { createMCPClient, createSimplePlugin } from "../src/index.js";
+import { createMCPClient, createSimpleIntegration } from "../src/index.js";
 
 async function testConnection() {
   console.log("🔍 Testing connection to MCP server...");
   console.log("Server URL: https://mcp.integrate.dev/api/v1/mcp\n");
 
-  // Create a minimal client without OAuth plugins
+  // Create a minimal client without OAuth integrations
   const client = createMCPClient({
-    plugins: [
-      // Simple plugin that doesn't require OAuth
-      createSimplePlugin({
+    integrations: [
+      // Simple integration that doesn't require OAuth
+      createSimpleIntegration({
         id: "test",
         tools: [], // We'll get actual tools from the server
       }),
@@ -38,7 +38,7 @@ async function testConnection() {
     if (tools.length > 0) {
       console.log("📋 Available Tools:");
       console.log("─".repeat(80));
-      
+
       // Group tools by prefix (provider)
       const toolsByProvider = new Map<string, typeof tools>();
       tools.forEach((tool) => {
@@ -58,7 +58,7 @@ async function testConnection() {
           console.log(`     ${description.substring(0, 70)}${description.length > 70 ? "..." : ""}`);
         });
       }
-      
+
       console.log("\n" + "─".repeat(80));
     } else {
       console.log("⚠️  No tools available from the server");
@@ -75,7 +75,7 @@ async function testConnection() {
     console.log("\n💡 Next steps:");
     console.log("   1. Set up OAuth credentials for the providers you want to use");
     console.log("   2. Run 'bun examples/basic-usage.ts' to test tool calls");
-    console.log("   3. Check the README.md for plugin configuration examples");
+    console.log("   3. Check the README.md for integration configuration examples");
 
   } catch (error) {
     console.error("\n❌ Connection test failed!");
@@ -86,13 +86,13 @@ async function testConnection() {
     } else {
       console.error(error);
     }
-    
+
     console.log("\n🔍 Troubleshooting:");
     console.log("   1. Check if the server is running at https://mcp.integrate.dev/api/v1/mcp");
     console.log("   2. Verify the endpoint path is /api/v1/mcp");
     console.log("   3. Check if there are any firewall or network issues");
     console.log("   4. Ensure the server is accessible from your location");
-    
+
     process.exit(1);
   } finally {
     // Always disconnect

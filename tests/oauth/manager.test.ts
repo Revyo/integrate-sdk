@@ -4,7 +4,7 @@
 
 import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { OAuthManager } from "../../src/oauth/manager.js";
-import type { OAuthConfig } from "../../src/plugins/types.js";
+import type { OAuthConfig } from "../../src/integrations/types.js";
 
 // Mock server URL
 const TEST_SERVER_URL = "https://test.mcp.server.com";
@@ -34,7 +34,7 @@ describe("OAuth Manager", () => {
         mode: 'popup',
         popupOptions: { width: 600, height: 700 },
       });
-      
+
       expect(managerWithConfig).toBeDefined();
     });
 
@@ -56,7 +56,7 @@ describe("OAuth Manager", () => {
         expiresIn: 3600,
       };
       manager.setProviderToken("github", tokenData);
-      
+
       expect(manager.getProviderToken("github")).toEqual(tokenData);
     });
 
@@ -68,7 +68,7 @@ describe("OAuth Manager", () => {
       };
       manager.setProviderToken("github", tokenData);
       expect(manager.getProviderToken("github")).toEqual(tokenData);
-      
+
       manager.clearProviderToken("github");
       expect(manager.getProviderToken("github")).toBeUndefined();
     });
@@ -86,7 +86,7 @@ describe("OAuth Manager", () => {
       };
       manager.setProviderToken("github", tokenData1);
       expect(manager.getProviderToken("github")).toEqual(tokenData1);
-      
+
       manager.setProviderToken("github", tokenData2);
       expect(manager.getProviderToken("github")).toEqual(tokenData2);
     });
@@ -95,7 +95,7 @@ describe("OAuth Manager", () => {
   describe("checkAuthStatus", () => {
     test("returns unauthorized when no token exists locally", async () => {
       const status = await manager.checkAuthStatus("github");
-      
+
       expect(status.authorized).toBe(false);
       expect(status.provider).toBe("github");
     });
@@ -109,7 +109,7 @@ describe("OAuth Manager", () => {
       });
 
       const status = await manager.checkAuthStatus("github");
-      
+
       expect(status.authorized).toBe(true);
       expect(status.provider).toBe("github");
       expect(status.scopes).toEqual(["repo", "user"]);
@@ -126,7 +126,7 @@ describe("OAuth Manager", () => {
       });
 
       const status = await manager.checkAuthStatus("github");
-      
+
       expect(status.authorized).toBe(true);
       expect(status.scopes).toEqual(["repo", "user"]);
       expect(status.expiresAt).toBe(expiresAt);
@@ -146,7 +146,7 @@ describe("OAuth Manager", () => {
       }) as any;
 
       const status = await manager.checkAuthStatus("github");
-      
+
       // Should return authorized without calling server
       expect(status.authorized).toBe(true);
       expect(global.fetch).not.toHaveBeenCalled();
@@ -303,7 +303,7 @@ describe("OAuth Manager", () => {
 
       try {
         await manager.getAuthorizationUrl("github", oauthConfig, "test-state", "test-challenge");
-        
+
         expect(requestBody).toBeDefined();
         expect(requestBody.params.provider).toBe("github");
       } catch (error) {

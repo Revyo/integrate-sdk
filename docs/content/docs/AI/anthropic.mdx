@@ -17,14 +17,14 @@ Use the `useIntegrateAI` hook for automatic token injection:
 
 ```typescript
 // app/providers.tsx
-'use client';
+"use client";
 
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
-import { useIntegrateAI } from 'integrate-sdk/react';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { useIntegrateAI } from "integrate-sdk/react";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  integrations: [
+    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
   ],
 });
 
@@ -40,14 +40,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
 
 export const { client: serverClient } = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ['repo', 'user'],
+      scopes: ["repo", "user"],
     }),
   ],
 });
@@ -57,17 +57,20 @@ export const { client: serverClient } = createMCPServer({
 
 ```typescript
 // app/api/chat/route.ts
-import { serverClient } from '@/lib/integrate-server';
-import { getAnthropicTools, handleAnthropicToolCalls } from 'integrate-sdk/integrations/anthropic';
-import Anthropic from '@anthropic-ai/sdk';
+import { serverClient } from "@/lib/integrate-server";
+import {
+  getAnthropicTools,
+  handleAnthropicToolCalls,
+} from "integrate-sdk/ai/anthropic";
+import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req: Request) {
   try {
     // Extract provider tokens from request
-    const tokensHeader = req.headers.get('x-integrate-tokens');
-    const providerTokens = JSON.parse(tokensHeader || '{}');
+    const tokensHeader = req.headers.get("x-integrate-tokens");
+    const providerTokens = JSON.parse(tokensHeader || "{}");
 
     // Get tools with user's tokens
     const tools = await getAnthropicTools(serverClient, { providerTokens });
@@ -76,7 +79,7 @@ export async function POST(req: Request) {
 
     // Create message with tools
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: "claude-3-5-sonnet-20241022",
       max_tokens: 1024,
       tools,
       messages,
@@ -92,13 +95,13 @@ export async function POST(req: Request) {
     // If there are tool results, continue the conversation
     if (toolResults.length > 0) {
       const finalMessage = await anthropic.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: "claude-3-5-sonnet-20241022",
         max_tokens: 1024,
         tools,
         messages: [
           ...messages,
-          { role: 'assistant', content: message.content },
-          { role: 'user', content: toolResults },
+          { role: "assistant", content: message.content },
+          { role: "user", content: toolResults },
         ],
       });
 
@@ -107,10 +110,7 @@ export async function POST(req: Request) {
 
     return Response.json(message);
   } catch (error: any) {
-    return Response.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return Response.json({ error: error.message }, { status: 500 });
   }
 }
 ```
@@ -121,25 +121,25 @@ export async function POST(req: Request) {
 
 ```typescript
 // app/chat/page.tsx
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { useState } from "react";
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  integrations: [
+    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
   ],
 });
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<any[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [authorized, setAuthorized] = useState(false);
 
   const handleConnect = async () => {
-    await client.authorize('github');
+    await client.authorize("github");
     setAuthorized(true);
   };
 
@@ -147,24 +147,27 @@ export default function ChatPage() {
     e.preventDefault();
     if (!input.trim()) return;
 
-    const userMessage = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    const userMessage = { role: "user", content: input };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
     setLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [...messages, userMessage],
         }),
       });
 
       const data = await response.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.content },
+      ]);
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Error:", error);
     } finally {
       setLoading(false);
     }
@@ -195,7 +198,7 @@ export default function ChatPage() {
           placeholder="Ask Claude to use GitHub..."
         />
         <button type="submit" disabled={loading}>
-          {loading ? 'Thinking...' : 'Send'}
+          {loading ? "Thinking..." : "Send"}
         </button>
       </form>
     </div>
@@ -210,6 +213,7 @@ export default function ChatPage() {
 Converts all enabled MCP tools to Anthropic Claude API format.
 
 **Parameters:**
+
 - `client` - The MCP client instance
 - `options` - Optional configuration
   - `providerTokens` - Provider tokens for server-side usage
@@ -221,6 +225,7 @@ Converts all enabled MCP tools to Anthropic Claude API format.
 Handles all tool calls from Claude's message response.
 
 **Parameters:**
+
 - `client` - The MCP client instance
 - `messageContent` - Array of content blocks from Claude's message
 - `options` - Optional configuration with `providerTokens`
@@ -251,6 +256,5 @@ Anthropic Claude expects tools in this format:
 ## Next Steps
 
 - [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
-- [Explore other AI providers](/docs/integrations/vercel-ai)
+- [Explore other AI providers](/docs/ai/vercel-ai)
 - [API Reference](/docs/reference/options)
-

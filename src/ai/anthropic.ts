@@ -219,12 +219,12 @@ export async function handleAnthropicToolCalls(
  * @example
  * ```typescript
  * // Client-side usage
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
- * import { getAnthropicTools } from 'integrate-sdk/integrations/anthropic';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
+ * import { getAnthropicTools } from 'integrate-sdk/ai/anthropic';
  * import Anthropic from '@anthropic-ai/sdk';
  * 
  * const client = createMCPClient({
- *   plugins: [githubPlugin({ clientId: '...' })],
+ *   integrations: [githubIntegration({ clientId: '...' })],
  * });
  * 
  * const tools = await getAnthropicTools(client);
@@ -241,11 +241,11 @@ export async function handleAnthropicToolCalls(
  * @example
  * ```typescript
  * // Server-side usage with tokens from client
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
- * import { getAnthropicTools, handleAnthropicToolCalls } from 'integrate-sdk/integrations/anthropic';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
+ * import { getAnthropicTools, handleAnthropicToolCalls } from 'integrate-sdk/ai/anthropic';
  * 
  * const { client: serverClient } = createMCPServer({
- *   plugins: [githubPlugin({ 
+ *   integrations: [githubIntegration({ 
  *     clientId: '...', 
  *     clientSecret: '...' 
  *   })],

@@ -130,12 +130,12 @@ export async function executeGoogleFunctionCall(
  * @example
  * ```typescript
  * // Client-side usage
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
- * import { getGoogleTools } from 'integrate-sdk/integrations/google';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
+ * import { getGoogleTools } from 'integrate-sdk/ai/google';
  * import { GoogleGenerativeAI } from '@google/generative-ai';
  * 
  * const client = createMCPClient({
- *   plugins: [githubPlugin({ clientId: '...' })],
+ *   integrations: [githubIntegration({ clientId: '...' })],
  * });
  * 
  * const tools = await getGoogleTools(client);
@@ -153,11 +153,11 @@ export async function executeGoogleFunctionCall(
  * @example
  * ```typescript
  * // Server-side usage with tokens from client
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
- * import { getGoogleTools, executeGoogleFunctionCall } from 'integrate-sdk/integrations/google';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
+ * import { getGoogleTools, executeGoogleFunctionCall } from 'integrate-sdk/ai/google';
  * 
  * const { client: serverClient } = createMCPServer({
- *   plugins: [githubPlugin({ 
+ *   integrations: [githubIntegration({ 
  *     clientId: '...', 
  *     clientSecret: '...' 
  *   })],

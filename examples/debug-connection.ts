@@ -3,15 +3,15 @@
  * Tests the connection step-by-step to identify issues
  */
 
-import { createMCPClient, createSimplePlugin } from "../src/index.js";
+import { createMCPClient, createSimpleIntegration } from "../src/index.js";
 
 async function debugConnection() {
   console.log("=== MCP Client Debug ===\n");
 
-  // Create a minimal client with just one simple plugin
+  // Create a minimal client with just one simple integration
   const client = createMCPClient({
-    plugins: [
-      createSimplePlugin({
+    integrations: [
+      createSimpleIntegration({
         id: "test",
         tools: ["test/echo"], // Adjust to match your server's tools
       }),
@@ -27,10 +27,10 @@ async function debugConnection() {
   try {
     console.log("Attempting to connect...");
     console.log("  Step 1: Creating HTTP streaming connection");
-    
+
     // Add a simple timeout to see if it's hanging
     const connectPromise = client.connect();
-    const timeoutPromise = new Promise((_, reject) => 
+    const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("Manual timeout")), 5000)
     );
 
@@ -58,7 +58,7 @@ async function debugConnection() {
     console.error("\n✗ Connection failed:");
     console.error("  Error:", error.message);
     console.error();
-    
+
     if (error.message.includes("timeout") || error.message.includes("Manual timeout")) {
       console.error("DIAGNOSIS: Connection is timing out");
       console.error("This usually means:");
@@ -86,7 +86,7 @@ async function debugConnection() {
 // Test basic connectivity first
 async function testBasicConnectivity() {
   console.log("=== Testing Basic Connectivity ===\n");
-  
+
   try {
     console.log("Testing HTTP POST to server...");
     const response = await fetch("http://localhost:8080/api/v1/mcp", {

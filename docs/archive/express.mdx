@@ -19,19 +19,23 @@ Create a server configuration file with your OAuth credentials:
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+import {
+  createMCPServer,
+  githubIntegration,
+  gmailIntegration,
+} from "integrate-sdk/server";
 
 export const { client: serverClient, handler } = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ['repo', 'user'],
+      scopes: ["repo", "user"],
     }),
-    gmailPlugin({
+    gmailIntegration({
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      scopes: ['gmail.send', 'gmail.readonly'],
+      scopes: ["gmail.send", "gmail.readonly"],
     }),
   ],
 });
@@ -42,9 +46,9 @@ export const { client: serverClient, handler } = createMCPServer({
 Add OAuth route handlers to your Express application:
 
 ```typescript
-import express from 'express';
-import { handler } from './lib/integrate-server';
-import { toNodeHandler } from 'integrate-sdk';
+import express from "express";
+import { handler } from "./lib/integrate-server";
+import { toNodeHandler } from "integrate-sdk";
 
 const app = express();
 app.use(express.json());
@@ -53,10 +57,10 @@ app.use(express.json());
 const nodeHandler = toNodeHandler(handler);
 
 // Register OAuth catch-all route
-app.all('/api/integrate/*', nodeHandler);
+app.all("/api/integrate/*", nodeHandler);
 
 app.listen(3000, () => {
-  console.log('Server running on port 3000');
+  console.log("Server running on port 3000");
 });
 ```
 
@@ -74,12 +78,14 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 If your frontend is on a different origin, configure CORS:
 
 ```typescript
-import cors from 'cors';
+import cors from "cors";
 
-app.use(cors({
-  origin: 'http://localhost:3001',
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: "http://localhost:3001",
+    credentials: true,
+  })
+);
 ```
 
 ## Usage Examples
@@ -87,23 +93,16 @@ app.use(cors({
 ### Client-Side Authorization
 
 ```typescript
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
-      scopes: ['repo', 'user'],
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
     }),
   ],
 });
 
 // Start OAuth flow
-await client.authorize('github');
+await client.authorize("github");
 ```
-
-## Framework-Specific Notes
-
-- **Body Parser**: Use `express.json()` middleware to parse JSON request bodies.
-- **CORS**: Install `cors` package for cross-origin requests: `bun add cors`.
-- **Environment Variables**: Use `dotenv` package or set them directly.
-

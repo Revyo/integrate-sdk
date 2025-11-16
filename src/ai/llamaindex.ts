@@ -7,11 +7,11 @@
 import { z } from "zod";
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
-import { 
-  jsonSchemaToZod, 
-  executeToolWithToken, 
-  ensureClientConnected, 
-  type AIToolsOptions 
+import {
+  jsonSchemaToZod,
+  executeToolWithToken,
+  ensureClientConnected,
+  type AIToolsOptions
 } from "./utils.js";
 
 /**
@@ -28,7 +28,7 @@ export interface LlamaIndexTool {
 /**
  * Options for converting MCP tools to LlamaIndex format
  */
-export interface LlamaIndexToolsOptions extends AIToolsOptions {}
+export interface LlamaIndexToolsOptions extends AIToolsOptions { }
 
 /**
  * Convert a single MCP tool to LlamaIndex format
@@ -98,12 +98,12 @@ export function convertMCPToolsToLlamaIndex(
  * @example
  * ```typescript
  * // Client-side usage
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
- * import { getLlamaIndexTools } from 'integrate-sdk/integrations/llamaindex';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
+ * import { getLlamaIndexTools } from 'integrate-sdk/ai/llamaindex';
  * import { OpenAIAgent, tool } from 'llamaindex';
  * 
  * const client = createMCPClient({
- *   plugins: [githubPlugin({ clientId: '...' })],
+ *   integrations: [githubIntegration({ clientId: '...' })],
  * });
  * 
  * const toolConfigs = await getLlamaIndexTools(client);
@@ -122,11 +122,11 @@ export function convertMCPToolsToLlamaIndex(
  * @example
  * ```typescript
  * // Server-side usage with tokens from client
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
- * import { getLlamaIndexTools } from 'integrate-sdk/integrations/llamaindex';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
+ * import { getLlamaIndexTools } from 'integrate-sdk/ai/llamaindex';
  * 
  * const { client: serverClient } = createMCPServer({
- *   plugins: [githubPlugin({ 
+ *   integrations: [githubIntegration({ 
  *     clientId: '...', 
  *     clientSecret: '...' 
  *   })],

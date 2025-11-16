@@ -58,11 +58,11 @@ export type AIProviderName =
  * @example
  * ```typescript
  * // Dynamic provider selection
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
  * import { getAITools } from 'integrate-sdk/integrations';
  * 
  * const client = createMCPClient({
- *   plugins: [githubPlugin({ clientId: '...' })],
+ *   integrations: [githubIntegration({ clientId: '...' })],
  * });
  * 
  * // Choose provider at runtime
@@ -73,11 +73,11 @@ export type AIProviderName =
  * @example
  * ```typescript
  * // Server-side with provider tokens
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
  * import { getAITools } from 'integrate-sdk/integrations';
  * 
  * const { client: serverClient } = createMCPServer({
- *   plugins: [githubPlugin({ 
+ *   integrations: [githubIntegration({ 
  *     clientId: '...', 
  *     clientSecret: '...' 
  *   })],

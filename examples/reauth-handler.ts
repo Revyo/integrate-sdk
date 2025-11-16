@@ -7,8 +7,8 @@
 
 import {
   createMCPClient,
-  githubPlugin,
-  gmailPlugin,
+  githubIntegration,
+  gmailIntegration,
   type ReauthContext,
 } from "../src/index.js";
 
@@ -48,14 +48,14 @@ async function main() {
 
   // Create client with re-authentication handler
   const client = createMCPClient({
-    plugins: [
-      githubPlugin({
+    integrations: [
+      githubIntegration({
         clientId: process.env.GITHUB_CLIENT_ID || "your-github-client-id",
         clientSecret:
           process.env.GITHUB_CLIENT_SECRET || "your-github-client-secret",
         scopes: ["repo", "user"],
       }),
-      gmailPlugin({
+      gmailIntegration({
         clientId: process.env.GMAIL_CLIENT_ID || "your-gmail-client-id",
         clientSecret: process.env.GMAIL_CLIENT_SECRET || "your-gmail-client-secret",
       }),

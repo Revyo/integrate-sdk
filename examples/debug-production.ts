@@ -6,9 +6,9 @@
 
 async function debugConnection() {
   const serverUrl = "https://mcp.integrate.dev/api/v1/mcp";
-  
+
   console.log("🔍 Debug Connection Test");
-  console.log("=" .repeat(80));
+  console.log("=".repeat(80));
   console.log(`Server URL: ${serverUrl}\n`);
 
   // Test 1: Can we reach the server at all?
@@ -16,7 +16,7 @@ async function debugConnection() {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
+
     const response = await fetch(serverUrl, {
       method: "POST",
       headers: {
@@ -36,17 +36,17 @@ async function debugConnection() {
     });
 
     clearTimeout(timeoutId);
-    
+
     console.log(`   Status: ${response.status} ${response.statusText}`);
     console.log(`   Headers:`, Object.fromEntries(response.headers.entries()));
-    
+
     const contentType = response.headers.get("content-type");
     console.log(`   Content-Type: ${contentType}`);
-    
+
     if (response.ok) {
       const text = await response.text();
       console.log(`   Response body: ${text.substring(0, 500)}`);
-      
+
       try {
         const json = JSON.parse(text);
         console.log(`   ✅ Valid JSON response`);
@@ -72,7 +72,7 @@ async function debugConnection() {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
+
     const response = await fetch(serverUrl, {
       method: "GET",
       headers: {
@@ -83,10 +83,10 @@ async function debugConnection() {
     });
 
     clearTimeout(timeoutId);
-    
+
     console.log(`   Status: ${response.status} ${response.statusText}`);
     console.log(`   Content-Type: ${response.headers.get("content-type")}`);
-    
+
     if (response.ok && response.body) {
       console.log(`   ✅ SSE endpoint accessible`);
       // Try to read first chunk
@@ -124,11 +124,11 @@ async function debugConnection() {
   // Test 4: Test with our SDK
   console.log("\n4️⃣  Testing with SDK client...");
   try {
-    const { createMCPClient, createSimplePlugin } = await import("../src/index.js");
-    
+    const { createMCPClient, createSimpleIntegration } = await import("../src/index.js");
+
     const client = createMCPClient({
-      plugins: [
-        createSimplePlugin({
+      integrations: [
+        createSimpleIntegration({
           id: "test",
           tools: [],
         }),
@@ -138,19 +138,19 @@ async function debugConnection() {
 
     console.log("   Calling client.connect()...");
     const startTime = Date.now();
-    
+
     await client.connect();
-    
+
     const duration = Date.now() - startTime;
     console.log(`   ✅ Connected in ${duration}ms`);
-    
+
     console.log("   Calling client.listTools()...");
     const tools = await client.listTools();
     console.log(`   ✅ Got ${tools.length} tools`);
-    
+
     await client.disconnect();
     console.log("   ✅ Disconnected");
-    
+
   } catch (error) {
     console.log("   ❌ SDK connection failed:", error);
     if (error instanceof Error) {

@@ -142,13 +142,13 @@ export async function executeCloudflareToolCall(
  * @example
  * ```typescript
  * // Cloudflare Worker usage
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
- * import { getCloudflareTools, executeCloudflareToolCall } from 'integrate-sdk/integrations/cloudflare';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
+ * import { getCloudflareTools, executeCloudflareToolCall } from 'integrate-sdk/ai/cloudflare';
  * 
  * export default {
  *   async fetch(request: Request, env: Env): Promise<Response> {
  *     const client = createMCPClient({
- *       plugins: [githubPlugin({ clientId: env.GITHUB_CLIENT_ID })],
+ *       integrations: [githubIntegration({ clientId: env.GITHUB_CLIENT_ID })],
  *     });
  *     
  *     const tools = await getCloudflareTools(client);
@@ -167,11 +167,11 @@ export async function executeCloudflareToolCall(
  * @example
  * ```typescript
  * // Server-side usage with tokens from client
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
- * import { getCloudflareTools, executeCloudflareToolCall } from 'integrate-sdk/integrations/cloudflare';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
+ * import { getCloudflareTools, executeCloudflareToolCall } from 'integrate-sdk/ai/cloudflare';
  * 
  * const { client: serverClient } = createMCPServer({
- *   plugins: [githubPlugin({ 
+ *   integrations: [githubIntegration({ 
  *     clientId: '...', 
  *     clientSecret: '...' 
  *   })],

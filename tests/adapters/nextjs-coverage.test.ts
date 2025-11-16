@@ -5,8 +5,8 @@
  */
 
 import { describe, test, expect, beforeEach } from "bun:test";
-import { githubPlugin } from "../../src/plugins/github.js";
-import { gmailPlugin } from "../../src/plugins/gmail.js";
+import { githubIntegration } from "../../src/integrations/github.js";
+import { gmailIntegration } from "../../src/integrations/gmail.js";
 
 describe("Next.js Adapter Coverage Tests", () => {
   beforeEach(() => {
@@ -17,10 +17,10 @@ describe("Next.js Adapter Coverage Tests", () => {
   describe("toNextJsHandler - Error Cases", () => {
     test("handles missing params", async () => {
       const { createMCPServer, toNextJsHandler } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -51,10 +51,10 @@ describe("Next.js Adapter Coverage Tests", () => {
 
     test("handles invalid action", async () => {
       const { createMCPServer, toNextJsHandler } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -82,10 +82,10 @@ describe("Next.js Adapter Coverage Tests", () => {
 
     test("handles callback with error parameter", async () => {
       const { createMCPServer, toNextJsHandler } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -109,17 +109,17 @@ describe("Next.js Adapter Coverage Tests", () => {
       };
 
       const response = await handlers.GET(request, context);
-      
+
       // Should handle the error (might redirect or return error status)
       expect(response.status).toBeGreaterThanOrEqual(200);
     });
 
     test("handles disconnect with missing provider", async () => {
       const { createMCPServer, toNextJsHandler } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -150,9 +150,9 @@ describe("Next.js Adapter Coverage Tests", () => {
 
     test("handles authorize with missing client credentials", async () => {
       const { createMCPServer, toNextJsHandler } = await import("../../src/server.js");
-      
-      // Create server with plugin missing credentials
-      const pluginWithMissingCreds = {
+
+      // Create server with integration missing credentials
+      const integrationWithMissingCreds = {
         id: 'test-provider',
         tools: ['test'],
         oauth: {
@@ -162,7 +162,7 @@ describe("Next.js Adapter Coverage Tests", () => {
       };
 
       const { client } = createMCPServer({
-        plugins: [pluginWithMissingCreds as any],
+        integrations: [integrationWithMissingCreds as any],
       });
 
       const handlers = toNextJsHandler(client);
@@ -191,7 +191,7 @@ describe("Next.js Adapter Coverage Tests", () => {
   describe("toNextJsHandler - Manual Configuration", () => {
     test("accepts manual OAuth config", async () => {
       const { toNextJsHandler } = await import("../../src/server.js");
-      
+
       const config = {
         providers: {
           github: {
@@ -203,7 +203,7 @@ describe("Next.js Adapter Coverage Tests", () => {
       };
 
       const handlers = toNextJsHandler(config);
-      
+
       // Should create handlers
       expect(handlers.POST).toBeDefined();
       expect(handlers.GET).toBeDefined();
@@ -211,7 +211,7 @@ describe("Next.js Adapter Coverage Tests", () => {
 
     test("handles manual config with multiple providers", async () => {
       const { toNextJsHandler } = await import("../../src/server.js");
-      
+
       const config = {
         providers: {
           github: {
@@ -228,7 +228,7 @@ describe("Next.js Adapter Coverage Tests", () => {
       };
 
       const handlers = toNextJsHandler(config);
-      
+
       // Should handle multiple providers
       expect(handlers.POST).toBeDefined();
       expect(handlers.GET).toBeDefined();
@@ -238,11 +238,11 @@ describe("Next.js Adapter Coverage Tests", () => {
   describe("toNextJsHandler - Default Config", () => {
     test("uses global config when no config provided", async () => {
       const { createMCPServer, toNextJsHandler } = await import("../../src/server.js");
-      
+
       // Create server to set global config
       createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'global-id',
             clientSecret: 'global-secret',
           }),
@@ -251,7 +251,7 @@ describe("Next.js Adapter Coverage Tests", () => {
 
       // Call toNextJsHandler without config
       const handlers = toNextJsHandler();
-      
+
       // Should use global config
       expect(handlers.POST).toBeDefined();
       expect(handlers.GET).toBeDefined();
@@ -261,7 +261,7 @@ describe("Next.js Adapter Coverage Tests", () => {
   describe("OAuth Redirect Handler", () => {
     test("handles missing state parameter", async () => {
       const { createOAuthRedirectHandler } = await import("../../src/adapters/nextjs-oauth-redirect.js");
-      
+
       const handler = createOAuthRedirectHandler({
         redirectUrl: '/dashboard',
         errorRedirectUrl: '/error',
@@ -276,14 +276,14 @@ describe("Next.js Adapter Coverage Tests", () => {
       } as any;
 
       const response = await handler(request);
-      
+
       // Should handle missing state
       expect(response.status).toBe(302);
     });
 
     test("handles error in callback URL", async () => {
       const { createOAuthRedirectHandler } = await import("../../src/adapters/nextjs-oauth-redirect.js");
-      
+
       const handler = createOAuthRedirectHandler({
         redirectUrl: '/dashboard',
         errorRedirectUrl: '/error',
@@ -298,7 +298,7 @@ describe("Next.js Adapter Coverage Tests", () => {
       } as any;
 
       const response = await handler(request);
-      
+
       // Should redirect to error page
       expect(response.status).toBe(302);
       const location = response.headers.get('Location');
@@ -307,7 +307,7 @@ describe("Next.js Adapter Coverage Tests", () => {
 
     test("uses referrer when state parsing fails", async () => {
       const { createOAuthRedirectHandler } = await import("../../src/adapters/nextjs-oauth-redirect.js");
-      
+
       const handler = createOAuthRedirectHandler({
         redirectUrl: '/dashboard',
         errorRedirectUrl: '/error',
@@ -330,14 +330,14 @@ describe("Next.js Adapter Coverage Tests", () => {
       } as any;
 
       const response = await handler(request);
-      
+
       // Should use referrer
       expect(response.status).toBe(302);
     });
 
     test("rejects cross-origin referrer", async () => {
       const { createOAuthRedirectHandler } = await import("../../src/adapters/nextjs-oauth-redirect.js");
-      
+
       const handler = createOAuthRedirectHandler({
         redirectUrl: '/dashboard',
         errorRedirectUrl: '/error',
@@ -360,7 +360,7 @@ describe("Next.js Adapter Coverage Tests", () => {
       } as any;
 
       const response = await handler(request);
-      
+
       // Should not use cross-origin referrer
       expect(response.status).toBe(302);
       const location = response.headers.get('Location');

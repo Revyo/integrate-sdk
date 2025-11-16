@@ -15,17 +15,17 @@
 // =============================================================================
 // This should be in a separate file and imported by your API routes
 
-import { createMCPServer, githubPlugin, gmailPlugin } from "../src/server.js";
+import { createMCPServer, githubIntegration, gmailIntegration } from "../src/server.js";
 
 // Create server-side MCP client (do this once, export and reuse)
-// Plugins automatically use GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
+// Integrations automatically use GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
 export const { client: serverClient } = createMCPServer({
   apiKey: process.env.INTEGRATE_API_KEY,
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ['repo', 'user', 'read:org'],
     }),
-    gmailPlugin({
+    gmailIntegration({
       scopes: ['gmail.send', 'gmail.readonly'],
     }),
   ],
@@ -35,7 +35,7 @@ export const { client: serverClient } = createMCPServer({
 // API ROUTE HANDLER (app/api/ai/chat/route.ts)
 // =============================================================================
 
-import { getVercelAITools } from "../src/integrations/vercel-ai.js";
+import { getVercelAITools } from "../src/ai/vercel-ai.js";
 // Uncomment these imports when you have the AI SDK installed:
 // import { generateText, streamText } from 'ai';
 // import { openai } from '@ai-sdk/openai';
@@ -48,10 +48,10 @@ export async function POST(req: Request) {
   try {
     // 1. Extract provider tokens from request headers
     const tokensHeader = req.headers.get('x-integrate-tokens');
-    
+
     if (!tokensHeader) {
       return Response.json(
-        { 
+        {
           error: 'Authentication required',
           message: 'Please connect your integrations first',
           code: 'MISSING_TOKENS'
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
       providerTokens = JSON.parse(tokensHeader);
     } catch (error) {
       return Response.json(
-        { 
+        {
           error: 'Invalid token format',
           code: 'INVALID_TOKENS'
         },
@@ -76,11 +76,11 @@ export async function POST(req: Request) {
 
     // 3. Parse request body
     const body = await req.json();
-    const { 
-      messages, 
+    const {
+      messages,
       stream = false,
       model = 'gpt-4',
-      maxToolRoundtrips = 5 
+      maxToolRoundtrips = 5
     } = body;
 
     if (!messages || !Array.isArray(messages)) {
@@ -109,18 +109,18 @@ export async function POST(req: Request) {
 
       return result.toAIStreamResponse();
       */
-      
+
       // For demonstration without AI SDK installed:
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           message: 'Streaming example - install ai package to enable',
           tools: Object.keys(tools)
         }),
-        { 
-          headers: { 
+        {
+          headers: {
             'Content-Type': 'application/json',
             'X-Available-Tools': Object.keys(tools).join(',')
-          } 
+          }
         }
       );
     } else {
@@ -155,11 +155,11 @@ export async function POST(req: Request) {
     }
   } catch (error) {
     console.error('[AI Route] Error:', error);
-    
+
     // Handle specific error types
     if ((error as any).statusCode === 401 || (error as any).code === 401) {
       return Response.json(
-        { 
+        {
           error: 'Token expired',
           message: 'Please reconnect your integration',
           code: 'TOKEN_EXPIRED'
@@ -170,7 +170,7 @@ export async function POST(req: Request) {
 
     // Generic error
     return Response.json(
-      { 
+      {
         error: 'Internal server error',
         message: (error as Error).message,
         code: 'SERVER_ERROR'
@@ -187,7 +187,7 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const tokensHeader = req.headers.get('x-integrate-tokens');
-    
+
     if (!tokensHeader) {
       return Response.json({
         authenticated: false,
@@ -196,10 +196,10 @@ export async function GET(req: Request) {
     }
 
     const providerTokens = JSON.parse(tokensHeader);
-    
+
     // Get tools (auto-connects if needed)
     const tools = await getVercelAITools(serverClient, { providerTokens });
-    
+
     // Group tools by provider
     const toolsByProvider: Record<string, string[]> = {};
     for (const toolName of Object.keys(tools)) {
@@ -230,14 +230,14 @@ export async function GET(req: Request) {
 // =============================================================================
 
 /*
-import { createMCPClient, githubPlugin, gmailPlugin } from 'integrate-sdk';
+import { createMCPClient, githubIntegration, gmailIntegration } from 'integrate-sdk';
 
 export const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ['repo', 'user'],
     }),
-    gmailPlugin({
+    gmailIntegration({
       scopes: ['gmail.send', 'gmail.readonly'],
     }),
   ],
@@ -462,7 +462,7 @@ SECURITY NOTES:
 
 For more examples, see:
 - examples/vercel-ai-server-usage.ts (detailed examples)
-- docs/content/docs/integrations/vercel-ai.mdx (documentation)
+- docs/content/docs/ai/vercel-ai.mdx (documentation)
 =============================================================================
 `);
 

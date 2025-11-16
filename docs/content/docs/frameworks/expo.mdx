@@ -19,12 +19,12 @@ Create a server configuration file with your OAuth credentials:
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin } from "integrate-sdk/server";
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
 
 export const { client: serverClient } = createMCPServer({
   apiKey: process.env.INTEGRATE_API_KEY,
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ["repo", "user"],
     }),
   ],
@@ -88,11 +88,11 @@ Create a client configuration file:
 
 ```typescript
 // lib/integrate.ts
-import { createMCPClient, githubPlugin } from "integrate-sdk";
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 
 export const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ["repo", "user"],
     }),
   ],

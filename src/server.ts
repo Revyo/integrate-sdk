@@ -5,14 +5,14 @@
 
 import { MCPClient } from './client.js';
 import type { MCPServerConfig } from './config/types.js';
-import type { MCPPlugin } from './plugins/types.js';
+import type { MCPIntegration } from './integrations/types.js';
 import { createNextOAuthHandler } from './adapters/nextjs.js';
 import { getEnv } from './utils/env.js';
 
 /**
  * Server client with attached handler, POST, and GET route handlers
  */
-export type MCPServerClient<TPlugins extends readonly MCPPlugin[]> = MCPClient<TPlugins> & {
+export type MCPServerClient<TIntegrations extends readonly MCPIntegration[]> = MCPClient<TIntegrations> & {
   /** Unified handler function that handles both POST and GET requests */
   handler: (request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>;
   /** OAuth POST handler - for Next.js route exports */
@@ -69,7 +69,7 @@ function getDefaultRedirectUri(): string {
  * This is for SERVER-SIDE ONLY - includes OAuth secrets and API key from environment variables.
  * Use this in your server configuration file (e.g., lib/integrate-server.ts)
  * 
- * The redirectUri can be specified globally and will be used for all plugins.
+ * The redirectUri can be specified globally and will be used for all integrations.
  * If not provided, it will auto-detect from INTEGRATE_URL or VERCEL_URL
  * 
  * The returned client has `handler`, `POST`, and `GET` attached for easy access.
@@ -80,7 +80,7 @@ function getDefaultRedirectUri(): string {
  * @example
  * ```typescript
  * // lib/integrate-server.ts (server-side only!)
- * import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+ * import { createMCPServer, githubIntegration, gmailIntegration } from 'integrate-sdk/server';
  * 
  * // ✅ CORRECT - Server-side only, API key from secure env var
  * export const { client: serverClient } = createMCPServer({
@@ -88,13 +88,13 @@ function getDefaultRedirectUri(): string {
  *   redirectUri: process.env.INTEGRATE_URL 
  *     ? `${process.env.INTEGRATE_URL}/oauth/callback`
  *     : 'http://localhost:3000/api/integrate/oauth/callback',
- *   plugins: [
- *     githubPlugin({
+ *   integrations: [
+ *     githubIntegration({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
  *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
  *       scopes: ['repo', 'user'],
  *     }),
- *     gmailPlugin({
+ *     gmailIntegration({
  *       clientId: process.env.GMAIL_CLIENT_ID!,
  *       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
  *       scopes: ['gmail.readonly'],
@@ -123,8 +123,8 @@ function getDefaultRedirectUri(): string {
  * };
  * ```
  */
-export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
-  config: MCPServerConfig<TPlugins>
+export function createMCPServer<TIntegrations extends readonly MCPIntegration[]>(
+  config: MCPServerConfig<TIntegrations>
 ) {
   // Validate we're on the server
   if (typeof window !== 'undefined') {
@@ -134,46 +134,46 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
     );
   }
 
-  // Extract OAuth providers from plugins with global redirectUri fallback
+  // Extract OAuth providers from integrations with global redirectUri fallback
   const providers: Record<string, {
     clientId: string;
     clientSecret: string;
     redirectUri?: string;
   }> = {};
 
-  // Update plugins with default redirectUri where needed
-  const updatedPlugins = config.plugins.map(plugin => {
-    if (plugin.oauth) {
-      const { clientId, clientSecret, redirectUri: pluginRedirectUri } = plugin.oauth;
+  // Update integrations with default redirectUri where needed
+  const updatedIntegrations = config.integrations.map(integration => {
+    if (integration.oauth) {
+      const { clientId, clientSecret, redirectUri: integrationRedirectUri } = integration.oauth;
 
       if (!clientId || !clientSecret) {
         console.warn(
-          `Warning: Plugin "${plugin.id}" is missing OAuth credentials. ` +
-          `Provide clientId and clientSecret in the plugin configuration.`
+          `Warning: Integration "${integration.id}" is missing OAuth credentials. ` +
+          `Provide clientId and clientSecret in the integration configuration.`
         );
-        return plugin;
+        return integration;
       }
 
-      // Use plugin-specific redirectUri, fall back to global config, then auto-detect
-      const redirectUri = pluginRedirectUri || config.redirectUri || getDefaultRedirectUri();
+      // Use integration-specific redirectUri, fall back to global config, then auto-detect
+      const redirectUri = integrationRedirectUri || config.redirectUri || getDefaultRedirectUri();
 
-      providers[plugin.id] = {
+      providers[integration.id] = {
         clientId,
         clientSecret,
         redirectUri,
       };
 
-      // Update plugin with resolved redirectUri
+      // Update integration with resolved redirectUri
       return {
-        ...plugin,
+        ...integration,
         oauth: {
-          ...plugin.oauth,
+          ...integration.oauth,
           redirectUri,
         },
       };
     }
-    return plugin;
-  }) as unknown as TPlugins;
+    return integration;
+  }) as unknown as TIntegrations;
 
   // Register config globally for singleton handlers
   globalServerConfig = {
@@ -185,7 +185,7 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
   // Create the client instance with lazy connection (same as client-side)
   const clientConfig = {
     ...config,
-    plugins: updatedPlugins,
+    integrations: updatedIntegrations,
     connectionMode: config.connectionMode || 'lazy',
     singleton: config.singleton ?? true,
   };
@@ -406,7 +406,7 @@ export function createMCPServer<TPlugins extends readonly MCPPlugin[]>(
   };
 
   // Attach handler, POST, and GET to the client for convenient access
-  const serverClient = client as MCPServerClient<TPlugins>;
+  const serverClient = client as MCPServerClient<TIntegrations>;
   serverClient.handler = handler;
   serverClient.POST = POST;
   serverClient.GET = GET;
@@ -432,14 +432,14 @@ function createOAuthRouteHandlers(config: { providers: Record<string, any>; serv
   return handler.createRoutes();
 }
 
-// Re-export plugin types for convenience
-export type { MCPPlugin } from './plugins/types.js';
+// Re-export integration types for convenience
+export type { MCPIntegration } from './integrations/types.js';
 export type { MCPClientConfig } from './config/types.js';
 
-// Re-export plugins
-export { githubPlugin } from './plugins/github.js';
-export { gmailPlugin } from './plugins/gmail.js';
-export { genericOAuthPlugin, createSimplePlugin } from './plugins/generic.js';
+// Re-export integrations
+export { githubIntegration } from './integrations/github.js';
+export { gmailIntegration } from './integrations/gmail.js';
+export { genericOAuthIntegration, createSimpleIntegration } from './integrations/generic.js';
 
 /**
  * Singleton POST handler for OAuth routes
@@ -514,11 +514,11 @@ export const GET = async (
  * **Pattern 1: Using client from createMCPServer (Recommended)**
  * ```typescript
  * // lib/integrate-server.ts
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
  * 
  * export const { client: serverClient } = createMCPServer({
- *   plugins: [
- *     githubPlugin({
+ *   integrations: [
+ *     githubIntegration({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
  *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
  *       scopes: ['repo', 'user'],
@@ -554,9 +554,9 @@ export const GET = async (
  * });
  * ```
  */
-export function toNextJsHandler<TPlugins extends readonly MCPPlugin[] = any>(
+export function toNextJsHandler<TIntegrations extends readonly MCPIntegration[] = any>(
   clientOrOptions?:
-    | MCPServerClient<TPlugins>  // Client instance from createMCPServer
+    | MCPServerClient<TIntegrations>  // Client instance from createMCPServer
     | {
       /** OAuth provider configurations */
       providers?: Record<string, {
@@ -672,11 +672,11 @@ export function toNextJsHandler<TPlugins extends readonly MCPPlugin[] = any>(
  * **Pattern 1: Using serverClient from createMCPServer (Recommended)**
  * ```typescript
  * // lib/integrate-server.ts
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
  * 
  * export const { client: serverClient } = createMCPServer({
- *   plugins: [
- *     githubPlugin({
+ *   integrations: [
+ *     githubIntegration({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
  *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
  *     }),
@@ -715,9 +715,9 @@ export function toNextJsHandler<TPlugins extends readonly MCPPlugin[] = any>(
  * export const { GET, POST, PATCH, PUT, DELETE } = handlers;
  * ```
  */
-export function toSolidStartHandler<TPlugins extends readonly MCPPlugin[] = any>(
+export function toSolidStartHandler<TIntegrations extends readonly MCPIntegration[] = any>(
   clientOrHandlerOrOptions:
-    | MCPServerClient<TPlugins>  // Client instance from createMCPServer (with .handler property)
+    | MCPServerClient<TIntegrations>  // Client instance from createMCPServer (with .handler property)
     | ((request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>)
     | {
       /** OAuth provider configurations */
@@ -853,11 +853,11 @@ export function toSolidStartHandler<TPlugins extends readonly MCPPlugin[] = any>
  * **Pattern 1: Using serverClient from createMCPServer (Recommended)**
  * ```typescript
  * // lib/integrate-server.ts
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
  * 
  * export const { client: serverClient } = createMCPServer({
- *   plugins: [
- *     githubPlugin({
+ *   integrations: [
+ *     githubIntegration({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
  *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
  *     }),
@@ -898,9 +898,9 @@ export function toSolidStartHandler<TPlugins extends readonly MCPPlugin[] = any>
  * export const GET = handler;
  * ```
  */
-export function toSvelteKitHandler<TPlugins extends readonly MCPPlugin[] = any>(
+export function toSvelteKitHandler<TIntegrations extends readonly MCPIntegration[] = any>(
   clientOrHandlerOrOptions:
-    | MCPServerClient<TPlugins>  // Client instance from createMCPServer (with .handler property)
+    | MCPServerClient<TIntegrations>  // Client instance from createMCPServer (with .handler property)
     | ((request: Request, context?: { params?: { action?: string; all?: string | string[] } }) => Promise<Response>)
     | {
       /** OAuth provider configurations */

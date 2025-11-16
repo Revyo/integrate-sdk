@@ -5,13 +5,13 @@
 
 import { describe, test, expect, mock } from "bun:test";
 import { createMCPClient } from "../../src/client.js";
-import { githubPlugin } from "../../src/plugins/github.js";
+import { githubIntegration } from "../../src/integrations/github.js";
 
 describe("Server Namespace", () => {
   test("server namespace is always available", () => {
     const client = createMCPClient({
-      plugins: [
-        githubPlugin({
+      integrations: [
+        githubIntegration({
           clientId: "test-id",
           clientSecret: "test-secret",
         }),
@@ -40,8 +40,8 @@ describe("Server Namespace", () => {
     global.fetch = mockFetch;
 
     const client = createMCPClient({
-      plugins: [
-        githubPlugin({
+      integrations: [
+        githubIntegration({
           clientId: "test-id",
         }),
       ],
@@ -73,8 +73,8 @@ describe("Server Namespace", () => {
     global.fetch = mockFetch;
 
     const client = createMCPClient({
-      plugins: [
-        githubPlugin({
+      integrations: [
+        githubIntegration({
           clientId: "test-id",
         }),
       ],

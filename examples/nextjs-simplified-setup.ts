@@ -10,16 +10,16 @@
 // =============================================================================
 // Define your OAuth providers ONCE in a server config file
 
-import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+import { createMCPServer, githubIntegration, gmailIntegration } from 'integrate-sdk/server';
 
-// Plugins automatically use GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
+// Integrations automatically use GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
 export const { client: serverClient } = createMCPServer({
   apiKey: process.env.INTEGRATE_API_KEY,
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ['repo', 'user'],
     }),
-    gmailPlugin({
+    gmailIntegration({
       scopes: ['gmail.readonly'],
     }),
   ],
@@ -81,11 +81,11 @@ export async function GET() {
 // =============================================================================
 // Create a shared client instance for use across your app
 
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { createMCPClient, githubIntegration } from 'integrate-sdk';
 
 export const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ['repo', 'user'],
       // No clientId or clientSecret needed on client!
     }),

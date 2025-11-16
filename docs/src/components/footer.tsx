@@ -44,12 +44,12 @@ export function Footer() {
                         <p className="font-semibold text-zinc-900 dark:text-white">Integrations</p>
                         <ul className="space-y-1">
                             <li>
-                                <Link href="/docs/plugins" className="hover:text-blue-600 dark:hover:text-blue-400">
-                                    Built-in Plugins
+                                <Link href="/docs/integrations" className="hover:text-blue-600 dark:hover:text-blue-400">
+                                    Built-in Integrations
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/docs/integrations/vercel-ai" className="hover:text-blue-600 dark:hover:text-blue-400">
+                                <Link href="/docs/ai/vercel-ai" className="hover:text-blue-600 dark:hover:text-blue-400">
                                     Vercel AI SDK
                                 </Link>
                             </li>

@@ -1,19 +1,19 @@
 /**
- * GitHub Plugin
+ * GitHub Integration
  * Enables GitHub tools with OAuth configuration
  */
 
-import type { MCPPlugin, OAuthConfig } from "./types.js";
+import type { MCPIntegration, OAuthConfig } from "./types.js";
 import { getEnv } from "../utils/env.js";
 
 /**
- * GitHub plugin configuration
+ * GitHub integration configuration
  * 
  * SERVER-SIDE: Automatically reads GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET from environment.
  * You can override by providing explicit clientId and clientSecret values.
  * CLIENT-SIDE: Omit clientId and clientSecret when using createMCPClient()
  */
-export interface GitHubPluginConfig {
+export interface GitHubIntegrationConfig {
   /** GitHub OAuth client ID (defaults to GITHUB_CLIENT_ID env var) */
   clientId?: string;
   /** GitHub OAuth client secret (defaults to GITHUB_CLIENT_SECRET env var) */
@@ -27,7 +27,7 @@ export interface GitHubPluginConfig {
 }
 
 /**
- * Default GitHub tools that this plugin enables
+ * Default GitHub tools that this integration enables
  * These should match the tool names exposed by your MCP server
  */
 const GITHUB_TOOLS = [
@@ -52,7 +52,7 @@ const GITHUB_TOOLS = [
 ] as const;
 
 /**
- * GitHub Plugin
+ * GitHub Integration
  * 
  * Enables GitHub integration with OAuth authentication.
  * 
@@ -61,12 +61,12 @@ const GITHUB_TOOLS = [
  * 
  * @example Server-side (minimal - uses env vars):
  * ```typescript
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
  * 
  * // Automatically uses GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET from env
  * export const { client } = createMCPServer({
- *   plugins: [
- *     githubPlugin({
+ *   integrations: [
+ *     githubIntegration({
  *       scopes: ['repo', 'user', 'read:org'],
  *     }),
  *   ],
@@ -75,11 +75,11 @@ const GITHUB_TOOLS = [
  * 
  * @example Server-side (with explicit override):
  * ```typescript
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
  * 
  * export const { client } = createMCPServer({
- *   plugins: [
- *     githubPlugin({
+ *   integrations: [
+ *     githubIntegration({
  *       clientId: process.env.CUSTOM_GITHUB_ID!,
  *       clientSecret: process.env.CUSTOM_GITHUB_SECRET!,
  *       scopes: ['repo', 'user', 'read:org'],
@@ -90,18 +90,18 @@ const GITHUB_TOOLS = [
  * 
  * @example Client-side (without secrets):
  * ```typescript
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
  * 
  * const client = createMCPClient({
- *   plugins: [
- *     githubPlugin({
+ *   integrations: [
+ *     githubIntegration({
  *       scopes: ['repo', 'user', 'read:org'],
  *     }),
  *   ],
  * });
  * ```
  */
-export function githubPlugin(config: GitHubPluginConfig = {}): MCPPlugin {
+export function githubIntegration(config: GitHubIntegrationConfig = {}): MCPIntegration {
   const oauth: OAuthConfig = {
     provider: "github",
     clientId: config.clientId ?? getEnv('GITHUB_CLIENT_ID'),
@@ -118,13 +118,13 @@ export function githubPlugin(config: GitHubPluginConfig = {}): MCPPlugin {
     id: "github",
     tools: [...GITHUB_TOOLS],
     oauth,
-    
+
     async onInit(_client) {
-      console.log("GitHub plugin initialized");
+      console.log("GitHub integration initialized");
     },
-    
+
     async onAfterConnect(_client) {
-      console.log("GitHub plugin connected");
+      console.log("GitHub integration connected");
     },
   };
 }
@@ -137,5 +137,5 @@ export type GitHubTools = typeof GITHUB_TOOLS[number];
 /**
  * Export GitHub client types
  */
-export type { GitHubPluginClient } from "./github-client.js";
+export type { GitHubIntegrationClient } from "./github-client.js";
 

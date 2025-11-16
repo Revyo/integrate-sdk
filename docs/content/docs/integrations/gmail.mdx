@@ -1,18 +1,18 @@
 ---
-title: Gmail Plugin
+title: Gmail Integration
 description: Send emails, manage labels, and search messages
 ---
 
-# Gmail Plugin
+# Gmail Integration
 
-The Gmail plugin provides access to Gmail's API through the Integrate MCP server.
+The Gmail integration provides access to Gmail's API through the Integrate MCP server.
 
 ## Installation
 
-The Gmail plugin is included with the SDK:
+The Gmail integration is included with the SDK:
 
 ```typescript
-import { createMCPClient, gmailPlugin } from "integrate-sdk";
+import { createMCPClient, gmailIntegration } from "integrate-sdk";
 ```
 
 ## Setup
@@ -25,14 +25,14 @@ import { createMCPClient, gmailPlugin } from "integrate-sdk";
 4. Create OAuth 2.0 credentials
 5. Note your Client ID and Client Secret
 
-### 2. Configure the Plugin
+### 2. Configure the Integration
 
-The plugin automatically reads `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET` from your environment variables:
+The integration automatically reads `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET` from your environment variables:
 
 ```typescript
 const client = createMCPClient({
-  plugins: [
-    gmailPlugin({
+  integrations: [
+    gmailIntegration({
       scopes: [
         // Optional - defaults are provided
         "https://www.googleapis.com/auth/gmail.send",
@@ -47,8 +47,8 @@ You can override the environment variables by passing explicit values:
 
 ```typescript
 const client = createMCPClient({
-  plugins: [
-    gmailPlugin({
+  integrations: [
+    gmailIntegration({
       clientId: process.env.CUSTOM_GMAIL_ID!,
       clientSecret: process.env.CUSTOM_GMAIL_SECRET!,
       scopes: ["https://www.googleapis.com/auth/gmail.send"],
@@ -59,7 +59,10 @@ const client = createMCPClient({
 
 ## Configuration Options
 
-<AutoTypeTable path="../src/plugins/gmail.ts" name="GmailPluginConfig" />
+<AutoTypeTable
+  path="../src/integrations/gmail.ts"
+  name="GmailIntegrationConfig"
+/>
 
 ## Available Tools
 
@@ -197,6 +200,6 @@ try {
 
 ## Next Steps
 
-- Learn about the [GitHub Plugin](/docs/plugins/github)
-- Configure [Additional Integrations](/docs/plugins/custom-plugins)
+- Learn about the [GitHub Integration](/docs/integrations/github)
+- Configure [Additional Integrations](/docs/integrations/custom-integrations)
 - See [Advanced Usage](/docs/guides/advanced-usage) for more examples

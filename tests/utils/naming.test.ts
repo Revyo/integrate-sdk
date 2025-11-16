@@ -73,7 +73,7 @@ describe("Naming Utilities", () => {
   });
 
   describe("methodToToolName", () => {
-    test("converts method name to tool name with plugin prefix", () => {
+    test("converts method name to tool name with integration prefix", () => {
       expect(methodToToolName("getRepo", "github")).toBe("github_get_repo");
       expect(methodToToolName("sendEmail", "gmail")).toBe("gmail_send_email");
     });
@@ -90,7 +90,7 @@ describe("Naming Utilities", () => {
       expect(methodToToolName("getUserProfile", "github")).toBe("github_get_user_profile");
     });
 
-    test("handles different plugin IDs", () => {
+    test("handles different integration IDs", () => {
       expect(methodToToolName("getRepo", "github")).toBe("github_get_repo");
       expect(methodToToolName("getRepo", "gitlab")).toBe("gitlab_get_repo");
       expect(methodToToolName("getRepo", "bitbucket")).toBe("bitbucket_get_repo");
@@ -103,7 +103,7 @@ describe("Naming Utilities", () => {
       expect(toolNameToMethod("gmail_send_email")).toBe("sendEmail");
     });
 
-    test("removes plugin prefix correctly", () => {
+    test("removes integration prefix correctly", () => {
       expect(toolNameToMethod("github_list_repos")).toBe("listRepos");
       expect(toolNameToMethod("gitlab_get_project")).toBe("getProject");
     });
@@ -126,14 +126,14 @@ describe("Naming Utilities", () => {
 
     test("methodToToolName and toolNameToMethod are inverse operations", () => {
       const methodName = "getRepo";
-      const pluginId = "github";
-      const toolName = methodToToolName(methodName, pluginId);
+      const integrationId = "github";
+      const toolName = methodToToolName(methodName, integrationId);
       expect(toolNameToMethod(toolName)).toBe(methodName);
     });
 
     test("handles real-world method names", () => {
       const methods = ["getRepo", "listRepos", "createIssue", "updatePullRequest"];
-      
+
       for (const method of methods) {
         const toolName = methodToToolName(method, "github");
         expect(toolNameToMethod(toolName)).toBe(method);
@@ -141,14 +141,14 @@ describe("Naming Utilities", () => {
     });
   });
 
-  describe("Integration with Plugin System", () => {
-    test("generates correct tool names for GitHub plugin", () => {
+  describe("Integration with Integration System", () => {
+    test("generates correct tool names for GitHub integration", () => {
       expect(methodToToolName("getRepo", "github")).toBe("github_get_repo");
       expect(methodToToolName("listRepos", "github")).toBe("github_list_repos");
       expect(methodToToolName("createIssue", "github")).toBe("github_create_issue");
     });
 
-    test("generates correct tool names for Gmail plugin", () => {
+    test("generates correct tool names for Gmail integration", () => {
       expect(methodToToolName("sendEmail", "gmail")).toBe("gmail_send_email");
       expect(methodToToolName("listEmails", "gmail")).toBe("gmail_list_emails");
       expect(methodToToolName("getMessage", "gmail")).toBe("gmail_get_message");

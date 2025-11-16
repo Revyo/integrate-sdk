@@ -5,8 +5,8 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { githubPlugin } from "../../src/plugins/github.js";
-import { gmailPlugin } from "../../src/plugins/gmail.js";
+import { githubIntegration } from "../../src/integrations/github.js";
+import { gmailIntegration } from "../../src/integrations/gmail.js";
 
 describe("Server Configuration Coverage Tests", () => {
   let originalProcessEnv: any;
@@ -21,7 +21,7 @@ describe("Server Configuration Coverage Tests", () => {
   afterEach(() => {
     // Restore original values
     process.env = originalProcessEnv;
-    
+
     if (originalWindow !== undefined) {
       (globalThis as any).window = originalWindow;
     } else {
@@ -36,10 +36,10 @@ describe("Server Configuration Coverage Tests", () => {
       delete process.env.VERCEL_URL;
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -56,10 +56,10 @@ describe("Server Configuration Coverage Tests", () => {
       process.env.VERCEL_URL = 'myapp.vercel.app';
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -76,10 +76,10 @@ describe("Server Configuration Coverage Tests", () => {
       delete process.env.VERCEL_URL;
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -98,12 +98,12 @@ describe("Server Configuration Coverage Tests", () => {
       };
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       // Should throw in browser context
       expect(() => {
         createMCPServer({
-          plugins: [
-            githubPlugin({
+          integrations: [
+            githubIntegration({
               clientId: 'test-id',
               clientSecret: 'test-secret',
             }),
@@ -113,27 +113,27 @@ describe("Server Configuration Coverage Tests", () => {
     });
   });
 
-  describe("createMCPServer - Plugin Configuration", () => {
-    test("handles plugin without OAuth config", async () => {
+  describe("createMCPServer - Integration Configuration", () => {
+    test("handles integration without OAuth config", async () => {
       delete (globalThis as any).window;
 
       const { createMCPServer } = await import("../../src/server.js");
-      const { createSimplePlugin } = await import("../../src/plugins/generic.js");
-      
+      const { createSimpleIntegration } = await import("../../src/integrations/generic.js");
+
       const { client } = createMCPServer({
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: 'simple',
             tools: ['test_tool'],
           }) as any,
         ],
       });
 
-      // Should handle non-OAuth plugin
+      // Should handle non-OAuth integration
       expect(client).toBeDefined();
     });
 
-    test("warns when plugin is missing OAuth credentials", async () => {
+    test("warns when integration is missing OAuth credentials", async () => {
       delete (globalThis as any).window;
 
       const originalConsoleWarn = console.warn;
@@ -143,9 +143,9 @@ describe("Server Configuration Coverage Tests", () => {
       };
 
       const { createMCPServer } = await import("../../src/server.js");
-      
-      // Create plugin with OAuth but missing credentials
-      const pluginWithBadOAuth = {
+
+      // Create integration with OAuth but missing credentials
+      const integrationWithBadOAuth = {
         id: 'bad-oauth',
         tools: ['test'],
         oauth: {
@@ -155,7 +155,7 @@ describe("Server Configuration Coverage Tests", () => {
       };
 
       const { client } = createMCPServer({
-        plugins: [pluginWithBadOAuth as any],
+        integrations: [integrationWithBadOAuth as any],
       });
 
       // Should warn about missing credentials
@@ -165,35 +165,35 @@ describe("Server Configuration Coverage Tests", () => {
       console.warn = originalConsoleWarn;
     });
 
-    test("uses plugin-specific redirectUri over global config", async () => {
+    test("uses integration-specific redirectUri over global config", async () => {
       delete (globalThis as any).window;
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
         redirectUri: 'https://global.example.com/callback',
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
-            redirectUri: 'https://plugin-specific.example.com/callback',
+            redirectUri: 'https://integration-specific.example.com/callback',
           }),
         ],
       });
 
-      // Plugin-specific redirectUri should be used
+      // Integration-specific redirectUri should be used
       expect(client).toBeDefined();
     });
 
-    test("uses global redirectUri when plugin doesn't specify one", async () => {
+    test("uses global redirectUri when integration doesn't specify one", async () => {
       delete (globalThis as any).window;
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
         redirectUri: 'https://global.example.com/callback',
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
             // No redirectUri specified
@@ -210,11 +210,11 @@ describe("Server Configuration Coverage Tests", () => {
       process.env.INTEGRATE_URL = 'https://auto.example.com';
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
         // No redirectUri specified
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -231,11 +231,11 @@ describe("Server Configuration Coverage Tests", () => {
       delete (globalThis as any).window;
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
         apiKey: 'test-api-key-123',
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -251,11 +251,11 @@ describe("Server Configuration Coverage Tests", () => {
       delete (globalThis as any).window;
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
         // No apiKey
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -267,49 +267,49 @@ describe("Server Configuration Coverage Tests", () => {
     });
   });
 
-  describe("createMCPServer - Multiple Plugins", () => {
-    test("handles multiple OAuth plugins", async () => {
+  describe("createMCPServer - Multiple Integrations", () => {
+    test("handles multiple OAuth integrations", async () => {
       delete (globalThis as any).window;
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'github-id',
             clientSecret: 'github-secret',
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: 'gmail-id',
             clientSecret: 'gmail-secret',
           }),
         ],
       });
 
-      // Should handle multiple plugins
+      // Should handle multiple integrations
       expect(client).toBeDefined();
     });
 
-    test("handles mix of OAuth and non-OAuth plugins", async () => {
+    test("handles mix of OAuth and non-OAuth integrations", async () => {
       delete (globalThis as any).window;
 
       const { createMCPServer } = await import("../../src/server.js");
-      const { createSimplePlugin } = await import("../../src/plugins/generic.js");
-      
+      const { createSimpleIntegration } = await import("../../src/integrations/generic.js");
+
       const { client } = createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'github-id',
             clientSecret: 'github-secret',
           }),
-          createSimplePlugin({
+          createSimpleIntegration({
             id: 'simple',
             tools: ['test'],
           }) as any,
         ],
       });
 
-      // Should handle mixed plugins
+      // Should handle mixed integrations
       expect(client).toBeDefined();
     });
   });
@@ -319,10 +319,10 @@ describe("Server Configuration Coverage Tests", () => {
       delete (globalThis as any).window;
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const result = createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -340,10 +340,10 @@ describe("Server Configuration Coverage Tests", () => {
       delete (globalThis as any).window;
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -361,10 +361,10 @@ describe("Server Configuration Coverage Tests", () => {
       delete (globalThis as any).window;
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -380,11 +380,11 @@ describe("Server Configuration Coverage Tests", () => {
       delete (globalThis as any).window;
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
         connectionMode: 'manual',
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -400,11 +400,11 @@ describe("Server Configuration Coverage Tests", () => {
       delete (globalThis as any).window;
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       const { client } = createMCPServer({
         singleton: false,
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: 'test-id',
             clientSecret: 'test-secret',
           }),
@@ -424,12 +424,12 @@ describe("Server Configuration Coverage Tests", () => {
       };
 
       const { createMCPServer } = await import("../../src/server.js");
-      
+
       // Should throw error in browser
       expect(() => {
         createMCPServer({
-          plugins: [
-            githubPlugin({
+          integrations: [
+            githubIntegration({
               clientId: 'test-id',
               clientSecret: 'test-secret',
             }),

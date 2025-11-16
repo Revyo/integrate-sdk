@@ -5,8 +5,8 @@
 
 import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
 import { createMCPClient, clearClientCache } from "../../src/client.js";
-import { githubPlugin } from "../../src/plugins/github.js";
-import { gmailPlugin } from "../../src/plugins/gmail.js";
+import { githubIntegration } from "../../src/integrations/github.js";
+import { gmailIntegration } from "../../src/integrations/gmail.js";
 
 describe("Advanced OAuth Features", () => {
   afterEach(async () => {
@@ -17,8 +17,8 @@ describe("Advanced OAuth Features", () => {
   describe("clearClientCache", () => {
     test("clears the client cache", async () => {
       const client1 = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -28,8 +28,8 @@ describe("Advanced OAuth Features", () => {
       await clearClientCache();
 
       const client2 = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -42,8 +42,8 @@ describe("Advanced OAuth Features", () => {
 
     test("handles errors during cache clear gracefully", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -57,13 +57,13 @@ describe("Advanced OAuth Features", () => {
 
   describe("authorize method", () => {
     test("throws error for provider without OAuth config", async () => {
-      const customPlugin = {
+      const customIntegration = {
         id: "custom",
         tools: ["custom/tool"],
       };
 
       const client = createMCPClient({
-        plugins: [customPlugin as any],
+        integrations: [customIntegration as any],
         singleton: false,
       });
 
@@ -74,8 +74,8 @@ describe("Advanced OAuth Features", () => {
 
     test("emits auth:error on authorization failure", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -96,8 +96,8 @@ describe("Advanced OAuth Features", () => {
   describe("handleOAuthCallback", () => {
     test("throws on invalid callback params", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -113,8 +113,8 @@ describe("Advanced OAuth Features", () => {
 
     test("emits auth:error on callback failure", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -135,11 +135,11 @@ describe("Advanced OAuth Features", () => {
     });
   });
 
-  describe("Plugin Hooks", () => {
+  describe("Integration Hooks", () => {
     test("calls onBeforeConnect hook", async () => {
       let hookCalled = false;
 
-      const customPlugin = {
+      const customIntegration = {
         id: "custom",
         tools: [],
         async onBeforeConnect() {
@@ -148,7 +148,7 @@ describe("Advanced OAuth Features", () => {
       };
 
       const client = createMCPClient({
-        plugins: [customPlugin as any],
+        integrations: [customIntegration as any],
         singleton: false,
       });
 
@@ -164,7 +164,7 @@ describe("Advanced OAuth Features", () => {
     test("calls onAfterConnect hook", async () => {
       let hookCalled = false;
 
-      const customPlugin = {
+      const customIntegration = {
         id: "custom",
         tools: [],
         async onAfterConnect() {
@@ -173,7 +173,7 @@ describe("Advanced OAuth Features", () => {
       };
 
       const client = createMCPClient({
-        plugins: [customPlugin as any],
+        integrations: [customIntegration as any],
         singleton: false,
       });
 
@@ -190,7 +190,7 @@ describe("Advanced OAuth Features", () => {
     test("calls onDisconnect hook", async () => {
       let hookCalled = false;
 
-      const customPlugin = {
+      const customIntegration = {
         id: "custom",
         tools: [],
         async onDisconnect() {
@@ -199,7 +199,7 @@ describe("Advanced OAuth Features", () => {
       };
 
       const client = createMCPClient({
-        plugins: [customPlugin as any],
+        integrations: [customIntegration as any],
         singleton: false,
       });
 
@@ -211,7 +211,7 @@ describe("Advanced OAuth Features", () => {
     test("calls onInit hook", async () => {
       let hookCalled = false;
 
-      const customPlugin = {
+      const customIntegration = {
         id: "custom",
         tools: [],
         async onInit() {
@@ -220,7 +220,7 @@ describe("Advanced OAuth Features", () => {
       };
 
       createMCPClient({
-        plugins: [customPlugin as any],
+        integrations: [customIntegration as any],
         singleton: false,
       });
 
@@ -234,8 +234,8 @@ describe("Advanced OAuth Features", () => {
   describe("Connection Mode Behaviors", () => {
     test("lazy mode does not connect immediately", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -250,8 +250,8 @@ describe("Advanced OAuth Features", () => {
 
     test("manual mode does not connect automatically", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -265,8 +265,8 @@ describe("Advanced OAuth Features", () => {
 
     test("eager mode attempts to connect", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -292,12 +292,12 @@ describe("Advanced OAuth Features", () => {
       }) as any;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "github-id",
             clientSecret: "github-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "gmail-id",
             clientSecret: "gmail-secret",
           }),
@@ -341,8 +341,8 @@ describe("Advanced OAuth Features", () => {
   describe("Event System Edge Cases", () => {
     test("removeAllListeners is available", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -356,8 +356,8 @@ describe("Advanced OAuth Features", () => {
 
     test("handlers don't interfere with each other", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -365,8 +365,8 @@ describe("Advanced OAuth Features", () => {
         singleton: false,
       });
 
-      const handler1 = mock(() => {});
-      const handler2 = mock(() => {});
+      const handler1 = mock(() => { });
+      const handler2 = mock(() => { });
 
       client.on("auth:complete", handler1);
       client.on("auth:started", handler2);
@@ -380,8 +380,8 @@ describe("Advanced OAuth Features", () => {
 
     test("same handler can be added to multiple events", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -389,7 +389,7 @@ describe("Advanced OAuth Features", () => {
         singleton: false,
       });
 
-      const handler = mock(() => {});
+      const handler = mock(() => { });
 
       client.on("auth:complete", handler);
       client.on("auth:started", handler);
@@ -402,8 +402,8 @@ describe("Advanced OAuth Features", () => {
   describe("Configuration Defaults", () => {
     test("uses default clientInfo when not provided", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -416,8 +416,8 @@ describe("Advanced OAuth Features", () => {
 
     test("uses default connection mode", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -430,8 +430,8 @@ describe("Advanced OAuth Features", () => {
 
     test("uses default maxReauthRetries", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -446,8 +446,8 @@ describe("Advanced OAuth Features", () => {
   describe("Error Recovery", () => {
     test("client remains functional after failed authorization", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -469,8 +469,8 @@ describe("Advanced OAuth Features", () => {
 
     test("client remains functional after failed callback", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -493,8 +493,8 @@ describe("Advanced OAuth Features", () => {
   describe("Singleton Behavior", () => {
     test("returns same instance for same config when singleton enabled", () => {
       const config = {
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -512,8 +512,8 @@ describe("Advanced OAuth Features", () => {
 
     test("returns different instances when singleton disabled", () => {
       const config = {
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -532,8 +532,8 @@ describe("Advanced OAuth Features", () => {
   describe("OAuth Configuration", () => {
     test("getOAuthConfig returns correct provider", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "github-id",
             clientSecret: "github-secret",
           }),
@@ -547,14 +547,14 @@ describe("Advanced OAuth Features", () => {
       expect(config?.clientId).toBe("github-id");
     });
 
-    test("getAllOAuthConfigs maps plugins correctly", () => {
+    test("getAllOAuthConfigs maps integrations correctly", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "github-id",
             clientSecret: "github-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "gmail-id",
             clientSecret: "gmail-secret",
           }),
@@ -564,10 +564,10 @@ describe("Advanced OAuth Features", () => {
 
       const configs = client.getAllOAuthConfigs();
       expect(configs.size).toBe(2);
-      
+
       const githubConfig = configs.get("github");
       expect(githubConfig?.provider).toBe("github");
-      
+
       const gmailConfig = configs.get("gmail");
       expect(gmailConfig?.provider).toBe("gmail");
     });
@@ -576,8 +576,8 @@ describe("Advanced OAuth Features", () => {
   describe("Provider Authentication", () => {
     test("isProviderAuthenticated returns true for configured OAuth providers with tokens", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -596,8 +596,8 @@ describe("Advanced OAuth Features", () => {
 
     test("getAuthState returns state object with authenticated property", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),

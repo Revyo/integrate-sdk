@@ -13,14 +13,14 @@ The easiest way to integrate with Vercel AI SDK on the frontend is using the `us
 
 ```typescript
 // app/providers.tsx (or app/layout.tsx)
-'use client';
+"use client";
 
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
-import { useIntegrateAI } from 'integrate-sdk/react';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { useIntegrateAI } from "integrate-sdk/react";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
     }),
   ],
@@ -29,7 +29,7 @@ const client = createMCPClient({
 export function Providers({ children }: { children: React.ReactNode }) {
   // Install global fetch interceptor once at app root
   useIntegrateAI(client);
-  
+
   return <>{children}</>;
 }
 ```
@@ -38,15 +38,15 @@ Now any component can use Vercel AI SDK's `useChat` hook without manual token ma
 
 ```typescript
 // app/chat/page.tsx
-'use client';
+"use client";
 
-import { useChat } from 'ai/react';
+import { useChat } from "ai/react";
 
 export default function ChatPage() {
   const { messages, input, handleInputChange, handleSubmit } = useChat({
-    api: '/api/chat', // Tokens automatically injected!
+    api: "/api/chat", // Tokens automatically injected!
   });
-  
+
   return (
     <div>
       <div>
@@ -86,81 +86,90 @@ useIntegrateAI(client, {
 
 ```typescript
 // app/providers.tsx
-'use client';
+"use client";
 
-import { createMCPClient, githubPlugin, gmailPlugin } from 'integrate-sdk';
-import { useIntegrateAI } from 'integrate-sdk/react';
+import {
+  createMCPClient,
+  githubIntegration,
+  gmailIntegration,
+} from "integrate-sdk";
+import { useIntegrateAI } from "integrate-sdk/react";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
-    gmailPlugin({ clientId: process.env.NEXT_PUBLIC_GMAIL_CLIENT_ID! }),
+  integrations: [
+    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+    gmailIntegration({ clientId: process.env.NEXT_PUBLIC_GMAIL_CLIENT_ID! }),
   ],
-  oauthFlow: { mode: 'popup' },
+  oauthFlow: { mode: "popup" },
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useIntegrateAI(client, {
-    debug: process.env.NODE_ENV === 'development',
+    debug: process.env.NODE_ENV === "development",
   });
-  
+
   return <>{children}</>;
 }
 ```
 
 ```typescript
 // app/chat/page.tsx
-'use client';
+"use client";
 
-import { useChat } from 'ai/react';
-import { useState, useEffect } from 'react';
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { useChat } from "ai/react";
+import { useState, useEffect } from "react";
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  integrations: [
+    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
   ],
 });
 
 export default function ChatPage() {
   const [authorized, setAuthorized] = useState(false);
-  
+
   useEffect(() => {
-    client.isAuthorized('github').then(setAuthorized);
+    client.isAuthorized("github").then(setAuthorized);
   }, []);
-  
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat();
-  
+
+  const { messages, input, handleInputChange, handleSubmit, isLoading } =
+    useChat();
+
   if (!authorized) {
     return (
       <div>
         <h1>Connect GitHub</h1>
-        <button onClick={() => client.authorize('github').then(() => setAuthorized(true))}>
+        <button
+          onClick={() =>
+            client.authorize("github").then(() => setAuthorized(true))
+          }
+        >
           Connect GitHub
         </button>
       </div>
     );
   }
-  
+
   return (
     <div>
       <h1>AI Chat with GitHub Access</h1>
       <div>
         {messages.map((m) => (
           <div key={m.id}>
-            <strong>{m.role === 'user' ? 'You' : 'AI'}:</strong> {m.content}
+            <strong>{m.role === "user" ? "You" : "AI"}:</strong> {m.content}
           </div>
         ))}
       </div>
       <form onSubmit={handleSubmit}>
-        <input 
-          value={input} 
+        <input
+          value={input}
           onChange={handleInputChange}
           placeholder="Ask AI to use GitHub..."
           disabled={isLoading}
         />
         <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Thinking...' : 'Send'}
+          {isLoading ? "Thinking..." : "Send"}
         </button>
       </form>
     </div>
@@ -185,19 +194,23 @@ First, create your server configuration file:
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+import {
+  createMCPServer,
+  githubIntegration,
+  gmailIntegration,
+} from "integrate-sdk/server";
 
 export const { client: serverClient } = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ['repo', 'user'],
+      scopes: ["repo", "user"],
     }),
-    gmailPlugin({
+    gmailIntegration({
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      scopes: ['gmail.send', 'gmail.readonly'],
+      scopes: ["gmail.send", "gmail.readonly"],
     }),
   ],
 });
@@ -209,20 +222,20 @@ Create a chat route that receives tokens from the frontend:
 
 ```typescript
 // app/api/chat/route.ts
-import { serverClient } from '@/lib/integrate-server';
-import { getVercelAITools } from 'integrate-sdk';
-import { streamText } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { serverClient } from "@/lib/integrate-server";
+import { getVercelAITools } from "integrate-sdk";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
 
 export async function POST(req: Request) {
   try {
     // 1. Extract provider tokens from request header
     // These are automatically injected by useIntegrateAI on the frontend
-    const tokensHeader = req.headers.get('x-integrate-tokens');
-    
+    const tokensHeader = req.headers.get("x-integrate-tokens");
+
     if (!tokensHeader) {
       return Response.json(
-        { error: 'Authentication required' },
+        { error: "Authentication required" },
         { status: 401 }
       );
     }
@@ -240,7 +253,7 @@ export async function POST(req: Request) {
 
     // 4. Stream AI response with tools
     const result = await streamText({
-      model: openai('gpt-4'),
+      model: openai("gpt-4"),
       messages,
       tools,
       maxToolRoundtrips: 5,
@@ -249,9 +262,9 @@ export async function POST(req: Request) {
     // 5. Return streaming response
     return result.toTextStreamResponse();
   } catch (error: any) {
-    console.error('[AI Chat] Error:', error);
+    console.error("[AI Chat] Error:", error);
     return Response.json(
-      { error: error.message || 'Internal server error' },
+      { error: error.message || "Internal server error" },
       { status: 500 }
     );
   }
@@ -270,15 +283,15 @@ If you prefer non-streaming responses:
 
 ```typescript
 // app/api/chat/route.ts
-import { serverClient } from '@/lib/integrate-server';
-import { getVercelAITools } from 'integrate-sdk';
-import { generateText } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { serverClient } from "@/lib/integrate-server";
+import { getVercelAITools } from "integrate-sdk";
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
 
 export async function POST(req: Request) {
   try {
-    const tokensHeader = req.headers.get('x-integrate-tokens');
-    const providerTokens = JSON.parse(tokensHeader || '{}');
+    const tokensHeader = req.headers.get("x-integrate-tokens");
+    const providerTokens = JSON.parse(tokensHeader || "{}");
 
     // Get tools with user's tokens
     const tools = await getVercelAITools(serverClient, { providerTokens });
@@ -287,7 +300,7 @@ export async function POST(req: Request) {
 
     // Generate complete response
     const result = await generateText({
-      model: openai('gpt-4'),
+      model: openai("gpt-4"),
       messages,
       tools,
       maxToolRoundtrips: 5,
@@ -298,10 +311,7 @@ export async function POST(req: Request) {
       toolCalls: result.toolCalls,
     });
   } catch (error: any) {
-    return Response.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return Response.json({ error: error.message }, { status: 500 });
   }
 }
 ```
@@ -312,28 +322,28 @@ If you prefer not to use the hook, you can manually send tokens:
 
 ```typescript
 // Client-side
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 
 const client = createMCPClient({
-  plugins: [githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! })],
+  integrations: [
+    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  ],
 });
 
-await client.authorize('github');
+await client.authorize("github");
 
 // Get all provider tokens manually
 const providerTokens = client.getAllProviderTokens();
 
 // Send to server manually
-const response = await fetch('/api/chat', {
-  method: 'POST',
+const response = await fetch("/api/chat", {
+  method: "POST",
   headers: {
-    'Content-Type': 'application/json',
-    'x-integrate-tokens': JSON.stringify(providerTokens),
+    "Content-Type": "application/json",
+    "x-integrate-tokens": JSON.stringify(providerTokens),
   },
   body: JSON.stringify({
-    messages: [
-      { role: 'user', content: 'Create a GitHub issue' }
-    ],
+    messages: [{ role: "user", content: "Create a GitHub issue" }],
   }),
 });
 ```
@@ -400,10 +410,7 @@ function getVercelAITools(
 - `client` - The MCP client instance
 - `options` - Optional configuration (see `VercelAIToolsOptions` below)
 
-<AutoTypeTable
-  path="../src/integrations/vercel-ai.ts"
-  name="VercelAIToolsOptions"
-/>
+<AutoTypeTable path="../src/ai/vercel-ai.ts" name="VercelAIToolsOptions" />
 
 **Returns:** `Record<string, VercelAITool>` - Tools ready for use with `generateText` or `streamText`
 
@@ -414,8 +421,8 @@ function getVercelAITools(
 const tools = await getVercelAITools(client);
 
 // Server-side with provider tokens
-const tools = await getVercelAITools(serverClient, { 
-  providerTokens: { github: 'ghp_...', gmail: 'ya29...' } 
+const tools = await getVercelAITools(serverClient, {
+  providerTokens: { github: "ghp_...", gmail: "ya29..." },
 });
 ```
 
@@ -502,11 +509,11 @@ Here's a full example with both frontend and backend:
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
 
 export const { client: serverClient } = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
     }),
@@ -516,14 +523,14 @@ export const { client: serverClient } = createMCPServer({
 
 ```typescript
 // app/providers.tsx
-'use client';
+"use client";
 
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
-import { useIntegrateAI } from 'integrate-sdk/react';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { useIntegrateAI } from "integrate-sdk/react";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  integrations: [
+    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
   ],
 });
 
@@ -535,20 +542,20 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 ```typescript
 // app/api/chat/route.ts
-import { serverClient } from '@/lib/integrate-server';
-import { getVercelAITools } from 'integrate-sdk';
-import { streamText } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { serverClient } from "@/lib/integrate-server";
+import { getVercelAITools } from "integrate-sdk";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
 
 export async function POST(req: Request) {
-  const tokensHeader = req.headers.get('x-integrate-tokens');
-  const providerTokens = JSON.parse(tokensHeader || '{}');
+  const tokensHeader = req.headers.get("x-integrate-tokens");
+  const providerTokens = JSON.parse(tokensHeader || "{}");
 
   const tools = await getVercelAITools(serverClient, { providerTokens });
   const { messages } = await req.json();
 
   const result = await streamText({
-    model: openai('gpt-4'),
+    model: openai("gpt-4"),
     messages,
     tools,
     maxToolRoundtrips: 5,
@@ -560,13 +567,13 @@ export async function POST(req: Request) {
 
 ```typescript
 // app/chat/page.tsx
-'use client';
+"use client";
 
-import { useChat } from 'ai/react';
+import { useChat } from "ai/react";
 
 export default function ChatPage() {
   const { messages, input, handleInputChange, handleSubmit } = useChat();
-  
+
   return (
     <div>
       {messages.map((m) => (

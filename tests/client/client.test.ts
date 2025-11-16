@@ -4,20 +4,20 @@
 
 import { describe, test, expect, mock, beforeEach } from "bun:test";
 import { MCPClient, createMCPClient } from "../../src/client.js";
-import { createSimplePlugin } from "../../src/plugins/generic.js";
-import { githubPlugin } from "../../src/plugins/github.js";
+import { createSimpleIntegration } from "../../src/integrations/generic.js";
+import { githubIntegration } from "../../src/integrations/github.js";
 
 describe("MCP Client", () => {
   describe("createMCPClient", () => {
-    test("creates client with plugins", () => {
-      const plugin = createSimplePlugin({
+    test("creates client with integrations", () => {
+      const integration = createSimpleIntegration({
         id: "test",
         tools: ["test/tool1", "test/tool2"],
       });
 
       const client = createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [plugin],
+        integrations: [integration],
       });
 
       expect(client).toBeInstanceOf(MCPClient);
@@ -28,7 +28,7 @@ describe("MCP Client", () => {
     test("accepts custom timeout and headers", () => {
       const client = createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [],
+        integrations: [],
         timeout: 60000,
         headers: {
           "X-Custom-Header": "value",
@@ -41,7 +41,7 @@ describe("MCP Client", () => {
     test("accepts custom client info", () => {
       const client = createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [],
+        integrations: [],
         clientInfo: {
           name: "custom-client",
           version: "2.0.0",
@@ -52,11 +52,11 @@ describe("MCP Client", () => {
     });
   });
 
-  describe("Plugin Initialization", () => {
-    test("calls onInit for all plugins", async () => {
+  describe("Integration Initialization", () => {
+    test("calls onInit for all integrations", async () => {
       let initCount = 0;
 
-      const plugin1 = createSimplePlugin({
+      const integration1 = createSimpleIntegration({
         id: "test1",
         tools: ["test1/tool"],
         onInit: () => {
@@ -64,7 +64,7 @@ describe("MCP Client", () => {
         },
       });
 
-      const plugin2 = createSimplePlugin({
+      const integration2 = createSimpleIntegration({
         id: "test2",
         tools: ["test2/tool"],
         onInit: () => {
@@ -74,7 +74,7 @@ describe("MCP Client", () => {
 
       createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [plugin1, plugin2],
+        integrations: [integration1, integration2],
       });
 
       // Wait for async initialization
@@ -85,15 +85,15 @@ describe("MCP Client", () => {
   });
 
   describe("OAuth Configuration", () => {
-    test("getOAuthConfig returns config for plugin", () => {
-      const plugin = githubPlugin({
+    test("getOAuthConfig returns config for integration", () => {
+      const integration = githubIntegration({
         clientId: "test-id",
         clientSecret: "test-secret",
       });
 
       const client = createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [plugin],
+        integrations: [integration],
       });
 
       const config = client.getOAuthConfig("github");
@@ -102,10 +102,10 @@ describe("MCP Client", () => {
       expect(config?.clientId).toBe("test-id");
     });
 
-    test("getOAuthConfig returns undefined for non-existent plugin", () => {
+    test("getOAuthConfig returns undefined for non-existent integration", () => {
       const client = createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [],
+        integrations: [],
       });
 
       const config = client.getOAuthConfig("nonexistent");
@@ -113,19 +113,19 @@ describe("MCP Client", () => {
     });
 
     test("getAllOAuthConfigs returns all configs", () => {
-      const githubPlug = githubPlugin({
+      const githubPlug = githubIntegration({
         clientId: "github-id",
         clientSecret: "github-secret",
       });
 
-      const simplePlugin = createSimplePlugin({
+      const simpleIntegration = createSimpleIntegration({
         id: "simple",
         tools: ["simple/tool"],
       });
 
       const client = createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [githubPlug, simplePlugin],
+        integrations: [githubPlug, simpleIntegration],
       });
 
       const configs = client.getAllOAuthConfigs();
@@ -137,14 +137,14 @@ describe("MCP Client", () => {
 
   describe("Tool Management", () => {
     test("getEnabledTools returns empty before connection", () => {
-      const plugin = createSimplePlugin({
+      const integration = createSimpleIntegration({
         id: "test",
         tools: ["test/tool1", "test/tool2"],
       });
 
       const client = createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [plugin],
+        integrations: [integration],
       });
 
       const tools = client.getEnabledTools();
@@ -154,7 +154,7 @@ describe("MCP Client", () => {
     test("getTool returns undefined before connection", () => {
       const client = createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [],
+        integrations: [],
       });
 
       const tool = client.getTool("test/tool");
@@ -166,7 +166,7 @@ describe("MCP Client", () => {
     test("isConnected returns false initially", () => {
       const client = createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [],
+        integrations: [],
       });
 
       expect(client.isConnected()).toBe(false);
@@ -175,7 +175,7 @@ describe("MCP Client", () => {
     test("isInitialized returns false initially", () => {
       const client = createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [],
+        integrations: [],
       });
 
       expect(client.isInitialized()).toBe(false);
@@ -183,7 +183,7 @@ describe("MCP Client", () => {
   });
 
   describe("Error Handling", () => {
-    test("plugin methods work through API handler without initialization", async () => {
+    test("integration methods work through API handler without initialization", async () => {
       const mockFetch = mock(async (url: string) => {
         if (url.includes("/api/integrate/mcp")) {
           return {
@@ -201,8 +201,8 @@ describe("MCP Client", () => {
       global.fetch = mockFetch;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
           }),
         ],
@@ -221,10 +221,10 @@ describe("MCP Client", () => {
     test("onMessage registers handler and returns unsubscribe function", () => {
       const client = createMCPClient({
         serverUrl: "http://localhost:3000/mcp",
-        plugins: [],
+        integrations: [],
       });
 
-      const handler = mock(() => {});
+      const handler = mock(() => { });
       const unsubscribe = client.onMessage(handler);
 
       expect(typeof unsubscribe).toBe("function");
