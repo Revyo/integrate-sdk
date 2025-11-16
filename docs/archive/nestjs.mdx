@@ -124,9 +124,3 @@ const client = createMCPClient({
 // Start OAuth flow
 await client.authorize("github");
 ```
-
-## Framework-Specific Notes
-
-- **Decorators**: NestJS uses decorators for routing and dependency injection.
-- **Modules**: Organize your OAuth controller in a dedicated module for better structure.
-- **Guards**: You can create custom guards to protect routes based on OAuth status.

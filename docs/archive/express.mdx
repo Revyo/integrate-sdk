@@ -106,9 +106,3 @@ const client = createMCPClient({
 // Start OAuth flow
 await client.authorize("github");
 ```
-
-## Framework-Specific Notes
-
-- **Body Parser**: Use `express.json()` middleware to parse JSON request bodies.
-- **CORS**: Install `cors` package for cross-origin requests: `bun add cors`.
-- **Environment Variables**: Use `dotenv` package or set them directly.

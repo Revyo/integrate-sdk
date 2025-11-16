@@ -97,9 +97,3 @@ const client = createMCPClient({
 // Start OAuth flow
 await client.authorize("github");
 ```
-
-## Framework-Specific Notes
-
-- **Native HTTP**: Uses Node.js's native `http` module.
-- **Request Conversion**: The adapter converts Node.js `IncomingMessage` to Web Request API.
-- **Helper Functions**: Use `fromNodeHeaders()` to convert Node.js headers to Web Headers.

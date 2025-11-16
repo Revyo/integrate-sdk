@@ -102,9 +102,3 @@ const client = createMCPClient({
 // Start OAuth flow
 await client.authorize("github");
 ```
-
-## Framework-Specific Notes
-
-- **Edge Runtime**: Hono works on multiple runtimes (Node.js, Deno, Bun, Cloudflare Workers).
-- **Request Handling**: Use `c.req.raw` to get the native Request object.
-- **Performance**: Hono is extremely fast and lightweight.
