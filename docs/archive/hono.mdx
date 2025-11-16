@@ -19,19 +19,23 @@ Create a server configuration file with your OAuth credentials:
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+import {
+  createMCPServer,
+  githubIntegration,
+  gmailIntegration,
+} from "integrate-sdk/server";
 
 export const { client: serverClient, handler } = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ['repo', 'user'],
+      scopes: ["repo", "user"],
     }),
-    gmailPlugin({
+    gmailIntegration({
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      scopes: ['gmail.send', 'gmail.readonly'],
+      scopes: ["gmail.send", "gmail.readonly"],
     }),
   ],
 });
@@ -42,13 +46,13 @@ export const { client: serverClient, handler } = createMCPServer({
 Add OAuth route handlers to your Hono application:
 
 ```typescript
-import { Hono } from 'hono';
-import { handler } from './lib/integrate-server';
+import { Hono } from "hono";
+import { handler } from "./lib/integrate-server";
 
 const app = new Hono();
 
 // Register OAuth routes with catch-all
-app.on(['POST', 'GET'], '/api/integrate/*', (c) => {
+app.on(["POST", "GET"], "/api/integrate/*", (c) => {
   return handler(c.req.raw);
 });
 
@@ -69,12 +73,15 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 Configure CORS using Hono's CORS middleware:
 
 ```typescript
-import { cors } from 'hono/cors';
+import { cors } from "hono/cors";
 
-app.use('/api/integrate/*', cors({
-  origin: 'http://localhost:3001',
-  credentials: true,
-}));
+app.use(
+  "/api/integrate/*",
+  cors({
+    origin: "http://localhost:3001",
+    credentials: true,
+  })
+);
 ```
 
 ## Usage Examples
@@ -82,18 +89,18 @@ app.use('/api/integrate/*', cors({
 ### Client-Side Authorization
 
 ```typescript
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
-      scopes: ['repo', 'user'],
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
     }),
   ],
 });
 
 // Start OAuth flow
-await client.authorize('github');
+await client.authorize("github");
 ```
 
 ## Framework-Specific Notes
@@ -101,4 +108,3 @@ await client.authorize('github');
 - **Edge Runtime**: Hono works on multiple runtimes (Node.js, Deno, Bun, Cloudflare Workers).
 - **Request Handling**: Use `c.req.raw` to get the native Request object.
 - **Performance**: Hono is extremely fast and lightweight.
-

@@ -29,7 +29,7 @@ export interface AIToolsOptions {
 }
 
 /**
- * Get the provider for a tool by checking which plugin includes it
+ * Get the provider for a tool by checking which integration includes it
  * @internal
  */
 export function getProviderForTool(client: MCPClient<any>, toolName: string): string | undefined {

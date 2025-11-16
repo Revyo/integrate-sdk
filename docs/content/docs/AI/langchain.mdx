@@ -17,14 +17,14 @@ Use the `useIntegrateAI` hook for automatic token injection:
 
 ```typescript
 // app/providers.tsx
-'use client';
+"use client";
 
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
-import { useIntegrateAI } from 'integrate-sdk/react';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { useIntegrateAI } from "integrate-sdk/react";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  integrations: [
+    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
   ],
 });
 
@@ -40,14 +40,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
 
 export const { client: serverClient } = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ['repo', 'user'],
+      scopes: ["repo", "user"],
     }),
   ],
 });
@@ -57,36 +57,38 @@ export const { client: serverClient } = createMCPServer({
 
 ```typescript
 // app/api/agent/route.ts
-import { serverClient } from '@/lib/integrate-server';
-import { getLangChainTools } from 'integrate-sdk/integrations/langchain';
-import { DynamicStructuredTool } from '@langchain/core/tools';
-import { ChatOpenAI } from '@langchain/openai';
-import { AgentExecutor, createOpenAIFunctionsAgent } from 'langchain/agents';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { serverClient } from "@/lib/integrate-server";
+import { getLangChainTools } from "integrate-sdk/ai/langchain";
+import { DynamicStructuredTool } from "@langchain/core/tools";
+import { ChatOpenAI } from "@langchain/openai";
+import { AgentExecutor, createOpenAIFunctionsAgent } from "langchain/agents";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
 
 export async function POST(req: Request) {
   try {
     // Extract provider tokens from request
-    const tokensHeader = req.headers.get('x-integrate-tokens');
-    const providerTokens = JSON.parse(tokensHeader || '{}');
+    const tokensHeader = req.headers.get("x-integrate-tokens");
+    const providerTokens = JSON.parse(tokensHeader || "{}");
 
     // Get tool configs
-    const toolConfigs = await getLangChainTools(serverClient, { providerTokens });
+    const toolConfigs = await getLangChainTools(serverClient, {
+      providerTokens,
+    });
 
     // Create DynamicStructuredTools from configs
-    const tools = toolConfigs.map(config => 
-      new DynamicStructuredTool(config)
+    const tools = toolConfigs.map(
+      (config) => new DynamicStructuredTool(config)
     );
 
     const { message } = await req.json();
 
     // Create agent
-    const model = new ChatOpenAI({ temperature: 0, modelName: 'gpt-4' });
+    const model = new ChatOpenAI({ temperature: 0, modelName: "gpt-4" });
 
     const prompt = ChatPromptTemplate.fromMessages([
-      ['system', 'You are a helpful assistant with access to GitHub.'],
-      ['human', '{input}'],
-      ['placeholder', '{agent_scratchpad}'],
+      ["system", "You are a helpful assistant with access to GitHub."],
+      ["human", "{input}"],
+      ["placeholder", "{agent_scratchpad}"],
     ]);
 
     const agent = await createOpenAIFunctionsAgent({
@@ -105,10 +107,7 @@ export async function POST(req: Request) {
 
     return Response.json({ result: result.output });
   } catch (error: any) {
-    return Response.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return Response.json({ error: error.message }, { status: 500 });
   }
 }
 ```
@@ -118,46 +117,40 @@ export async function POST(req: Request) {
 ### Using LangChain LCEL (LangChain Expression Language)
 
 ```typescript
-import { getLangChainTools } from 'integrate-sdk/integrations/langchain';
-import { DynamicStructuredTool } from '@langchain/core/tools';
-import { ChatOpenAI } from '@langchain/openai';
+import { getLangChainTools } from "integrate-sdk/ai/langchain";
+import { DynamicStructuredTool } from "@langchain/core/tools";
+import { ChatOpenAI } from "@langchain/openai";
 
 const toolConfigs = await getLangChainTools(serverClient, { providerTokens });
 
-const tools = toolConfigs.map(config => 
-  new DynamicStructuredTool(config)
-);
+const tools = toolConfigs.map((config) => new DynamicStructuredTool(config));
 
 const model = new ChatOpenAI({ temperature: 0 });
 const modelWithTools = model.bindTools(tools);
 
 const result = await modelWithTools.invoke([
-  { role: 'user', content: 'Create a GitHub issue about bug fixes' }
+  { role: "user", content: "Create a GitHub issue about bug fixes" },
 ]);
 ```
 
 ### Using with ReAct Agent
 
 ```typescript
-import { getLangChainTools } from 'integrate-sdk/integrations/langchain';
-import { DynamicStructuredTool } from '@langchain/core/tools';
-import { ChatOpenAI } from '@langchain/openai';
-import { createReactAgent } from '@langchain/langgraph/prebuilt';
+import { getLangChainTools } from "integrate-sdk/ai/langchain";
+import { DynamicStructuredTool } from "@langchain/core/tools";
+import { ChatOpenAI } from "@langchain/openai";
+import { createReactAgent } from "@langchain/langgraph/prebuilt";
 
 const toolConfigs = await getLangChainTools(serverClient, { providerTokens });
 
-const tools = toolConfigs.map(config => 
-  new DynamicStructuredTool(config)
-);
+const tools = toolConfigs.map((config) => new DynamicStructuredTool(config));
 
-const model = new ChatOpenAI({ temperature: 0, modelName: 'gpt-4' });
+const model = new ChatOpenAI({ temperature: 0, modelName: "gpt-4" });
 
 const agent = createReactAgent({ llm: model, tools });
 
 const result = await agent.invoke({
-  messages: [
-    { role: 'user', content: 'List my GitHub repositories' }
-  ],
+  messages: [{ role: "user", content: "List my GitHub repositories" }],
 });
 ```
 
@@ -168,6 +161,7 @@ const result = await agent.invoke({
 Converts all enabled MCP tools to LangChain DynamicStructuredTool format.
 
 **Parameters:**
+
 - `client` - The MCP client instance
 - `options` - Optional configuration
   - `providerTokens` - Provider tokens for server-side usage
@@ -204,18 +198,18 @@ const toolConfigs = await getLangChainTools(serverClient, { providerTokens });
 
 // Only GitHub tools
 const githubTools = toolConfigs
-  .filter(config => config.name.startsWith('github_'))
-  .map(config => new DynamicStructuredTool(config));
+  .filter((config) => config.name.startsWith("github_"))
+  .map((config) => new DynamicStructuredTool(config));
 ```
 
 ### With Memory
 
 ```typescript
-import { BufferMemory } from 'langchain/memory';
+import { BufferMemory } from "langchain/memory";
 
 const memory = new BufferMemory({
   returnMessages: true,
-  memoryKey: 'chat_history',
+  memoryKey: "chat_history",
 });
 
 const executor = new AgentExecutor({
@@ -228,6 +222,5 @@ const executor = new AgentExecutor({
 ## Next Steps
 
 - [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
-- [Explore other AI providers](/docs/integrations/vercel-ai)
+- [Explore other AI providers](/docs/ai/vercel-ai)
 - [API Reference](/docs/reference/options)
-

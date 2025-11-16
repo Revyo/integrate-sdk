@@ -26,26 +26,26 @@ export function snakeToCamel(str: string): string {
 }
 
 /**
- * Convert a method name to a full tool name with plugin prefix
+ * Convert a method name to a full tool name with integration prefix
  * 
  * @example
  * methodToToolName('getRepo', 'github') // 'github_get_repo'
  * methodToToolName('sendEmail', 'gmail') // 'gmail_send_email'
  */
-export function methodToToolName(methodName: string, pluginId: string): string {
+export function methodToToolName(methodName: string, integrationId: string): string {
   const snakeCaseMethod = camelToSnake(methodName);
-  return `${pluginId}_${snakeCaseMethod}`;
+  return `${integrationId}_${snakeCaseMethod}`;
 }
 
 /**
- * Convert a tool name to a method name (removes plugin prefix and converts to camelCase)
+ * Convert a tool name to a method name (removes integration prefix and converts to camelCase)
  * 
  * @example
  * toolNameToMethod('github_get_repo') // 'getRepo'
  * toolNameToMethod('gmail_send_email') // 'sendEmail'
  */
 export function toolNameToMethod(toolName: string): string {
-  // Remove the plugin prefix (everything before the first underscore)
+  // Remove the integration prefix (everything before the first underscore)
   const withoutPrefix = toolName.replace(/^[^_]+_/, '');
   return snakeToCamel(withoutPrefix);
 }

@@ -3,19 +3,19 @@
 [![Tests](https://github.com/Revyo/integrate-sdk/actions/workflows/test.yml/badge.svg)](https://github.com/Revyo/integrate-sdk/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A type-safe TypeScript SDK for connecting to the Integrate MCP (Model Context Protocol) server. Access GitHub, Gmail, Notion, and other integrations through a simple, plugin-based API.
+A type-safe TypeScript SDK for connecting to the Integrate MCP (Model Context Protocol) server. Access GitHub, Gmail, Notion, and other integrations through a simple, integration-based API.
 
 **📚 [Full Documentation](https://integrate.dev)** | **Server:** `https://mcp.integrate.dev/api/v1/mcp`
 
 ## Features
 
-- 🔌 **Plugin-Based Architecture** - Enable only the integrations you need
+- 🔌 **Integration-Based Architecture** - Enable only the integrations you need
 - 🔒 **Fully Typed API** - Type-safe methods with autocomplete (e.g., `client.github.createIssue()`)
 - 💡 **IntelliSense Support** - Full TypeScript support with parameter hints
 - ⚡ **Automatic Connection Management** - Lazy connection, auto-cleanup, singleton pattern
 - 🔐 **Complete OAuth Flow** - Built-in OAuth 2.0 with PKCE (popup/redirect modes)
 - 🌍 **Universal** - Works in browser and Node.js environments
-- 🛠️ **Extensible** - Configure plugins for any server-supported integration
+- 🛠️ **Extensible** - Configure integrations for any server-supported integration
 - 📦 **Zero Dependencies** - Lightweight implementation
 
 ## Installation
@@ -43,24 +43,24 @@ For production, use: `https://yourdomain.com/api/integrate/oauth/callback`
 
 ### 1. Create Server Config
 
-Define your OAuth providers once. Plugins automatically read credentials from environment variables:
+Define your OAuth providers once. Integrations automatically read credentials from environment variables:
 
 ```typescript
 // lib/integrate-server.ts (server-side only!)
 import {
   createMCPServer,
-  githubPlugin,
-  gmailPlugin,
+  githubIntegration,
+  gmailIntegration,
 } from "integrate-sdk/server";
 
-// Plugins automatically use GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, 
+// Integrations automatically use GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET,
 // GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET from environment
 export const { client: serverClient } = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ["repo", "user"],
     }),
-    gmailPlugin({
+    gmailIntegration({
       scopes: ["gmail.readonly"],
     }),
   ],
@@ -105,11 +105,11 @@ Use in your client components (no secrets needed):
 
 ```typescript
 "use client";
-import { createMCPClient, githubPlugin } from "integrate-sdk";
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ["repo", "user"],
       // No clientId or clientSecret needed!
     }),
@@ -150,10 +150,10 @@ The SDK automatically manages connections for you - no manual `connect()` or `di
 
 ```typescript
 // ✅ Default behavior - automatic connection
-// Plugins automatically use GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET from environment
+// Integrations automatically use GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET from environment
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ["repo", "user"],
     }),
   ],
@@ -165,7 +165,7 @@ await client.github.listRepos({ username: "octocat" });
 
 // ✅ Want manual control? Use manual mode
 const manualClient = createMCPClient({
-  plugins: [githubPlugin({ scopes: ["repo"] })],
+  integrations: [githubIntegration({ scopes: ["repo"] })],
   connectionMode: "manual",
   singleton: false,
 });
@@ -189,7 +189,7 @@ See [Quick Start](#quick-start) above for complete examples.
 
 ## Why Use Integrate SDK?
 
-### Typed Plugin Methods
+### Typed Integration Methods
 
 Instead of generic tool calls, use typed methods with full autocomplete:
 
@@ -213,7 +213,7 @@ await client.gmail.sendEmail({ to: "user@example.com", subject: "Hello" });
 ### Three Ways to Call Tools
 
 ```typescript
-// 1. Typed plugin methods (recommended for built-in plugins like GitHub/Gmail)
+// 1. Typed integration methods (recommended for built-in integrations like GitHub/Gmail)
 await client.github.createIssue({
   owner: "user",
   repo: "project",
@@ -263,9 +263,9 @@ For complete OAuth setup including:
 
 See the [`/examples`](/examples) directory or [OAuth documentation](https://integrate.dev/docs/guides/oauth-flow).
 
-## Built-in Plugins
+## Built-in Integrations
 
-### GitHub Plugin
+### GitHub Integration
 
 Access GitHub repositories, issues, pull requests, and more with type-safe methods.
 
@@ -281,9 +281,9 @@ await client.github.listPullRequests({
 await client.github.listOwnRepos({});
 ```
 
-[→ GitHub plugin documentation](https://integrate.dev/docs/plugins/github)
+[→ GitHub integration documentation](https://integrate.dev/docs/integrations/github)
 
-### Gmail Plugin
+### Gmail Integration
 
 Send emails, manage labels, and search messages with type-safe methods.
 
@@ -298,17 +298,17 @@ await client.gmail.listEmails({ maxResults: 10, q: "is:unread" });
 await client.gmail.searchEmails({ query: "from:notifications@github.com" });
 ```
 
-[→ Gmail plugin documentation](https://integrate.dev/docs/plugins/gmail)
+[→ Gmail integration documentation](https://integrate.dev/docs/integrations/gmail)
 
 ### Additional Integrations
 
-Use `genericOAuthPlugin` to configure any server-supported integration:
+Use `genericOAuthIntegration` to configure any server-supported integration:
 
 ```typescript
-import { genericOAuthPlugin } from "integrate-sdk/server";
+import { genericOAuthIntegration } from "integrate-sdk/server";
 
 // Automatically uses SLACK_CLIENT_ID and SLACK_CLIENT_SECRET from environment
-const slackPlugin = genericOAuthPlugin({
+const slackIntegration = genericOAuthIntegration({
   id: "slack",
   provider: "slack",
   scopes: ["chat:write", "channels:read"],
@@ -339,7 +339,7 @@ const result = await generateText({
 });
 ```
 
-[→ View Vercel AI SDK integration guide](https://integrate.dev/docs/integrations/vercel-ai)
+[→ View Vercel AI SDK integration guide](https://integrate.dev/docs/ai/vercel-ai)
 
 ## Documentation
 
@@ -347,8 +347,8 @@ For detailed guides, API reference, and examples, visit the [complete documentat
 
 - **[Getting Started](https://integrate.dev/docs/getting-started/installation)** - Installation and quick start
 - **[OAuth Flow](https://integrate.dev/docs/guides/oauth-flow)** - OAuth 2.0 authorization guide
-- **[Plugins](https://integrate.dev/docs/plugins)** - Built-in plugins and configuration
-- **[Vercel AI SDK](https://integrate.dev/docs/integrations/vercel-ai)** - AI model integration
+- **[Integrations](https://integrate.dev/docs/integrations)** - Built-in integrations and configuration
+- **[Vercel AI SDK](https://integrate.dev/docs/ai/vercel-ai)** - AI model integration
 - **[Advanced Usage](https://integrate.dev/docs/guides/advanced-usage)** - Error handling, retries, and more
 - **[API Reference](https://integrate.dev/docs/reference/api-reference)** - Complete API documentation
 - **[Architecture](https://integrate.dev/docs/reference/architecture)** - How the SDK works

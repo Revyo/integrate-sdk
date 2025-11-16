@@ -4,7 +4,7 @@
  * 
  * Use this import for server-side configuration with OAuth secrets:
  * ```typescript
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
  * ```
  */
 

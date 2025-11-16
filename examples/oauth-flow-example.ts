@@ -7,8 +7,8 @@
 
 import {
   createMCPClient,
-  githubPlugin,
-  gmailPlugin,
+  githubIntegration,
+  gmailIntegration,
 } from "../src/index.js";
 
 // ============================================
@@ -19,8 +19,8 @@ async function popupFlowExample() {
 
   // Create client with popup OAuth flow
   const client = createMCPClient({
-    plugins: [
-      githubPlugin({
+    integrations: [
+      githubIntegration({
         clientId: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
         scopes: ["repo", "user"],
@@ -74,8 +74,8 @@ async function redirectFlowExample() {
 
   // Create client with redirect OAuth flow
   const client = createMCPClient({
-    plugins: [
-      githubPlugin({
+    integrations: [
+      githubIntegration({
         clientId: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
         scopes: ["repo", "user"],
@@ -142,13 +142,13 @@ async function multipleProvidersExample() {
   console.log("\n\n=== Multiple Providers Example ===\n");
 
   const client = createMCPClient({
-    plugins: [
-      githubPlugin({
+    integrations: [
+      githubIntegration({
         clientId: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
         scopes: ["repo", "user"],
       }),
-      gmailPlugin({
+      gmailIntegration({
         clientId: process.env.GMAIL_CLIENT_ID,
         clientSecret: process.env.GMAIL_CLIENT_SECRET,
       }),
@@ -208,8 +208,8 @@ async function sessionRestorationExample() {
 
   // Create client with existing session token
   const client = createMCPClient({
-    plugins: [
-      githubPlugin({
+    integrations: [
+      githubIntegration({
         clientId: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
         scopes: ["repo", "user"],
@@ -275,8 +275,8 @@ async function customCallbackExample() {
   console.log("\n\n=== Custom Callback Handler Example ===\n");
 
   const client = createMCPClient({
-    plugins: [
-      githubPlugin({
+    integrations: [
+      githubIntegration({
         clientId: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
         scopes: ["repo", "user"],
@@ -312,8 +312,8 @@ async function errorHandlingExample() {
   console.log("\n\n=== Error Handling Example ===\n");
 
   const client = createMCPClient({
-    plugins: [
-      githubPlugin({
+    integrations: [
+      githubIntegration({
         clientId: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
         scopes: ["repo", "user"],

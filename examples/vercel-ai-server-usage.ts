@@ -11,8 +11,8 @@
  * 4. AI model uses tools with user's authentication
  */
 
-import { createMCPServer, githubPlugin, gmailPlugin } from "../src/server.js";
-import { getVercelAITools } from "../src/integrations/vercel-ai.js";
+import { createMCPServer, githubIntegration, gmailIntegration } from "../src/server.js";
+import { getVercelAITools } from "../src/ai/vercel-ai.js";
 
 /**
  * Example 1: Next.js API Route for AI Text Generation
@@ -43,13 +43,13 @@ export async function exampleNextJSAPIRoute() {
       // Note: OAuth secrets come from environment variables on the server
       const { client: serverClient } = createMCPServer({
         apiKey: process.env.INTEGRATE_API_KEY,
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: process.env.GITHUB_CLIENT_ID!,
             clientSecret: process.env.GITHUB_CLIENT_SECRET!,
             scopes: ['repo', 'user'],
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: process.env.GMAIL_CLIENT_ID!,
             clientSecret: process.env.GMAIL_CLIENT_SECRET!,
             scopes: ['gmail.send', 'gmail.readonly'],
@@ -91,9 +91,9 @@ export async function exampleNextJSAPIRoute() {
       // For this example, we'll just return success
       await serverClient.disconnect();
       return new Response(
-        JSON.stringify({ 
-          message: 'Success', 
-          availableTools: Object.keys(tools) 
+        JSON.stringify({
+          message: 'Success',
+          availableTools: Object.keys(tools)
         }),
         { headers: { 'Content-Type': 'application/json' } }
       );
@@ -132,8 +132,8 @@ export async function exampleNextJSStreamingRoute() {
       // 3. Create and connect MCP client
       const { client: serverClient } = createMCPServer({
         apiKey: process.env.INTEGRATE_API_KEY,
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: process.env.GITHUB_CLIENT_ID!,
             clientSecret: process.env.GITHUB_CLIENT_SECRET!,
           }),
@@ -184,12 +184,12 @@ export async function exampleClientSideCode() {
 
   // Note: This would run in the browser
   /*
-  import { createMCPClient, githubPlugin } from 'integrate-sdk';
+  import { createMCPClient, githubIntegration } from 'integrate-sdk';
 
   // 1. Create client and authenticate
   const client = createMCPClient({
-    plugins: [
-      githubPlugin({
+    integrations: [
+      githubIntegration({
         clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
         // Note: clientSecret should NOT be on client side
         // It's only used by the server-side OAuth routes
@@ -269,11 +269,11 @@ export async function exampleErrorHandling() {
   async function POST(req: Request) {
     try {
       const tokensHeader = req.headers.get('x-integrate-tokens');
-      
+
       // Validate tokens present
       if (!tokensHeader) {
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
             error: 'Authentication required',
             code: 'MISSING_TOKENS',
             message: 'Please connect your integrations first'
@@ -287,7 +287,7 @@ export async function exampleErrorHandling() {
         providerTokens = JSON.parse(tokensHeader);
       } catch {
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
             error: 'Invalid token format',
             code: 'INVALID_TOKENS'
           }),
@@ -299,7 +299,7 @@ export async function exampleErrorHandling() {
       const body = await req.json();
       if (body.requireGithub && !providerTokens.github) {
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
             error: 'GitHub integration required',
             code: 'MISSING_GITHUB_TOKEN',
             message: 'Please connect your GitHub account'
@@ -310,8 +310,8 @@ export async function exampleErrorHandling() {
 
       const { client: serverClient } = createMCPServer({
         apiKey: process.env.INTEGRATE_API_KEY,
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: process.env.GITHUB_CLIENT_ID!,
             clientSecret: process.env.GITHUB_CLIENT_SECRET!,
           }),
@@ -341,11 +341,11 @@ export async function exampleErrorHandling() {
       }
     } catch (error) {
       console.error('API error:', error);
-      
+
       // Handle specific error types
       if ((error as any).code === 401) {
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
             error: 'Token expired',
             code: 'TOKEN_EXPIRED',
             message: 'Please reconnect your integration'
@@ -356,7 +356,7 @@ export async function exampleErrorHandling() {
 
       // Generic error
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: 'Internal server error',
           code: 'SERVER_ERROR'
         }),

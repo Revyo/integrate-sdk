@@ -7,11 +7,11 @@
 import { z } from "zod";
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
-import { 
-  jsonSchemaToZod, 
-  executeToolWithToken, 
-  ensureClientConnected, 
-  type AIToolsOptions 
+import {
+  jsonSchemaToZod,
+  executeToolWithToken,
+  ensureClientConnected,
+  type AIToolsOptions
 } from "./utils.js";
 
 /**
@@ -28,7 +28,7 @@ export interface OpenAIAgentsTool {
 /**
  * Options for converting MCP tools to OpenAI Agents format
  */
-export interface OpenAIAgentsToolsOptions extends AIToolsOptions {}
+export interface OpenAIAgentsToolsOptions extends AIToolsOptions { }
 
 /**
  * Convert a single MCP tool to OpenAI Agents format
@@ -96,12 +96,12 @@ export function convertMCPToolsToOpenAIAgents(
  * @example
  * ```typescript
  * // Client-side usage
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
- * import { getOpenAIAgentsTools } from 'integrate-sdk/integrations/openai-agents';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
+ * import { getOpenAIAgentsTools } from 'integrate-sdk/ai/openai-agents';
  * import { Agent } from '@openai/agents';
  * 
  * const client = createMCPClient({
- *   plugins: [githubPlugin({ clientId: '...' })],
+ *   integrations: [githubIntegration({ clientId: '...' })],
  * });
  * 
  * const tools = await getOpenAIAgentsTools(client);
@@ -117,11 +117,11 @@ export function convertMCPToolsToOpenAIAgents(
  * @example
  * ```typescript
  * // Server-side usage with tokens from client
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
- * import { getOpenAIAgentsTools } from 'integrate-sdk/integrations/openai-agents';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
+ * import { getOpenAIAgentsTools } from 'integrate-sdk/ai/openai-agents';
  * 
  * const { client: serverClient } = createMCPServer({
- *   plugins: [githubPlugin({ 
+ *   integrations: [githubIntegration({ 
  *     clientId: '...', 
  *     clientSecret: '...' 
  *   })],

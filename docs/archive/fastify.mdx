@@ -19,19 +19,23 @@ Create a server configuration file with your OAuth credentials:
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+import {
+  createMCPServer,
+  githubIntegration,
+  gmailIntegration,
+} from "integrate-sdk/server";
 
 export const { client: serverClient, handler } = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ['repo', 'user'],
+      scopes: ["repo", "user"],
     }),
-    gmailPlugin({
+    gmailIntegration({
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      scopes: ['gmail.send', 'gmail.readonly'],
+      scopes: ["gmail.send", "gmail.readonly"],
     }),
   ],
 });
@@ -42,33 +46,33 @@ export const { client: serverClient, handler } = createMCPServer({
 Add OAuth route handlers to your Fastify application:
 
 ```typescript
-import Fastify from 'fastify';
-import { handler } from './lib/integrate-server';
+import Fastify from "fastify";
+import { handler } from "./lib/integrate-server";
 
 const fastify = Fastify({ logger: true });
 
 // Register OAuth catch-all route
 fastify.route({
-  method: ['GET', 'POST'],
-  url: '/api/integrate/*',
+  method: ["GET", "POST"],
+  url: "/api/integrate/*",
   handler: async (request, reply) => {
     // Construct Web Request from Fastify request
     const url = new URL(request.url, `http://${request.headers.host}`);
     const webRequest = new Request(url, {
       method: request.method,
       headers: request.headers as any,
-      body: request.method !== 'GET' ? JSON.stringify(request.body) : undefined,
+      body: request.method !== "GET" ? JSON.stringify(request.body) : undefined,
     });
 
     const response = await handler(webRequest);
-    
+
     // Forward response to Fastify
     reply.status(response.status);
     response.headers.forEach((value, key) => {
       reply.header(key, value);
     });
     return reply.send(await response.text());
-  }
+  },
 });
 
 fastify.listen({ port: 3000 }, (err) => {
@@ -87,13 +91,13 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 
 ## CORS Setup
 
-Configure CORS using Fastify's CORS plugin:
+Configure CORS using Fastify's CORS integration:
 
 ```typescript
-import fastifyCors from '@fastify/cors';
+import fastifyCors from "@fastify/cors";
 
 fastify.register(fastifyCors, {
-  origin: 'http://localhost:3001',
+  origin: "http://localhost:3001",
   credentials: true,
 });
 ```
@@ -103,23 +107,22 @@ fastify.register(fastifyCors, {
 ### Client-Side Authorization
 
 ```typescript
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
-      scopes: ['repo', 'user'],
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
     }),
   ],
 });
 
 // Start OAuth flow
-await client.authorize('github');
+await client.authorize("github");
 ```
 
 ## Framework-Specific Notes
 
 - **JSON Parsing**: Fastify automatically parses JSON request bodies.
-- **CORS**: Install `@fastify/cors` plugin for cross-origin requests.
+- **CORS**: Install `@fastify/cors` integration for cross-origin requests.
 - **Performance**: Fastify is one of the fastest Node.js frameworks.
-

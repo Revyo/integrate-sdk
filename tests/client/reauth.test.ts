@@ -5,7 +5,7 @@
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import { createMCPClient } from "../../src/client.js";
-import { githubPlugin } from "../../src/plugins/github.js";
+import { githubIntegration } from "../../src/integrations/github.js";
 import {
   AuthenticationError,
   TokenExpiredError,
@@ -76,10 +76,10 @@ describe("Re-authentication Flow", () => {
   describe("Client Configuration", () => {
     test("client accepts onReauthRequired handler", () => {
       let reauthCalled = false;
-      
+
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -97,8 +97,8 @@ describe("Re-authentication Flow", () => {
 
     test("client accepts maxReauthRetries configuration", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -111,8 +111,8 @@ describe("Re-authentication Flow", () => {
 
     test("client defaults maxReauthRetries to 1", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -126,8 +126,8 @@ describe("Re-authentication Flow", () => {
   describe("Authentication State Tracking", () => {
     test("client tracks authentication state for providers", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -147,8 +147,8 @@ describe("Re-authentication Flow", () => {
 
     test("isProviderAuthenticated returns correct state", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -167,8 +167,8 @@ describe("Re-authentication Flow", () => {
 
     test("getAuthState returns undefined for unknown provider", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -182,8 +182,8 @@ describe("Re-authentication Flow", () => {
   describe("Manual Re-authentication", () => {
     test("reauthenticate throws error if provider not found", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -197,8 +197,8 @@ describe("Re-authentication Flow", () => {
 
     test("reauthenticate throws error if no handler configured", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -215,8 +215,8 @@ describe("Re-authentication Flow", () => {
       let reauthProvider: string | undefined;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -239,8 +239,8 @@ describe("Re-authentication Flow", () => {
 
     test("reauthenticate preserves state on failure", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),

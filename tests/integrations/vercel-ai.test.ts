@@ -5,12 +5,12 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { z } from "zod";
 import { createMCPClient } from "../../src/client.js";
-import { createSimplePlugin } from "../../src/plugins/generic.js";
+import { createSimpleIntegration } from "../../src/integrations/generic.js";
 import {
   convertMCPToolToVercelAI,
   convertMCPToolsToVercelAI,
   getVercelAITools,
-} from "../../src/integrations/vercel-ai.js";
+} from "../../src/ai/vercel-ai.js";
 import type { MCPTool } from "../../src/protocol/messages.js";
 
 describe("Vercel AI SDK Integration", () => {
@@ -32,8 +32,8 @@ describe("Vercel AI SDK Integration", () => {
       };
 
       const client = createMCPClient({
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -64,8 +64,8 @@ describe("Vercel AI SDK Integration", () => {
       };
 
       const client = createMCPClient({
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -106,8 +106,8 @@ describe("Vercel AI SDK Integration", () => {
       };
 
       const client = createMCPClient({
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["complex_tool"],
           }),
@@ -118,7 +118,7 @@ describe("Vercel AI SDK Integration", () => {
 
       // Verify it's a Zod object schema
       expect(vercelTool.inputSchema._def.typeName).toBe("ZodObject");
-      
+
       // Test with valid data
       const validData = {
         name: "John",
@@ -128,7 +128,7 @@ describe("Vercel AI SDK Integration", () => {
       };
       const result = vercelTool.inputSchema.safeParse(validData);
       expect(result.success).toBe(true);
-      
+
       // Test that required fields are enforced
       const invalidData = { tags: ["tag1"] }; // missing required name and age
       const invalidResult = vercelTool.inputSchema.safeParse(invalidData);
@@ -141,8 +141,8 @@ describe("Vercel AI SDK Integration", () => {
 
     beforeAll(async () => {
       client = createMCPClient({
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["tool1", "tool2", "tool3"],
           }),
@@ -207,8 +207,8 @@ describe("Vercel AI SDK Integration", () => {
     test("is an alias for convertMCPToolsToVercelAI", async () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -238,8 +238,8 @@ describe("Vercel AI SDK Integration", () => {
   describe("Tool execution", () => {
     test("execute calls client._callToolByName with correct arguments", async () => {
       const client = createMCPClient({
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -277,8 +277,8 @@ describe("Vercel AI SDK Integration", () => {
 
     test("execute returns result from _callToolByName", async () => {
       const client = createMCPClient({
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -312,8 +312,8 @@ describe("Vercel AI SDK Integration", () => {
     test("handles type: 'None' schema and converts to z.object()", async () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -323,7 +323,7 @@ describe("Vercel AI SDK Integration", () => {
       const mockTool: MCPTool = {
         name: "test_tool",
         description: "Test",
-        inputSchema: { 
+        inputSchema: {
           type: "None" as any, // Invalid type that some tools might have
           properties: { id: { type: "string" } },
         },
@@ -334,7 +334,7 @@ describe("Vercel AI SDK Integration", () => {
       (client as any).transport = { isConnected: () => true };
 
       const tools = await getVercelAITools(client);
-      
+
       // Should normalize to proper Zod object schema
       expect(tools["test_tool"].inputSchema._def.typeName).toBe("ZodObject");
       // Should be able to parse with the id property
@@ -345,8 +345,8 @@ describe("Vercel AI SDK Integration", () => {
     test("handles missing type in schema", async () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -356,7 +356,7 @@ describe("Vercel AI SDK Integration", () => {
       const mockTool: MCPTool = {
         name: "test_tool",
         description: "Test",
-        inputSchema: { 
+        inputSchema: {
           properties: { name: { type: "string" } },
           // No type field
         } as any,
@@ -367,7 +367,7 @@ describe("Vercel AI SDK Integration", () => {
       (client as any).transport = { isConnected: () => true };
 
       const tools = await getVercelAITools(client);
-      
+
       // Should convert to Zod object schema
       expect(tools["test_tool"].inputSchema._def.typeName).toBe("ZodObject");
       const result = tools["test_tool"].inputSchema.safeParse({ name: "test" });
@@ -377,8 +377,8 @@ describe("Vercel AI SDK Integration", () => {
     test("handles null or invalid schema", async () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -396,7 +396,7 @@ describe("Vercel AI SDK Integration", () => {
       (client as any).transport = { isConnected: () => true };
 
       const tools = await getVercelAITools(client);
-      
+
       // Should provide safe default Zod empty object schema
       expect(tools["test_tool"].inputSchema._def.typeName).toBe("ZodObject");
       // Empty object should accept empty input
@@ -407,8 +407,8 @@ describe("Vercel AI SDK Integration", () => {
     test("converts valid object schema to Zod correctly", async () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -435,18 +435,18 @@ describe("Vercel AI SDK Integration", () => {
       (client as any).transport = { isConnected: () => true };
 
       const tools = await getVercelAITools(client);
-      
+
       // Should convert to Zod schema
       expect(tools["test_tool"].inputSchema._def.typeName).toBe("ZodObject");
-      
+
       // Test valid data
       const validData = { title: "Test", count: 5 };
       expect(tools["test_tool"].inputSchema.safeParse(validData).success).toBe(true);
-      
+
       // Test missing required field
       const invalidData = { count: 5 };
       expect(tools["test_tool"].inputSchema.safeParse(invalidData).success).toBe(false);
-      
+
       // Test optional field (count is not required)
       const partialData = { title: "Test" };
       expect(tools["test_tool"].inputSchema.safeParse(partialData).success).toBe(true);
@@ -457,8 +457,8 @@ describe("Vercel AI SDK Integration", () => {
     test("accepts providerTokens option in getVercelAITools", async () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "github",
             tools: ["github_create_issue"],
           }),
@@ -486,8 +486,8 @@ describe("Vercel AI SDK Integration", () => {
     test("injects provider token in Authorization header during tool execution", async () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "github",
             tools: ["github_create_issue"],
             oauth: {
@@ -512,13 +512,13 @@ describe("Vercel AI SDK Integration", () => {
       // Mock transport to track header changes
       const mockTransport = {
         headers: {},
-        setHeader: function(key: string, value: string) {
+        setHeader: function (key: string, value: string) {
           this.headers[key] = value;
         },
-        removeHeader: function(key: string) {
+        removeHeader: function (key: string) {
           delete this.headers[key];
         },
-        isConnected: function() {
+        isConnected: function () {
           return true;
         },
       };
@@ -552,8 +552,8 @@ describe("Vercel AI SDK Integration", () => {
     test("cleans up Authorization header after tool execution", async () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "github",
             tools: ["github_create_issue"],
             oauth: {
@@ -578,13 +578,13 @@ describe("Vercel AI SDK Integration", () => {
       // Mock transport
       const mockTransport = {
         headers: {},
-        setHeader: function(key: string, value: string) {
+        setHeader: function (key: string, value: string) {
           this.headers[key] = value;
         },
-        removeHeader: function(key: string) {
+        removeHeader: function (key: string) {
           delete this.headers[key];
         },
-        isConnected: function() {
+        isConnected: function () {
           return true;
         },
       };
@@ -608,8 +608,8 @@ describe("Vercel AI SDK Integration", () => {
 
     test("uses correct token for each provider", async () => {
       const client = createMCPClient({
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "github",
             tools: ["github_create_issue"],
             oauth: {
@@ -619,7 +619,7 @@ describe("Vercel AI SDK Integration", () => {
               scopes: [],
             },
           }),
-          createSimplePlugin({
+          createSimpleIntegration({
             id: "gmail",
             tools: ["gmail_send_email"],
             oauth: {
@@ -652,13 +652,13 @@ describe("Vercel AI SDK Integration", () => {
 
       const mockTransport = {
         headers: {},
-        setHeader: function(key: string, value: string) {
+        setHeader: function (key: string, value: string) {
           this.headers[key] = value;
         },
-        removeHeader: function(key: string) {
+        removeHeader: function (key: string) {
           delete this.headers[key];
         },
-        isConnected: function() {
+        isConnected: function () {
           return true;
         },
       };
@@ -698,8 +698,8 @@ describe("Vercel AI SDK Integration", () => {
     test("works without providerTokens option (client-side usage)", async () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "test",
             tools: ["test_tool"],
           }),
@@ -731,8 +731,8 @@ describe("Vercel AI SDK Integration", () => {
     test("handles missing provider token gracefully", async () => {
       const client = createMCPClient({
         singleton: false,
-        plugins: [
-          createSimplePlugin({
+        integrations: [
+          createSimpleIntegration({
             id: "github",
             tools: ["github_create_issue"],
             oauth: {
@@ -753,17 +753,17 @@ describe("Vercel AI SDK Integration", () => {
 
       (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
       (client as any).initialized = true;
-      
+
       // Mock transport
       const mockTransport = {
         headers: {},
-        setHeader: function(key: string, value: string) {
+        setHeader: function (key: string, value: string) {
           this.headers[key] = value;
         },
-        removeHeader: function(key: string) {
+        removeHeader: function (key: string) {
           delete this.headers[key];
         },
-        isConnected: function() {
+        isConnected: function () {
           return true;
         },
       };

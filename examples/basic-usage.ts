@@ -1,33 +1,33 @@
 /**
  * Basic Usage Example
  *
- * This example demonstrates how to create an MCP client with plugins
+ * This example demonstrates how to create an MCP client with integrations
  * and interact with the server.
  */
 
 import {
   createMCPClient,
-  githubPlugin,
-  gmailPlugin,
+  githubIntegration,
+  gmailIntegration,
 } from "../src/index.js";
 
 async function main() {
-  // Create a client with multiple plugins
-  // Plugins automatically read GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, etc. from environment
+  // Create a client with multiple integrations
+  // Integrations automatically read GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, etc. from environment
   const client = createMCPClient({
-    plugins: [
-      // GitHub plugin with OAuth configuration
-      githubPlugin({
+    integrations: [
+      // GitHub integration with OAuth configuration
+      githubIntegration({
         scopes: ["repo", "user"],
         // clientId and clientSecret automatically read from GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET
       }),
 
-      // Gmail plugin with OAuth configuration
-      gmailPlugin({
+      // Gmail integration with OAuth configuration
+      gmailIntegration({
         // clientId and clientSecret automatically read from GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET
       }),
     ],
-    
+
     // Optional configuration
     timeout: 30000,
     headers: {
@@ -55,8 +55,8 @@ async function main() {
     // Get OAuth configurations
     const oauthConfigs = client.getAllOAuthConfigs();
     console.log("\nOAuth configurations:");
-    for (const [pluginId, config] of oauthConfigs) {
-      console.log(`  - ${pluginId}: ${config.provider} (${config.scopes.join(", ")})`);
+    for (const [integrationId, config] of oauthConfigs) {
+      console.log(`  - ${integrationId}: ${config.provider} (${config.scopes.join(", ")})`);
     }
 
     // Example: Get a GitHub repository

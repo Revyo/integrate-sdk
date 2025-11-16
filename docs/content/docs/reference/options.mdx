@@ -23,8 +23,8 @@ An `MCPClient` instance.
 
 ```typescript
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
     }),
@@ -72,11 +72,11 @@ async disconnect(): Promise<void>
 await client.disconnect();
 ```
 
-### Typed Plugin Methods
+### Typed Integration Methods
 
-Built-in plugins (GitHub, Gmail) provide fully typed methods for calling tools.
+Built-in integrations (GitHub, Gmail) provide fully typed methods for calling tools.
 
-**GitHub Plugin Methods:**
+**GitHub Integration Methods:**
 
 ```typescript
 client.github.createIssue(params);
@@ -86,7 +86,7 @@ client.github.createPullRequest(params);
 // ... and more
 ```
 
-**Gmail Plugin Methods:**
+**Gmail Integration Methods:**
 
 ```typescript
 client.gmail.sendEmail(params);
@@ -117,7 +117,7 @@ const result = await client.github.createIssue({
 
 ### \_callToolByName()
 
-For integrations configured with `genericOAuthPlugin` or `createSimplePlugin`, use this internal method to call tools directly.
+For integrations configured with `genericOAuthIntegration` or `createSimpleIntegration`, use this internal method to call tools directly.
 
 ```typescript
 async _callToolByName(name: string, args?: Record<string, any>): Promise<MCPToolCallResponse>
@@ -166,7 +166,7 @@ console.log(tool?.inputSchema);
 
 ### getEnabledTools()
 
-Gets all enabled tools (filtered by plugins).
+Gets all enabled tools (filtered by integrations).
 
 ```typescript
 getEnabledTools(): MCPTool[]
@@ -210,15 +210,15 @@ console.log(
 
 ### getOAuthConfig()
 
-Gets OAuth configuration for a specific plugin.
+Gets OAuth configuration for a specific integration.
 
 ```typescript
-getOAuthConfig(pluginId: string): OAuthConfig | undefined
+getOAuthConfig(integrationId: string): OAuthConfig | undefined
 ```
 
 **Parameters:**
 
-- `pluginId` - Plugin identifier
+- `integrationId` - Integration identifier
 
 **Returns:**
 
@@ -241,14 +241,14 @@ getAllOAuthConfigs(): Map<string, OAuthConfig>
 
 **Returns:**
 
-- Map of plugin IDs to OAuth configurations
+- Map of integration IDs to OAuth configurations
 
 **Example:**
 
 ```typescript
 const configs = client.getAllOAuthConfigs();
-for (const [pluginId, config] of configs) {
-  console.log(`${pluginId}: ${config.provider}`);
+for (const [integrationId, config] of configs) {
+  console.log(`${integrationId}: ${config.provider}`);
 }
 ```
 
@@ -420,11 +420,11 @@ try {
 
 ### OAuthConfig
 
-<AutoTypeTable path="../src/plugins/types.ts" name="OAuthConfig" />
+<AutoTypeTable path="../src/integrations/types.ts" name="OAuthConfig" />
 
-### MCPPlugin
+### MCPIntegration
 
-<AutoTypeTable path="../src/plugins/types.ts" name="MCPPlugin" />
+<AutoTypeTable path="../src/integrations/types.ts" name="MCPIntegration" />
 
 ### ReauthContext
 
@@ -474,58 +474,66 @@ try {
 
 <AutoTypeTable path="../src/oauth/types.ts" name="AuthDisconnectEvent" />
 
-## Built-in Plugins
+## Built-in Integrations
 
-### githubPlugin()
+### githubIntegration()
 
-Creates a GitHub plugin.
-
-```typescript
-function githubPlugin(config: GitHubPluginConfig): MCPPlugin;
-```
-
-<AutoTypeTable path="../src/plugins/github.ts" name="GitHubPluginConfig" />
-
-### gmailPlugin()
-
-Creates a Gmail plugin.
+Creates a GitHub integration.
 
 ```typescript
-function gmailPlugin(config: GmailPluginConfig): MCPPlugin;
-```
-
-<AutoTypeTable path="../src/plugins/gmail.ts" name="GmailPluginConfig" />
-
-### genericOAuthPlugin()
-
-Creates a generic OAuth plugin.
-
-```typescript
-function genericOAuthPlugin(config: GenericOAuthPluginConfig): MCPPlugin;
+function githubIntegration(config: GitHubIntegrationConfig): MCPIntegration;
 ```
 
 <AutoTypeTable
-  path="../src/plugins/generic.ts"
-  name="GenericOAuthPluginConfig"
+  path="../src/integrations/github.ts"
+  name="GitHubIntegrationConfig"
 />
 
-### createSimplePlugin()
+### gmailIntegration()
 
-Creates a simple plugin without OAuth.
+Creates a Gmail integration.
 
 ```typescript
-function createSimplePlugin(config: {
+function gmailIntegration(config: GmailIntegrationConfig): MCPIntegration;
+```
+
+<AutoTypeTable
+  path="../src/integrations/gmail.ts"
+  name="GmailIntegrationConfig"
+/>
+
+### genericOAuthIntegration()
+
+Creates a generic OAuth integration.
+
+```typescript
+function genericOAuthIntegration(
+  config: GenericOAuthIntegrationConfig
+): MCPIntegration;
+```
+
+<AutoTypeTable
+  path="../src/integrations/generic.ts"
+  name="GenericOAuthIntegrationConfig"
+/>
+
+### createSimpleIntegration()
+
+Creates a simple integration without OAuth.
+
+```typescript
+function createSimpleIntegration(config: {
   id: string;
   tools: string[];
   onInit?: (client: any) => Promise<void> | void;
   onAfterConnect?: (client: any) => Promise<void> | void;
   onDisconnect?: (client: any) => Promise<void> | void;
-}): MCPPlugin;
+}): MCPIntegration;
 ```
 
 **Parameters:**
 
-- `id` - Plugin identifier
+- `id` - Integration identifier
 - `tools` - Array of tool names to enable
 - `onInit` - Optional initialization hook
 - `onAfterConnect` - Optional post-connection hook
@@ -537,16 +545,13 @@ function createSimplePlugin(config: {
 
 Tool definition compatible with Vercel AI SDK v5:
 
-<AutoTypeTable path="../src/integrations/vercel-ai.ts" name="VercelAITool" />
+<AutoTypeTable path="../src/ai/vercel-ai.ts" name="VercelAITool" />
 
 ### VercelAIToolsOptions
 
 Options for converting MCP tools to Vercel AI SDK format:
 
-<AutoTypeTable
-  path="../src/integrations/vercel-ai.ts"
-  name="VercelAIToolsOptions"
-/>
+<AutoTypeTable path="../src/ai/vercel-ai.ts" name="VercelAIToolsOptions" />
 
 ### getVercelAITools()
 

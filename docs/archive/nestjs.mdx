@@ -19,19 +19,23 @@ Create a server configuration file with your OAuth credentials:
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+import {
+  createMCPServer,
+  githubIntegration,
+  gmailIntegration,
+} from "integrate-sdk/server";
 
 export const { client: serverClient, handler } = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ['repo', 'user'],
+      scopes: ["repo", "user"],
     }),
-    gmailPlugin({
+    gmailIntegration({
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      scopes: ['gmail.send', 'gmail.readonly'],
+      scopes: ["gmail.send", "gmail.readonly"],
     }),
   ],
 });
@@ -43,16 +47,16 @@ Create a controller to handle OAuth routes:
 
 ```typescript
 // oauth.controller.ts
-import { Controller, All, Req, Res } from '@nestjs/common';
-import { Request, Response } from 'express';
-import { handler } from '@/lib/integrate-server';
-import { toNodeHandler } from 'integrate-sdk';
+import { Controller, All, Req, Res } from "@nestjs/common";
+import { Request, Response } from "express";
+import { handler } from "@/lib/integrate-server";
+import { toNodeHandler } from "integrate-sdk";
 
-@Controller('api/auth')
+@Controller("api/auth")
 export class OAuthController {
   private nodeHandler = toNodeHandler(handler);
 
-  @All('*')
+  @All("*")
   handleOAuth(@Req() req: Request, @Res() res: Response) {
     return this.nodeHandler(req, res);
   }
@@ -63,8 +67,8 @@ Register the controller in your module:
 
 ```typescript
 // app.module.ts
-import { Module } from '@nestjs/common';
-import { OAuthController } from './oauth.controller';
+import { Module } from "@nestjs/common";
+import { OAuthController } from "./oauth.controller";
 
 @Module({
   controllers: [OAuthController],
@@ -86,14 +90,14 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 Configure CORS in your `main.ts`:
 
 ```typescript
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   app.enableCors({
-    origin: 'http://localhost:3001',
+    origin: "http://localhost:3001",
     credentials: true,
   });
 
@@ -107,18 +111,18 @@ bootstrap();
 ### Client-Side Authorization
 
 ```typescript
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
-      scopes: ['repo', 'user'],
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
     }),
   ],
 });
 
 // Start OAuth flow
-await client.authorize('github');
+await client.authorize("github");
 ```
 
 ## Framework-Specific Notes
@@ -126,4 +130,3 @@ await client.authorize('github');
 - **Decorators**: NestJS uses decorators for routing and dependency injection.
 - **Modules**: Organize your OAuth controller in a dedicated module for better structure.
 - **Guards**: You can create custom guards to protect routes based on OAuth status.
-

@@ -1,18 +1,18 @@
 ---
-title: GitHub Plugin
+title: GitHub Integration
 description: Manage GitHub repositories, issues, and pull requests
 ---
 
-# GitHub Plugin
+# GitHub Integration
 
-The GitHub plugin provides access to GitHub's API through the Integrate MCP server.
+The GitHub integration provides access to GitHub's API through the Integrate MCP server.
 
 ## Installation
 
-The GitHub plugin is included with the SDK:
+The GitHub integration is included with the SDK:
 
 ```typescript
-import { createMCPClient, githubPlugin } from "integrate-sdk";
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 ```
 
 ## Setup
@@ -24,14 +24,14 @@ import { createMCPClient, githubPlugin } from "integrate-sdk";
 3. Fill in the application details
 4. Note your Client ID and Client Secret
 
-### 2. Configure the Plugin
+### 2. Configure the Integration
 
-The plugin automatically reads `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` from your environment variables:
+The integration automatically reads `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` from your environment variables:
 
 ```typescript
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ["repo", "user", "read:org"], // Optional
       redirectUri: "http://localhost:3000/callback", // Optional
     }),
@@ -43,8 +43,8 @@ You can override the environment variables by passing explicit values:
 
 ```typescript
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.CUSTOM_GITHUB_ID!,
       clientSecret: process.env.CUSTOM_GITHUB_SECRET!,
       scopes: ["repo", "user", "read:org"],
@@ -55,7 +55,10 @@ const client = createMCPClient({
 
 ## Configuration Options
 
-<AutoTypeTable path="../src/plugins/github.ts" name="GitHubPluginConfig" />
+<AutoTypeTable
+  path="../src/integrations/github.ts"
+  name="GitHubIntegrationConfig"
+/>
 
 ## Available Tools
 
@@ -83,7 +86,7 @@ const client = createMCPClient({
 
 ### And More...
 
-The plugin provides access to many more GitHub tools. Use `client.getEnabledTools()` to see all available tools.
+The integration provides access to many more GitHub tools. Use `client.getEnabledTools()` to see all available tools.
 
 ## Examples
 
@@ -178,6 +181,6 @@ try {
 
 ## Next Steps
 
-- Explore the [Gmail Plugin](/docs/plugins/gmail)
-- Configure [Additional Integrations](/docs/plugins/custom-plugins)
+- Explore the [Gmail Integration](/docs/integrations/gmail)
+- Configure [Additional Integrations](/docs/integrations/custom-integrations)
 - See [Advanced Usage](/docs/guides/advanced-usage) for more examples

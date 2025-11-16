@@ -19,17 +19,17 @@ const layoutWidthClass = 'container mx-auto px-6 lg:px-12';
 
 const codeSample = `import {
   createMCPServer,
-  githubPlugin,
-  gmailPlugin,
+  githubIntegration,
+  gmailIntegration,
 } from 'integrate-sdk';
 
 export const { client: serverClient } = createMCPServer({
   apiKey: process.env.INTEGRATE_API_KEY,
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ['repo', 'user'],
     }),
-    gmailPlugin({
+    gmailIntegration({
       scopes: ['https://www.googleapis.com/auth/gmail.send'],
     }),
   ],
@@ -41,14 +41,14 @@ await client.github.createIssue({
   title: 'Ship agent hand-offs',
 });`;
 
-const vercelAICodeSample = `import { createMCPServer, githubPlugin, getVercelAITools } from "integrate-sdk";
+const vercelAICodeSample = `import { createMCPServer, githubIntegration, getVercelAITools } from "integrate-sdk";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 // 1. Create and connect MCP client
 const mcpClient = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       scopes: ['repo', 'user'],
     }),
   ],
@@ -100,9 +100,9 @@ const featureHighlights = [
 
 const buildingBlocks = [
   {
-    title: 'Plugin architecture',
+    title: 'Integration architecture',
     description:
-      'Enable only the MCP tools you need. Each plugin brings typed method calls, validation, and discovery.',
+      'Enable only the MCP tools you need. Each integration brings typed method calls, validation, and discovery.',
   },
   {
     title: 'Observability built-in',
@@ -159,7 +159,7 @@ export default async function HomePage() {
                 Connect AI agents to production services without shipping new backends.
               </h1>
               <p className="max-w-xl text-lg text-zinc-600 dark:text-zinc-300">
-                Integrate SDK gives your AI systems a secure, typed gateway into third-party APIs. Configure plugins, stream MCP tool calls, and instrument everything with confidence.
+                Integrate SDK gives your AI systems a secure, typed gateway into third-party APIs. Configure integrations, stream MCP tool calls, and instrument everything with confidence.
               </p>
               <div className="flex flex-wrap gap-3">
                 <a href="https://app.integrate.dev" className={primaryCtaClass}>
@@ -178,7 +178,7 @@ export default async function HomePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Layers className="size-4" aria-hidden />
-                  Plugin-based MCP client
+                  Integration-based MCP client
                 </div>
                 <div className="flex items-center gap-2">
                   <Lock className="size-4" aria-hidden />
@@ -267,7 +267,7 @@ export default async function HomePage() {
               Works with your favourite tools
             </h2>
             <p className="mx-auto max-w-2xl text-base text-zinc-600 dark:text-zinc-300">
-              Integrate ships with first-party plugins and a simple API for adding anything our MCP server supports. Bring your own credentials and keep OAuth inside your secure environment.
+              Integrate ships with first-party integrations and a simple API for adding anything our MCP server supports. Bring your own credentials and keep OAuth inside your secure environment.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
@@ -280,7 +280,7 @@ export default async function HomePage() {
           <div className="flex flex-wrap justify-center gap-4 text-sm text-zinc-600 dark:text-zinc-300">
             <span className="flex items-center gap-2">
               <Plug className="size-4 text-blue-500" aria-hidden />
-              20+ built-in plugins
+              20+ built-in integrations
             </span>
             <span className="flex items-center gap-2">
               <Workflow className="size-4 text-fuchsia-500" aria-hidden />
@@ -288,7 +288,7 @@ export default async function HomePage() {
             </span>
             <span className="flex items-center gap-2">
               <Layers className="size-4 text-emerald-500" aria-hidden />
-              Request new plugins
+              Request new integrations
             </span>
           </div>
         </section>
@@ -312,7 +312,7 @@ export default async function HomePage() {
                 Get started
                 <ArrowRight className="size-4" aria-hidden />
               </a>
-              <Link href="/docs/integrations/vercel-ai" className={secondaryCtaClass}>
+              <Link href="/docs/ai/vercel-ai" className={secondaryCtaClass}>
                 See the Vercel AI guide
                 <ArrowRight className="size-4" aria-hidden />
               </Link>

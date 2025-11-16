@@ -5,22 +5,26 @@ Thank you for your interest in contributing to Integrate SDK! This document prov
 ## Development Setup
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd integrate-sdk
 ```
 
 2. Install dependencies:
+
 ```bash
 bun install
 ```
 
 3. Run type checking:
+
 ```bash
 bun run type-check
 ```
 
 4. Build the project:
+
 ```bash
 bun run build
 ```
@@ -39,11 +43,11 @@ integrate-sdk/
 │   ├── protocol/
 │   │   ├── messages.ts     # MCP message types
 │   │   └── jsonrpc.ts      # JSON-RPC implementation
-│   └── plugins/
-│       ├── types.ts        # Plugin interface
-│       ├── github.ts       # GitHub plugin
-│       ├── gmail.ts        # Gmail plugin
-│       └── generic.ts      # Generic OAuth plugin
+│   └── integrations/
+│       ├── types.ts        # Integration interface
+│       ├── github.ts       # GitHub integration
+│       ├── gmail.ts        # Gmail integration
+│       └── generic.ts      # Generic OAuth integration
 ├── examples/               # Usage examples
 ├── dist/                   # Built files (generated)
 └── types/                  # Type declarations
@@ -52,46 +56,52 @@ integrate-sdk/
 ## Making Changes
 
 1. Create a new branch:
+
 ```bash
 git checkout -b feature/your-feature-name
 ```
 
 2. Make your changes and ensure they pass type checking:
+
 ```bash
 bun run type-check
 ```
 
 3. Build the project to ensure it compiles:
+
 ```bash
 bun run build
 ```
 
 4. Test your changes with the examples:
+
 ```bash
 bun examples/basic-usage.ts
 ```
 
-## Creating a New Plugin
+## Creating a New Integration
 
-To create a new plugin, follow this pattern:
+To create a new integration, follow this pattern:
 
 ```typescript
-import type { MCPPlugin, OAuthConfig } from "./types.js";
+import type { MCPIntegration, OAuthConfig } from "./types.js";
 
-export interface YourPluginConfig {
+export interface YourIntegrationConfig {
   clientId: string;
   clientSecret: string;
   // ... other config
 }
 
 const YOUR_TOOLS = [
-  "your-plugin/tool1",
-  "your-plugin/tool2",
+  "your-integration/tool1",
+  "your-integration/tool2",
   // ... more tools
 ] as const;
 
-export function yourPlugin(config: YourPluginConfig): MCPPlugin<YourPluginConfig> {
-  const oauth: OAuthConfig<YourPluginConfig> = {
+export function yourIntegration(
+  config: YourIntegrationConfig
+): MCPIntegration<YourIntegrationConfig> {
+  const oauth: OAuthConfig<YourIntegrationConfig> = {
     provider: "your-provider",
     clientId: config.clientId,
     clientSecret: config.clientSecret,
@@ -100,21 +110,21 @@ export function yourPlugin(config: YourPluginConfig): MCPPlugin<YourPluginConfig
   };
 
   return {
-    id: "your-plugin",
+    id: "your-integration",
     tools: [...YOUR_TOOLS],
     oauth,
-    
+
     async onInit(_client) {
-      console.log("Your plugin initialized");
+      console.log("Your integration initialized");
     },
-    
+
     async onAfterConnect(_client) {
-      console.log("Your plugin connected");
+      console.log("Your integration connected");
     },
   };
 }
 
-export type YourPluginTools = typeof YOUR_TOOLS[number];
+export type YourIntegrationTools = (typeof YOUR_TOOLS)[number];
 ```
 
 ## Code Style
@@ -144,8 +154,9 @@ Follow conventional commits format:
 - `chore:` - Build process or auxiliary tool changes
 
 Examples:
+
 ```
-feat: add Slack plugin with OAuth support
+feat: add Slack integration with OAuth support
 fix: handle connection timeout properly
 docs: update README with new examples
 ```
@@ -165,4 +176,3 @@ If you have questions or need help, please open an issue for discussion.
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
-

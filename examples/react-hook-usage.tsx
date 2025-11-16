@@ -5,7 +5,7 @@
  * with Vercel AI SDK for seamless token management.
  */
 
-import { createMCPClient, githubPlugin, gmailPlugin } from "../src/index.js";
+import { createMCPClient, githubIntegration, gmailIntegration } from "../src/index.js";
 import { useIntegrateAI, useIntegrateTokens } from "../react.js";
 // In a real app, you'd import from 'integrate-sdk' and 'integrate-sdk/react'
 
@@ -18,12 +18,12 @@ import { useIntegrateAI, useIntegrateTokens } from "../react.js";
 
 // Create MCP client (do this at module level or in a provider)
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || "your-client-id",
       scopes: ["repo", "user"],
     }),
-    gmailPlugin({
+    gmailIntegration({
       clientId: process.env.NEXT_PUBLIC_GMAIL_CLIENT_ID || "your-client-id",
     }),
   ],
@@ -43,7 +43,7 @@ export function RootLayout({ children }: { children: React.ReactNode }) {
   // ✅ Install global fetch interceptor once
   // This affects all API calls matching /api/chat in your entire app
   useIntegrateAI(client);
-  
+
   return <>{children}</>;
 }
 
@@ -67,7 +67,7 @@ export function ChatPage() {
           </div>
         ))}
       </div>
-      
+
       <form onSubmit={chat.handleSubmit}>
         <input
           value={chat.input}
@@ -175,9 +175,8 @@ export function AuthenticatedChat() {
           {chat.messages.map((message) => (
             <div
               key={message.id}
-              className={`p-3 rounded ${
-                message.role === 'user' ? 'bg-blue-100' : 'bg-gray-100'
-              }`}
+              className={`p-3 rounded ${message.role === 'user' ? 'bg-blue-100' : 'bg-gray-100'
+                }`}
             >
               {message.content}
             </div>
@@ -269,7 +268,7 @@ export function LazyInitExample() {
   React.useEffect(() => {
     // Initialize client lazily
     const newClient = createMCPClient({
-      plugins: [githubPlugin({ clientId: '...' })],
+      integrations: [githubIntegration({ clientId: '...' })],
     });
     setMcpClient(newClient);
   }, []);
@@ -290,19 +289,19 @@ export function LazyInitExample() {
  * File: app/api/chat/route.ts
  */
 export const serverRouteExample = `
-import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+import { createMCPServer, githubIntegration, gmailIntegration } from 'integrate-sdk/server';
 import { getVercelAITools } from 'integrate-sdk';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
 const { client: serverClient } = createMCPServer({
   apiKey: process.env.INTEGRATE_API_KEY,
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
     }),
-    gmailPlugin({
+    gmailIntegration({
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
     }),
@@ -345,11 +344,11 @@ REACT HOOKS USAGE - SIMPLIFIED PATTERN
 
 STEP 1: Install Global Interceptor (Once, at App Root)
 -------------------------------------------------------
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { createMCPClient, githubIntegration } from 'integrate-sdk';
 import { useIntegrateAI } from 'integrate-sdk/react';
 
 const client = createMCPClient({
-  plugins: [githubPlugin({ clientId: '...' })],
+  integrations: [githubIntegration({ clientId: '...' })],
 });
 
 export function RootLayout({ children }) {

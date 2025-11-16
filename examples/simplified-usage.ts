@@ -8,19 +8,19 @@
  * - Auto-cleanup on process exit
  */
 
-import { createMCPClient, githubPlugin, gmailPlugin } from "../src/index.js";
+import { createMCPClient, githubIntegration, gmailIntegration } from "../src/index.js";
 
 async function main() {
   console.log("=== Simplified Usage Example ===\n");
 
   // Just create the client - no need to call connect()!
-  // Plugins automatically use GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
+  // Integrations automatically use GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
   const client = createMCPClient({
-    plugins: [
-      githubPlugin({
+    integrations: [
+      githubIntegration({
         scopes: ["repo", "user"],
       }),
-      gmailPlugin(),
+      gmailIntegration(),
     ],
   });
 
@@ -36,11 +36,11 @@ async function main() {
   // Create another "client" with same config - gets the cached instance
   console.log("\nCreating another client with same config...");
   const client2 = createMCPClient({
-    plugins: [
-      githubPlugin({
+    integrations: [
+      githubIntegration({
         scopes: ["repo", "user"],
       }),
-      gmailPlugin(),
+      gmailIntegration(),
     ],
   });
 
@@ -71,7 +71,7 @@ async function connectionModesExample() {
   // Lazy (default): connects on first method call
   console.log("1. Lazy mode (default):");
   const lazyClient = createMCPClient({
-    plugins: [githubPlugin()],
+    integrations: [githubIntegration()],
     connectionMode: 'lazy', // This is the default
   });
   console.log("   Client created, not connected yet");
@@ -81,7 +81,7 @@ async function connectionModesExample() {
   // Eager: connects immediately (but doesn't block)
   console.log("\n2. Eager mode:");
   const eagerClient = createMCPClient({
-    plugins: [githubPlugin()],
+    integrations: [githubIntegration()],
     connectionMode: 'eager',
     singleton: false, // Create fresh instance
   });
@@ -93,7 +93,7 @@ async function connectionModesExample() {
   // Manual: requires explicit connect() call (original behavior)
   console.log("\n3. Manual mode:");
   const manualClient = createMCPClient({
-    plugins: [githubPlugin()],
+    integrations: [githubIntegration()],
     connectionMode: 'manual',
     singleton: false,
   });
@@ -112,13 +112,13 @@ async function testingExample() {
 
   // For testing, you might want fresh instances
   const testClient1 = createMCPClient({
-    plugins: [githubPlugin()],
+    integrations: [githubIntegration()],
     singleton: false, // Each call creates a new instance
     autoCleanup: true, // Still auto-cleanup on exit
   });
 
   const testClient2 = createMCPClient({
-    plugins: [githubPlugin()],
+    integrations: [githubIntegration()],
     singleton: false,
   });
 

@@ -5,8 +5,8 @@
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { createMCPClient } from "../../src/client.js";
-import { githubPlugin } from "../../src/plugins/github.js";
-import { gmailPlugin } from "../../src/plugins/gmail.js";
+import { githubIntegration } from "../../src/integrations/github.js";
+import { gmailIntegration } from "../../src/integrations/gmail.js";
 
 describe("Client Methods", () => {
   beforeEach(() => {
@@ -26,8 +26,8 @@ describe("Client Methods", () => {
   describe("getAvailableTools", () => {
     test("returns empty array before connection", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -43,8 +43,8 @@ describe("Client Methods", () => {
   describe("disconnect", () => {
     test("sets initialized to false", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -56,10 +56,10 @@ describe("Client Methods", () => {
       expect(client.isInitialized()).toBe(false);
     });
 
-    test("calls onDisconnect hooks for all plugins", async () => {
+    test("calls onDisconnect hooks for all integrations", async () => {
       let disconnectCalled = false;
 
-      const customPlugin = {
+      const customIntegration = {
         id: "custom",
         tools: ["custom/tool"],
         async onDisconnect() {
@@ -68,7 +68,7 @@ describe("Client Methods", () => {
       };
 
       const client = createMCPClient({
-        plugins: [customPlugin as any],
+        integrations: [customIntegration as any],
       });
 
       await client.disconnect();
@@ -79,8 +79,8 @@ describe("Client Methods", () => {
   describe("reauthenticate", () => {
     test("throws error if provider not found", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -94,8 +94,8 @@ describe("Client Methods", () => {
 
     test("throws error if no handler configured", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -111,8 +111,8 @@ describe("Client Methods", () => {
       let handlerCalled = false;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -131,8 +131,8 @@ describe("Client Methods", () => {
 
     test("preserves state on failure", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -155,11 +155,11 @@ describe("Client Methods", () => {
     });
   });
 
-  describe("Plugin lifecycle hooks", () => {
+  describe("Integration lifecycle hooks", () => {
     test("calls onBeforeConnect hooks", async () => {
       let beforeConnectCalled = false;
 
-      const customPlugin = {
+      const customIntegration = {
         id: "custom",
         tools: [],
         async onBeforeConnect() {
@@ -168,7 +168,7 @@ describe("Client Methods", () => {
       };
 
       const client = createMCPClient({
-        plugins: [customPlugin as any],
+        integrations: [customIntegration as any],
       });
 
       // This will fail to connect, but that's okay - we just want to verify the hook is called
@@ -185,8 +185,8 @@ describe("Client Methods", () => {
   describe("Authentication state", () => {
     test("getAuthState returns undefined for unknown provider", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -198,8 +198,8 @@ describe("Client Methods", () => {
 
     test("isProviderAuthenticated returns false for unknown provider", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -211,12 +211,12 @@ describe("Client Methods", () => {
 
     test("tracks auth state for multiple providers", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -249,7 +249,7 @@ describe("Client Methods", () => {
   describe("Client configuration", () => {
     test("accepts custom client info", () => {
       const client = createMCPClient({
-        plugins: [],
+        integrations: [],
         clientInfo: {
           name: "custom-client",
           version: "2.0.0",
@@ -261,7 +261,7 @@ describe("Client Methods", () => {
 
     test("accepts custom timeout and headers", () => {
       const client = createMCPClient({
-        plugins: [],
+        integrations: [],
         timeout: 60000,
         headers: {
           "X-Custom": "value",
@@ -273,8 +273,8 @@ describe("Client Methods", () => {
 
     test("accepts maxReauthRetries", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -289,8 +289,8 @@ describe("Client Methods", () => {
   describe("Tool management", () => {
     test("getTool returns undefined for non-existent tool", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -302,8 +302,8 @@ describe("Client Methods", () => {
 
     test("getEnabledTools returns empty array before connection", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -315,28 +315,28 @@ describe("Client Methods", () => {
   });
 
   describe("OAuth configuration", () => {
-    test("getAllOAuthConfigs returns empty map when no plugins have OAuth", () => {
-      const customPlugin = {
+    test("getAllOAuthConfigs returns empty map when no integrations have OAuth", () => {
+      const customIntegration = {
         id: "custom",
         tools: ["custom/tool"],
       };
 
       const client = createMCPClient({
-        plugins: [customPlugin as any],
+        integrations: [customIntegration as any],
       });
 
       const configs = client.getAllOAuthConfigs();
       expect(configs.size).toBe(0);
     });
 
-    test("getOAuthConfig returns undefined for plugin without OAuth", () => {
-      const customPlugin = {
+    test("getOAuthConfig returns undefined for integration without OAuth", () => {
+      const customIntegration = {
         id: "custom",
         tools: ["custom/tool"],
       };
 
       const client = createMCPClient({
-        plugins: [customPlugin as any],
+        integrations: [customIntegration as any],
       });
 
       expect(client.getOAuthConfig("custom")).toBeUndefined();

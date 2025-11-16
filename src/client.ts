@@ -1,6 +1,6 @@
 /**
  * MCP Client
- * Main client class that orchestrates transport, protocol, and plugins
+ * Main client class that orchestrates transport, protocol, and integrations
  */
 
 import { HttpSessionTransport } from "./transport/http-session.js";
@@ -12,7 +12,7 @@ import type {
   MCPInitializeResponse,
 } from "./protocol/messages.js";
 import { MCPMethod } from "./protocol/messages.js";
-import type { MCPPlugin, OAuthConfig } from "./plugins/types.js";
+import type { MCPIntegration, OAuthConfig } from "./integrations/types.js";
 import type { MCPClientConfig, ReauthHandler } from "./config/types.js";
 import {
   parseServerError,
@@ -20,9 +20,9 @@ import {
   type AuthenticationError,
 } from "./errors.js";
 import { methodToToolName } from "./utils/naming.js";
-import type { GitHubPluginClient } from "./plugins/github-client.js";
-import type { GmailPluginClient } from "./plugins/gmail-client.js";
-import type { ServerPluginClient } from "./plugins/server-client.js";
+import type { GitHubIntegrationClient } from "./integrations/github-client.js";
+import type { GmailIntegrationClient } from "./integrations/gmail-client.js";
+import type { ServerIntegrationClient } from "./integrations/server-client.js";
 import { OAuthManager } from "./oauth/manager.js";
 import type {
   AuthStatus,
@@ -108,32 +108,32 @@ export interface ToolInvocationOptions {
 }
 
 /**
- * Extract all plugin IDs from a plugins array as a union
+ * Extract all integration IDs from a integrations array as a union
  */
-type ExtractPluginId<T> = T extends { id: infer Id } ? Id : never;
-type PluginIds<TPlugins extends readonly MCPPlugin[]> = ExtractPluginId<TPlugins[number]>;
+type ExtractIntegrationId<T> = T extends { id: infer Id } ? Id : never;
+type IntegrationIds<TIntegrations extends readonly MCPIntegration[]> = ExtractIntegrationId<TIntegrations[number]>;
 
 /**
- * Check if a specific plugin ID exists in the plugin array
+ * Check if a specific integration ID exists in the integration array
  */
-type HasPluginId<TPlugins extends readonly MCPPlugin[], Id extends string> =
-  Id extends PluginIds<TPlugins> ? true : false;
+type HasIntegrationId<TIntegrations extends readonly MCPIntegration[], Id extends string> =
+  Id extends IntegrationIds<TIntegrations> ? true : false;
 
 /**
- * Plugin namespace type mapping - only includes properties for configured plugins
+ * Integration namespace type mapping - only includes properties for configured integrations
  */
-type PluginNamespaces<TPlugins extends readonly MCPPlugin[]> =
-  (HasPluginId<TPlugins, "github"> extends true ? { github: GitHubPluginClient } : {}) &
-  (HasPluginId<TPlugins, "gmail"> extends true ? { gmail: GmailPluginClient } : {});
+type IntegrationNamespaces<TIntegrations extends readonly MCPIntegration[]> =
+  (HasIntegrationId<TIntegrations, "github"> extends true ? { github: GitHubIntegrationClient } : {}) &
+  (HasIntegrationId<TIntegrations, "gmail"> extends true ? { gmail: GmailIntegrationClient } : {});
 
 /**
  * MCP Client Class
  * 
- * Provides type-safe access to MCP server tools with plugin-based configuration
+ * Provides type-safe access to MCP server tools with integration-based configuration
  */
-export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugin[]> {
+export class MCPClient<TIntegrations extends readonly MCPIntegration[] = readonly MCPIntegration[]> {
   private transport: HttpSessionTransport;
-  private plugins: TPlugins;
+  private integrations: TIntegrations;
   private availableTools: Map<string, MCPTool> = new Map();
   private enabledToolNames: Set<string> = new Set();
   private initialized = false;
@@ -145,18 +145,18 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   private eventEmitter: SimpleEventEmitter = new SimpleEventEmitter();
   private apiRouteBase: string;
 
-  // Plugin namespaces - dynamically typed based on configured plugins
-  public readonly github!: PluginNamespaces<TPlugins> extends { github: GitHubPluginClient }
-    ? GitHubPluginClient
+  // Integration namespaces - dynamically typed based on configured integrations
+  public readonly github!: IntegrationNamespaces<TIntegrations> extends { github: GitHubIntegrationClient }
+    ? GitHubIntegrationClient
     : never;
-  public readonly gmail!: PluginNamespaces<TPlugins> extends { gmail: GmailPluginClient }
-    ? GmailPluginClient
+  public readonly gmail!: IntegrationNamespaces<TIntegrations> extends { gmail: GmailIntegrationClient }
+    ? GmailIntegrationClient
     : never;
 
   // Server namespace - always available for server-level tools
-  public readonly server!: ServerPluginClient;
+  public readonly server!: ServerIntegrationClient;
 
-  constructor(config: MCPClientConfig<TPlugins>) {
+  constructor(config: MCPClientConfig<TIntegrations>) {
     this.transport = new HttpSessionTransport({
       url: config.serverUrl || MCP_SERVER_URL,
       headers: config.headers,
@@ -173,19 +173,19 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     // Determine API route base for tool calls
     this.apiRouteBase = config.apiRouteBase || '/api/integrate';
 
-    // Clone plugins and inject default redirectUri if not set
-    this.plugins = config.plugins.map(plugin => {
-      if (plugin.oauth && !plugin.oauth.redirectUri) {
+    // Clone integrations and inject default redirectUri if not set
+    this.integrations = config.integrations.map(integration => {
+      if (integration.oauth && !integration.oauth.redirectUri) {
         return {
-          ...plugin,
+          ...integration,
           oauth: {
-            ...plugin.oauth,
+            ...integration.oauth,
             redirectUri: defaultRedirectUri,
           },
         };
       }
-      return plugin;
-    }) as unknown as TPlugins;
+      return integration;
+    }) as unknown as TIntegrations;
 
     this.clientInfo = config.clientInfo || {
       name: "integrate-sdk",
@@ -201,32 +201,32 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     );
 
     // Load provider tokens from localStorage
-    const providers = this.plugins
+    const providers = this.integrations
       .filter(p => p.oauth)
       .map(p => p.oauth!.provider);
 
     this.oauthManager.loadAllProviderTokens(providers);
 
-    // Collect all enabled tool names from plugins
-    for (const plugin of this.plugins) {
-      for (const toolName of plugin.tools) {
+    // Collect all enabled tool names from integrations
+    for (const integration of this.integrations) {
+      for (const toolName of integration.tools) {
         this.enabledToolNames.add(toolName);
       }
 
-      // Initialize auth state for plugins with OAuth based on whether we have a token
-      if (plugin.oauth) {
-        const hasToken = this.oauthManager.getProviderToken(plugin.oauth.provider) !== undefined;
-        this.authState.set(plugin.oauth.provider, { authenticated: hasToken });
+      // Initialize auth state for integrations with OAuth based on whether we have a token
+      if (integration.oauth) {
+        const hasToken = this.oauthManager.getProviderToken(integration.oauth.provider) !== undefined;
+        this.authState.set(integration.oauth.provider, { authenticated: hasToken });
       }
     }
 
-    // Initialize plugin namespaces with proxies
-    this.github = this.createPluginProxy("github") as any;
-    this.gmail = this.createPluginProxy("gmail") as any;
+    // Initialize integration namespaces with proxies
+    this.github = this.createIntegrationProxy("github") as any;
+    this.gmail = this.createIntegrationProxy("gmail") as any;
     this.server = this.createServerProxy() as any;
 
-    // Initialize plugins
-    this.initializePlugins();
+    // Initialize integrations
+    this.initializeIntegrations();
   }
 
   /**
@@ -251,17 +251,17 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   }
 
   /**
-   * Create a proxy for a plugin namespace that intercepts method calls
+   * Create a proxy for a integration namespace that intercepts method calls
    * and routes them to the appropriate tool
    */
-  private createPluginProxy(pluginId: string): any {
+  private createIntegrationProxy(integrationId: string): any {
     return new Proxy({}, {
       get: (_target, methodName: string) => {
         // Return a function that calls the tool
         return async (args?: Record<string, unknown>) => {
           // When routing through API handlers, skip ensureConnected
           // The tool will be validated by the server-side handler
-          const toolName = methodToToolName(methodName, pluginId);
+          const toolName = methodToToolName(methodName, integrationId);
           return await this.callToolWithRetry(toolName, args, 0);
         };
       },
@@ -306,12 +306,12 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   }
 
   /**
-   * Initialize all plugins
+   * Initialize all integrations
    */
-  private async initializePlugins(): Promise<void> {
-    for (const plugin of this.plugins) {
-      if (plugin.onInit) {
-        await plugin.onInit(this);
+  private async initializeIntegrations(): Promise<void> {
+    for (const integration of this.integrations) {
+      if (integration.onInit) {
+        await integration.onInit(this);
       }
     }
   }
@@ -321,9 +321,9 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    */
   async connect(): Promise<void> {
     // Call onBeforeConnect hooks
-    for (const plugin of this.plugins) {
-      if (plugin.onBeforeConnect) {
-        await plugin.onBeforeConnect(this);
+    for (const integration of this.integrations) {
+      if (integration.onBeforeConnect) {
+        await integration.onBeforeConnect(this);
       }
     }
 
@@ -337,9 +337,9 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     await this.discoverTools();
 
     // Call onAfterConnect hooks
-    for (const plugin of this.plugins) {
-      if (plugin.onAfterConnect) {
-        await plugin.onAfterConnect(this);
+    for (const integration of this.integrations) {
+      if (integration.onAfterConnect) {
+        await integration.onAfterConnect(this);
       }
     }
   }
@@ -384,7 +384,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     );
 
     console.log(
-      `Discovered ${response.tools.length} tools, ${enabledTools.length} enabled by plugins`
+      `Discovered ${response.tools.length} tools, ${enabledTools.length} enabled by integrations`
     );
   }
 
@@ -401,8 +401,8 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   }
 
   /**
-   * Call any available tool on the server by name, bypassing plugin restrictions
-   * Useful for server-level tools like 'list_tools_by_integration' that don't belong to a specific plugin
+   * Call any available tool on the server by name, bypassing integration restrictions
+   * Useful for server-level tools like 'list_tools_by_integration' that don't belong to a specific integration
    * 
    * @example
    * ```typescript
@@ -509,7 +509,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     // The server-side handler will validate tools and permissions
     if (!this.enabledToolNames.has(name)) {
       throw new Error(
-        `Tool "${name}" is not enabled. Enable it by adding the appropriate plugin.`
+        `Tool "${name}" is not enabled. Enable it by adding the appropriate integration.`
       );
     }
 
@@ -564,9 +564,9 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    * Get the OAuth provider for a given tool
    */
   private getProviderForTool(toolName: string): string | undefined {
-    for (const plugin of this.plugins) {
-      if (plugin.tools.includes(toolName) && plugin.oauth) {
-        return plugin.oauth.provider;
+    for (const integration of this.integrations) {
+      if (integration.tools.includes(toolName) && integration.oauth) {
+        return integration.oauth.provider;
       }
     }
     return undefined;
@@ -596,7 +596,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   }
 
   /**
-   * Get all enabled tools (filtered by plugins)
+   * Get all enabled tools (filtered by integrations)
    */
   getEnabledTools(): MCPTool[] {
     return Array.from(this.availableTools.values()).filter((tool) =>
@@ -605,11 +605,11 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   }
 
   /**
-   * Get OAuth configuration for a plugin
+   * Get OAuth configuration for a integration
    */
-  getOAuthConfig(pluginId: string): OAuthConfig | undefined {
-    const plugin = this.plugins.find((p) => p.id === pluginId);
-    return plugin?.oauth;
+  getOAuthConfig(integrationId: string): OAuthConfig | undefined {
+    const integration = this.integrations.find((p) => p.id === integrationId);
+    return integration?.oauth;
   }
 
   /**
@@ -617,9 +617,9 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    */
   getAllOAuthConfigs(): Map<string, OAuthConfig> {
     const configs = new Map<string, OAuthConfig>();
-    for (const plugin of this.plugins) {
-      if (plugin.oauth) {
-        configs.set(plugin.id, plugin.oauth);
+    for (const integration of this.integrations) {
+      if (integration.oauth) {
+        configs.set(integration.id, integration.oauth);
       }
     }
     return configs;
@@ -707,10 +707,10 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    * ```
    */
   async disconnectProvider(provider: string): Promise<void> {
-    // Verify the provider exists in plugins
-    const plugin = this.plugins.find(p => p.oauth?.provider === provider);
+    // Verify the provider exists in integrations
+    const integration = this.integrations.find(p => p.oauth?.provider === provider);
 
-    if (!plugin?.oauth) {
+    if (!integration?.oauth) {
       throw new Error(`No OAuth configuration found for provider: ${provider}`);
     }
 
@@ -761,9 +761,9 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     this.authState.clear();
 
     // Re-initialize auth state as unauthenticated
-    for (const plugin of this.plugins) {
-      if (plugin.oauth) {
-        this.authState.set(plugin.oauth.provider, { authenticated: false });
+    for (const integration of this.integrations) {
+      if (integration.oauth) {
+        this.authState.set(integration.oauth.provider, { authenticated: false });
       }
     }
 
@@ -776,9 +776,9 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    */
   async disconnect(): Promise<void> {
     // Call onDisconnect hooks
-    for (const plugin of this.plugins) {
-      if (plugin.onDisconnect) {
-        await plugin.onDisconnect(this);
+    for (const integration of this.integrations) {
+      if (integration.onDisconnect) {
+        await integration.onDisconnect(this);
       }
     }
 
@@ -854,12 +854,12 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   async authorizedProviders(): Promise<string[]> {
     const authorized: string[] = [];
 
-    // Check each plugin with OAuth config
-    for (const plugin of this.plugins) {
-      if (plugin.oauth) {
-        const status = await this.oauthManager.checkAuthStatus(plugin.oauth.provider);
+    // Check each integration with OAuth config
+    for (const integration of this.integrations) {
+      if (integration.oauth) {
+        const status = await this.oauthManager.checkAuthStatus(integration.oauth.provider);
         if (status.authorized) {
-          authorized.push(plugin.oauth.provider);
+          authorized.push(integration.oauth.provider);
         }
       }
     }
@@ -902,9 +902,9 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
    * ```
    */
   async authorize(provider: string, options?: { returnUrl?: string }): Promise<void> {
-    const plugin = this.plugins.find(p => p.oauth?.provider === provider);
+    const integration = this.integrations.find(p => p.oauth?.provider === provider);
 
-    if (!plugin?.oauth) {
+    if (!integration?.oauth) {
       const error = new Error(`No OAuth configuration found for provider: ${provider}`);
       this.eventEmitter.emit('auth:error', { provider, error });
       throw error;
@@ -914,7 +914,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
     this.eventEmitter.emit('auth:started', { provider });
 
     try {
-      await this.oauthManager.initiateFlow(provider, plugin.oauth, options?.returnUrl);
+      await this.oauthManager.initiateFlow(provider, integration.oauth, options?.returnUrl);
 
       // Get the provider token after authorization
       const tokenData = this.oauthManager.getProviderToken(provider);
@@ -1042,7 +1042,7 @@ export class MCPClient<TPlugins extends readonly MCPPlugin[] = readonly MCPPlugi
   async reauthenticate(provider: string): Promise<boolean> {
     const state = this.authState.get(provider);
     if (!state) {
-      throw new Error(`Provider "${provider}" not found in configured plugins`);
+      throw new Error(`Provider "${provider}" not found in configured integrations`);
     }
 
     if (!this.onReauthRequired) {
@@ -1118,15 +1118,15 @@ function registerCleanupHandlers() {
 /**
  * Generate a cache key for a client configuration
  */
-function generateCacheKey<TPlugins extends readonly MCPPlugin[]>(
-  config: MCPClientConfig<TPlugins>
+function generateCacheKey<TIntegrations extends readonly MCPIntegration[]>(
+  config: MCPClientConfig<TIntegrations>
 ): string {
   // Create a stable key based on configuration
   const parts = [
     config.serverUrl || 'default',
     config.clientInfo?.name || 'integrate-sdk',
     config.clientInfo?.version || '0.1.0',
-    JSON.stringify(config.plugins.map(p => ({ id: p.id, tools: p.tools }))),
+    JSON.stringify(config.integrations.map(p => ({ id: p.id, tools: p.tools }))),
     JSON.stringify(config.headers || {}),
     config.timeout?.toString() || '30000',
   ];
@@ -1147,8 +1147,8 @@ function generateCacheKey<TPlugins extends readonly MCPPlugin[]>(
  * ```typescript
  * // Client-side usage (no API key)
  * const client = createMCPClient({
- *   plugins: [
- *     githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID }),
+ *   integrations: [
+ *     githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID }),
  *   ],
  * });
  * 
@@ -1162,7 +1162,7 @@ function generateCacheKey<TPlugins extends readonly MCPPlugin[]>(
  * ```typescript
  * // Manual connection mode (original behavior)
  * const client = createMCPClient({
- *   plugins: [githubPlugin({ clientId: '...' })],
+ *   integrations: [githubIntegration({ clientId: '...' })],
  *   connectionMode: 'manual',
  *   singleton: false,
  * });
@@ -1172,9 +1172,9 @@ function generateCacheKey<TPlugins extends readonly MCPPlugin[]>(
  * await client.disconnect();
  * ```
  */
-export function createMCPClient<TPlugins extends readonly MCPPlugin[]>(
-  config: MCPClientConfig<TPlugins>
-): MCPClient<TPlugins> {
+export function createMCPClient<TIntegrations extends readonly MCPIntegration[]>(
+  config: MCPClientConfig<TIntegrations>
+): MCPClient<TIntegrations> {
   const useSingleton = config.singleton ?? true;
   const connectionMode = config.connectionMode ?? 'lazy';
   const autoCleanup = config.autoCleanup ?? true;
@@ -1185,7 +1185,7 @@ export function createMCPClient<TPlugins extends readonly MCPPlugin[]>(
     const existing = clientCache.get(cacheKey);
 
     if (existing && existing.isConnected()) {
-      return existing as MCPClient<TPlugins>;
+      return existing as MCPClient<TIntegrations>;
     }
 
     // Remove stale entry if exists

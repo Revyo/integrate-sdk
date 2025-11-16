@@ -5,8 +5,8 @@
 
 import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { createMCPClient, clearClientCache } from "../../src/client.js";
-import { githubPlugin } from "../../src/plugins/github.js";
-import { gmailPlugin } from "../../src/plugins/gmail.js";
+import { githubIntegration } from "../../src/integrations/github.js";
+import { gmailIntegration } from "../../src/integrations/gmail.js";
 
 // Mock browser environment
 const mockSessionStorage = new Map<string, string>();
@@ -17,26 +17,26 @@ describe("Storage and Cleanup", () => {
     // Setup mock storage
     mockSessionStorage.clear();
     mockLocalStorage.clear();
-    
+
     // Mock global window object if it doesn't exist
     if (typeof globalThis.window === 'undefined') {
       (globalThis as any).window = {
-      sessionStorage: {
-        getItem: (key: string) => mockSessionStorage.get(key) || null,
-        setItem: (key: string, value: string) => mockSessionStorage.set(key, value),
-        removeItem: (key: string) => mockSessionStorage.delete(key),
-        clear: () => mockSessionStorage.clear(),
-        get length() { return mockSessionStorage.size; },
-        key: (index: number) => Array.from(mockSessionStorage.keys())[index] || null,
-      },
-      localStorage: {
-        getItem: (key: string) => mockLocalStorage.get(key) || null,
-        setItem: (key: string, value: string) => mockLocalStorage.set(key, value),
-        removeItem: (key: string) => mockLocalStorage.delete(key),
-        clear: () => mockLocalStorage.clear(),
-        get length() { return mockLocalStorage.size; },
-        key: (index: number) => Array.from(mockLocalStorage.keys())[index] || null,
-      },
+        sessionStorage: {
+          getItem: (key: string) => mockSessionStorage.get(key) || null,
+          setItem: (key: string, value: string) => mockSessionStorage.set(key, value),
+          removeItem: (key: string) => mockSessionStorage.delete(key),
+          clear: () => mockSessionStorage.clear(),
+          get length() { return mockSessionStorage.size; },
+          key: (index: number) => Array.from(mockSessionStorage.keys())[index] || null,
+        },
+        localStorage: {
+          getItem: (key: string) => mockLocalStorage.get(key) || null,
+          setItem: (key: string, value: string) => mockLocalStorage.set(key, value),
+          removeItem: (key: string) => mockLocalStorage.delete(key),
+          clear: () => mockLocalStorage.clear(),
+          get length() { return mockLocalStorage.size; },
+          key: (index: number) => Array.from(mockLocalStorage.keys())[index] || null,
+        },
       };
     }
   });
@@ -45,7 +45,7 @@ describe("Storage and Cleanup", () => {
     mockSessionStorage.clear();
     mockLocalStorage.clear();
     await clearClientCache();
-    
+
     // Clean up global window mock if it was set by this test file
     if ((globalThis as any).window) {
       // Clear any provider tokens
@@ -71,8 +71,8 @@ describe("Storage and Cleanup", () => {
       mockLocalStorage.set('integrate_token_github', JSON.stringify(tokenData));
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -97,17 +97,17 @@ describe("Storage and Cleanup", () => {
         tokenType: 'Bearer',
         expiresIn: 7200,
       };
-      
+
       mockLocalStorage.set('integrate_token_github', JSON.stringify(githubToken));
       mockLocalStorage.set('integrate_token_gmail', JSON.stringify(gmailToken));
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "github-id",
             clientSecret: "github-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "gmail-id",
             clientSecret: "gmail-secret",
           }),
@@ -126,8 +126,8 @@ describe("Storage and Cleanup", () => {
       (globalThis as any).window = undefined;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -146,8 +146,8 @@ describe("Storage and Cleanup", () => {
   describe("Client Cache Management", () => {
     test("clearClientCache removes cached instances", async () => {
       createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -158,8 +158,8 @@ describe("Storage and Cleanup", () => {
 
       // Creating new client after cache clear should work
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -171,8 +171,8 @@ describe("Storage and Cleanup", () => {
 
     test("clearClientCache handles disconnection errors gracefully", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -187,12 +187,12 @@ describe("Storage and Cleanup", () => {
   describe("Token Persistence Across Operations", () => {
     test("other provider tokens persist after disconnectProvider", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -221,8 +221,8 @@ describe("Storage and Cleanup", () => {
 
     test("all tokens clear after logout", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -243,8 +243,8 @@ describe("Storage and Cleanup", () => {
 
     test("setProviderToken persists to localStorage", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -267,8 +267,8 @@ describe("Storage and Cleanup", () => {
 
     test("clearSessionToken removes all tokens from localStorage", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -296,8 +296,8 @@ describe("Storage and Cleanup", () => {
   describe("Auto-cleanup Configuration", () => {
     test("client with autoCleanup true is tracked", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -311,8 +311,8 @@ describe("Storage and Cleanup", () => {
 
     test("client with autoCleanup false is not tracked", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -328,8 +328,8 @@ describe("Storage and Cleanup", () => {
   describe("Event System Storage Integration", () => {
     test("emits error event when disconnect fails without access token", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -351,8 +351,8 @@ describe("Storage and Cleanup", () => {
   describe("Multiple Client Instances", () => {
     test("each non-singleton instance manages its own state", () => {
       const client1 = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -361,8 +361,8 @@ describe("Storage and Cleanup", () => {
       });
 
       const client2 = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -391,8 +391,8 @@ describe("Storage and Cleanup", () => {
 
     test("disconnecting provider in one instance does not affect others", async () => {
       const client1 = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -401,8 +401,8 @@ describe("Storage and Cleanup", () => {
       });
 
       const client2 = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -430,9 +430,9 @@ describe("Storage and Cleanup", () => {
   });
 
   describe("Configuration Validation", () => {
-    test("creates client with empty plugins array", () => {
+    test("creates client with empty integrations array", () => {
       const client = createMCPClient({
-        plugins: [],
+        integrations: [],
         singleton: false,
       });
 
@@ -442,8 +442,8 @@ describe("Storage and Cleanup", () => {
 
     test("creates client with minimal config", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -455,8 +455,8 @@ describe("Storage and Cleanup", () => {
 
     test("creates client with maximal config", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -484,12 +484,12 @@ describe("Storage and Cleanup", () => {
   describe("State Consistency", () => {
     test("logout maintains auth state structure", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -508,12 +508,12 @@ describe("Storage and Cleanup", () => {
 
     test("disconnectProvider only affects specified provider", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),

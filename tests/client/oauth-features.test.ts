@@ -5,15 +5,15 @@
 
 import { describe, test, expect, beforeEach, mock } from "bun:test";
 import { createMCPClient } from "../../src/client.js";
-import { githubPlugin } from "../../src/plugins/github.js";
-import { gmailPlugin } from "../../src/plugins/gmail.js";
+import { githubIntegration } from "../../src/integrations/github.js";
+import { gmailIntegration } from "../../src/integrations/gmail.js";
 
 describe("OAuth Features", () => {
   describe("Event System", () => {
     test("on() registers event listener", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -21,7 +21,7 @@ describe("OAuth Features", () => {
         singleton: false,
       });
 
-      const handler = mock(() => {});
+      const handler = mock(() => { });
       client.on("auth:complete", handler);
 
       expect(handler).toBeDefined();
@@ -29,8 +29,8 @@ describe("OAuth Features", () => {
 
     test("off() removes event listener", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -38,7 +38,7 @@ describe("OAuth Features", () => {
         singleton: false,
       });
 
-      const handler = mock(() => {});
+      const handler = mock(() => { });
       client.on("auth:complete", handler);
       client.off("auth:complete", handler);
 
@@ -47,8 +47,8 @@ describe("OAuth Features", () => {
 
     test("supports multiple event listeners for same event", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -56,9 +56,9 @@ describe("OAuth Features", () => {
         singleton: false,
       });
 
-      const handler1 = mock(() => {});
-      const handler2 = mock(() => {});
-      
+      const handler1 = mock(() => { });
+      const handler2 = mock(() => { });
+
       client.on("auth:complete", handler1);
       client.on("auth:complete", handler2);
 
@@ -68,8 +68,8 @@ describe("OAuth Features", () => {
 
     test("supports all OAuth event types", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -77,11 +77,11 @@ describe("OAuth Features", () => {
         singleton: false,
       });
 
-      const startedHandler = mock(() => {});
-      const completeHandler = mock(() => {});
-      const errorHandler = mock(() => {});
-      const disconnectHandler = mock(() => {});
-      const logoutHandler = mock(() => {});
+      const startedHandler = mock(() => { });
+      const completeHandler = mock(() => { });
+      const errorHandler = mock(() => { });
+      const disconnectHandler = mock(() => { });
+      const logoutHandler = mock(() => { });
 
       client.on("auth:started", startedHandler);
       client.on("auth:complete", completeHandler);
@@ -100,8 +100,8 @@ describe("OAuth Features", () => {
   describe("Provider Token Management", () => {
     test("getProviderToken returns undefined initially", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -114,8 +114,8 @@ describe("OAuth Features", () => {
 
     test("setProviderToken sets the token", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -128,15 +128,15 @@ describe("OAuth Features", () => {
         tokenType: "Bearer",
         expiresIn: 3600,
       };
-      
+
       client.setProviderToken("github", tokenData);
       expect(client.getProviderToken("github")).toEqual(tokenData);
     });
 
     test("clearSessionToken clears all provider tokens", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -149,22 +149,22 @@ describe("OAuth Features", () => {
         tokenType: "Bearer",
         expiresIn: 3600,
       };
-      
+
       client.setProviderToken("github", tokenData);
       expect(client.getProviderToken("github")).toEqual(tokenData);
-      
+
       client.clearSessionToken();
       expect(client.getProviderToken("github")).toBeUndefined();
     });
 
     test("manages tokens per provider independently", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "gmail-id",
             clientSecret: "gmail-secret",
           }),
@@ -177,16 +177,16 @@ describe("OAuth Features", () => {
         tokenType: "Bearer",
         expiresIn: 3600,
       };
-      
+
       const gmailToken = {
         accessToken: "gmail-token",
         tokenType: "Bearer",
         expiresIn: 7200,
       };
-      
+
       client.setProviderToken("github", githubToken);
       client.setProviderToken("google", gmailToken);
-      
+
       expect(client.getProviderToken("github")).toEqual(githubToken);
       expect(client.getProviderToken("google")).toEqual(gmailToken);
     });
@@ -195,8 +195,8 @@ describe("OAuth Features", () => {
   describe("disconnectProvider", () => {
     test("throws error for unknown provider", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -220,8 +220,8 @@ describe("OAuth Features", () => {
       }
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -240,8 +240,8 @@ describe("OAuth Features", () => {
 
     test("resets authentication state for provider with access token", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -266,8 +266,8 @@ describe("OAuth Features", () => {
 
     test("emits auth:disconnect event", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -295,12 +295,12 @@ describe("OAuth Features", () => {
 
     test("disconnects single provider while keeping others", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "github-id",
             clientSecret: "github-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "gmail-id",
             clientSecret: "gmail-secret",
           }),
@@ -331,12 +331,12 @@ describe("OAuth Features", () => {
 
     test("clears only disconnected provider token", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "github-id",
             clientSecret: "github-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "gmail-id",
             clientSecret: "gmail-secret",
           }),
@@ -364,8 +364,8 @@ describe("OAuth Features", () => {
 
     test("performs local disconnect without server call", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -395,8 +395,8 @@ describe("OAuth Features", () => {
   describe("logout", () => {
     test("clears all provider tokens", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -419,12 +419,12 @@ describe("OAuth Features", () => {
 
     test("resets authentication state for all providers", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -454,8 +454,8 @@ describe("OAuth Features", () => {
 
     test("emits auth:logout event", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -475,8 +475,8 @@ describe("OAuth Features", () => {
 
     test("maintains auth state structure after logout", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -495,8 +495,8 @@ describe("OAuth Features", () => {
   describe("Auto OAuth Callback", () => {
     test("autoHandleOAuthCallback defaults to true", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -509,8 +509,8 @@ describe("OAuth Features", () => {
 
     test("autoHandleOAuthCallback can be disabled", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -526,8 +526,8 @@ describe("OAuth Features", () => {
   describe("Connection Modes", () => {
     test("defaults to lazy connection mode", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -540,8 +540,8 @@ describe("OAuth Features", () => {
 
     test("accepts manual connection mode", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -555,8 +555,8 @@ describe("OAuth Features", () => {
 
     test("accepts eager connection mode", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -572,8 +572,8 @@ describe("OAuth Features", () => {
   describe("Singleton Pattern", () => {
     test("defaults to singleton mode", () => {
       const client1 = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -581,8 +581,8 @@ describe("OAuth Features", () => {
       });
 
       const client2 = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -596,8 +596,8 @@ describe("OAuth Features", () => {
 
     test("singleton can be disabled", () => {
       const client1 = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -606,8 +606,8 @@ describe("OAuth Features", () => {
       });
 
       const client2 = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -623,8 +623,8 @@ describe("OAuth Features", () => {
   describe("OAuth API Base URL", () => {
     test("defaults to /api/integrate/oauth", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -637,8 +637,8 @@ describe("OAuth Features", () => {
 
     test("accepts custom OAuth API base URL", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -654,8 +654,8 @@ describe("OAuth Features", () => {
   describe("OAuth Flow Configuration", () => {
     test("accepts redirect mode configuration", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -671,8 +671,8 @@ describe("OAuth Features", () => {
 
     test("accepts popup mode configuration", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -691,11 +691,11 @@ describe("OAuth Features", () => {
     });
 
     test("accepts custom OAuth callback handler", () => {
-      const onAuthCallback = mock(async () => {});
+      const onAuthCallback = mock(async () => { });
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -715,8 +715,8 @@ describe("OAuth Features", () => {
   describe("Error Handling in Authorization", () => {
     test("authorize throws and emits error for unknown provider", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -739,15 +739,15 @@ describe("OAuth Features", () => {
     });
   });
 
-  describe("Multiple Plugins", () => {
+  describe("Multiple Integrations", () => {
     test("tracks auth state for multiple OAuth providers", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "github-id",
             clientSecret: "github-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "gmail-id",
             clientSecret: "gmail-secret",
           }),
@@ -773,12 +773,12 @@ describe("OAuth Features", () => {
 
     test("getAllOAuthConfigs returns all provider configs", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "github-id",
             clientSecret: "github-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "gmail-id",
             clientSecret: "gmail-secret",
           }),
@@ -796,8 +796,8 @@ describe("OAuth Features", () => {
   describe("Client Cleanup", () => {
     test("autoCleanup defaults to true", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -810,8 +810,8 @@ describe("OAuth Features", () => {
 
     test("autoCleanup can be disabled", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),

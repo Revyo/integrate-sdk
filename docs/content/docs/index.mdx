@@ -25,15 +25,15 @@ When a user authorizes your app, the OAuth flow happens through the server, whic
 
 The Integrate SDK is designed to be both powerful and simple to use:
 
-- 🔌 **Plugin-Based Architecture** - Enable only the integrations you need, reducing bundle size and surface area
+- 🔌 **Integration-Based Architecture** - Enable only the integrations you need, reducing bundle size and surface area
 - 🔒 **Type-Safe** - Full TypeScript support with IntelliSense for every tool, parameter, and response
 - 🌊 **Real-time Communication** - HTTP streaming with NDJSON for efficient, real-time data flow
 - 🔐 **Complete OAuth Flow** - Built-in OAuth 2.0 with PKCE support in both popup and redirect modes
 - 🌍 **Universal** - Works seamlessly in browsers, Node.js, Edge runtimes, and serverless environments
-- 🛠️ **Extensible** - Add any integration supported by the Integrate MCP server with simple plugin configuration
+- 🛠️ **Extensible** - Add any integration supported by the Integrate MCP server with simple integration configuration
 - 📦 **Zero Dependencies** - Lightweight implementation with no external dependencies
 - 🔄 **Automatic Re-authentication** - Handle token expiration gracefully with built-in re-auth flows
-- 🎯 **Tool Discovery** - Automatically discover available tools based on your enabled plugins
+- 🎯 **Tool Discovery** - Automatically discover available tools based on your enabled integrations
 
 ## Get Started
 
@@ -54,9 +54,9 @@ The Integrate SDK is designed to be both powerful and simple to use:
     description="Learn how to authorize users with OAuth 2.0"
   />
   <Card
-    title="Built-in Plugins"
-    href="/docs/plugins"
-    description="Explore GitHub, Gmail, and other plugins"
+    title="Built-in Integrations"
+    href="/docs/integrations"
+    description="Explore GitHub, Gmail, and other integrations"
   />
   <Card
     title="Advanced Usage"
@@ -65,7 +65,7 @@ The Integrate SDK is designed to be both powerful and simple to use:
   />
   <Card
     title="Vercel AI SDK"
-    href="/docs/integrations/vercel-ai"
+    href="/docs/ai/vercel-ai"
     description="Integrate with Vercel AI SDK"
   />
 </Cards>
@@ -76,7 +76,7 @@ Here's what happens when you integrate a third-party service into your applicati
 
 ### 1. **Configuration**
 
-You configure the SDK with plugins for each integration you want to use—GitHub for repository management, Gmail for email, Notion for knowledge base access, and so on. Each plugin knows what OAuth credentials it needs and what tools it provides.
+You configure the SDK with integrations for each integration you want to use—GitHub for repository management, Gmail for email, Notion for knowledge base access, and so on. Each integration knows what OAuth credentials it needs and what tools it provides.
 
 ### 2. **Authorization**
 
@@ -88,7 +88,7 @@ The SDK establishes a streaming connection to `https://mcp.integrate.dev/api/v1/
 
 ### 4. **Discovery**
 
-The SDK queries the server for available tools and intelligently filters them based on your enabled plugins. With full TypeScript support, your IDE immediately knows what tools are available, what parameters they accept, and what they return.
+The SDK queries the server for available tools and intelligently filters them based on your enabled integrations. With full TypeScript support, your IDE immediately knows what tools are available, what parameters they accept, and what they return.
 
 ### 5. **Execution**
 

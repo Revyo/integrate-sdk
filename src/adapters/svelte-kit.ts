@@ -21,11 +21,11 @@ type ResolveFunction = any;
  * @example
  * ```typescript
  * // lib/integrate-server.ts
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
  * 
  * export const { client: serverClient, handler } = createMCPServer({
- *   plugins: [
- *     githubPlugin({
+ *   integrations: [
+ *     githubIntegration({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
  *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
  *     }),
@@ -75,11 +75,11 @@ export async function svelteKitHandler({
  * @example
  * ```typescript
  * // lib/integrate-server.ts
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
  * 
  * export const { client: serverClient, handler } = createMCPServer({
- *   plugins: [
- *     githubPlugin({
+ *   integrations: [
+ *     githubIntegration({
  *       clientId: process.env.GITHUB_CLIENT_ID!,
  *       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
  *     }),

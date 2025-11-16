@@ -17,14 +17,14 @@ Use the `useIntegrateAI` hook for automatic token injection:
 
 ```typescript
 // app/providers.tsx
-'use client';
+"use client";
 
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
-import { useIntegrateAI } from 'integrate-sdk/react';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { useIntegrateAI } from "integrate-sdk/react";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  integrations: [
+    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
   ],
 });
 
@@ -40,19 +40,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin, gmailPlugin } from 'integrate-sdk/server';
+import {
+  createMCPServer,
+  githubIntegration,
+  gmailIntegration,
+} from "integrate-sdk/server";
 
 export const { client: serverClient } = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ['repo', 'user'],
+      scopes: ["repo", "user"],
     }),
-    gmailPlugin({
+    gmailIntegration({
       clientId: process.env.GMAIL_CLIENT_ID!,
       clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      scopes: ['gmail.send'],
+      scopes: ["gmail.send"],
     }),
   ],
 });
@@ -62,24 +66,26 @@ export const { client: serverClient } = createMCPServer({
 
 ```typescript
 // app/api/agent/route.ts
-import { serverClient } from '@/lib/integrate-server';
-import { getOpenAIAgentsTools } from 'integrate-sdk/integrations/openai-agents';
-import { Agent } from '@openai/agents';
+import { serverClient } from "@/lib/integrate-server";
+import { getOpenAIAgentsTools } from "integrate-sdk/ai/openai-agents";
+import { Agent } from "@openai/agents";
 
 export async function POST(req: Request) {
   try {
     // Extract provider tokens from request
-    const tokensHeader = req.headers.get('x-integrate-tokens');
-    const providerTokens = JSON.parse(tokensHeader || '{}');
+    const tokensHeader = req.headers.get("x-integrate-tokens");
+    const providerTokens = JSON.parse(tokensHeader || "{}");
 
     // Get tools with user's tokens
-    const toolConfigs = await getOpenAIAgentsTools(serverClient, { providerTokens });
+    const toolConfigs = await getOpenAIAgentsTools(serverClient, {
+      providerTokens,
+    });
 
     const { message } = await req.json();
 
     // Create agent with tools
     const agent = new Agent({
-      model: 'gpt-4o',
+      model: "gpt-4o",
       tools: toolConfigs,
     });
 
@@ -88,10 +94,7 @@ export async function POST(req: Request) {
 
     return Response.json({ result });
   } catch (error: any) {
-    return Response.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return Response.json({ error: error.message }, { status: 500 });
   }
 }
 ```
@@ -102,25 +105,25 @@ export async function POST(req: Request) {
 
 ```typescript
 // app/agent/page.tsx
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { useState } from "react";
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  integrations: [
+    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
   ],
 });
 
 export default function AgentPage() {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [authorized, setAuthorized] = useState(false);
 
   const handleConnect = async () => {
-    await client.authorize('github');
+    await client.authorize("github");
     setAuthorized(true);
   };
 
@@ -129,16 +132,16 @@ export default function AgentPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
       });
 
       const data = await response.json();
       setResult(data.result);
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Error:", error);
     } finally {
       setLoading(false);
     }
@@ -162,7 +165,7 @@ export default function AgentPage() {
           placeholder="Ask the agent to use GitHub..."
         />
         <button type="submit" disabled={loading}>
-          {loading ? 'Running...' : 'Run Agent'}
+          {loading ? "Running..." : "Run Agent"}
         </button>
       </form>
       {result && <pre>{JSON.stringify(result, null, 2)}</pre>}
@@ -178,6 +181,7 @@ export default function AgentPage() {
 Converts all enabled MCP tools to `@openai/agents` format.
 
 **Parameters:**
+
 - `client` - The MCP client instance
 - `options` - Optional configuration
   - `providerTokens` - Provider tokens for server-side usage
@@ -210,25 +214,26 @@ OpenAI Agents expects tools with this structure:
 ### Custom Agent Configuration
 
 ```typescript
-import { Agent } from '@openai/agents';
-import { getOpenAIAgentsTools } from 'integrate-sdk/integrations/openai-agents';
+import { Agent } from "@openai/agents";
+import { getOpenAIAgentsTools } from "integrate-sdk/ai/openai-agents";
 
-const toolConfigs = await getOpenAIAgentsTools(serverClient, { providerTokens });
+const toolConfigs = await getOpenAIAgentsTools(serverClient, {
+  providerTokens,
+});
 
 const agent = new Agent({
-  model: 'gpt-4o',
+  model: "gpt-4o",
   tools: toolConfigs,
-  instructions: 'You are a helpful assistant with access to GitHub.',
+  instructions: "You are a helpful assistant with access to GitHub.",
   temperature: 0.7,
   maxTokens: 1000,
 });
 
-const result = await agent.run('Create a new GitHub issue about bug fixes');
+const result = await agent.run("Create a new GitHub issue about bug fixes");
 ```
 
 ## Next Steps
 
 - [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
-- [Explore other AI providers](/docs/integrations/vercel-ai)
+- [Explore other AI providers](/docs/ai/vercel-ai)
 - [API Reference](/docs/reference/options)
-

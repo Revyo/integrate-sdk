@@ -16,29 +16,29 @@ bun add integrate-sdk
 Add OAuth route handlers to your Node.js HTTP server:
 
 ```typescript
-import { createServer } from 'http';
-import { toNodeHandler } from 'integrate-sdk/adapters/node';
+import { createServer } from "http";
+import { toNodeHandler } from "integrate-sdk/adapters/node";
 
 const handler = toNodeHandler({
   providers: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      redirectUri: 'http://localhost:3000/api/integrate/oauth/callback',
+      redirectUri: "http://localhost:3000/api/integrate/oauth/callback",
     },
   },
 });
 
 createServer(async (req, res) => {
   // Handle OAuth routes
-  if (req.url?.startsWith('/api/integrate/')) {
+  if (req.url?.startsWith("/api/integrate/")) {
     await handler(req, res);
   } else {
     res.statusCode = 404;
-    res.end('Not Found');
+    res.end("Not Found");
   }
 }).listen(3000, () => {
-  console.log('Server running on port 3000');
+  console.log("Server running on port 3000");
 });
 ```
 
@@ -58,23 +58,23 @@ Add CORS headers manually or use a middleware library:
 ```typescript
 createServer(async (req, res) => {
   // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3001');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:3001");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
 
   // Handle preflight
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     res.statusCode = 204;
     res.end();
     return;
   }
 
-  if (req.url?.startsWith('/api/integrate/')) {
+  if (req.url?.startsWith("/api/integrate/")) {
     await handler(req, res);
   } else {
     res.statusCode = 404;
-    res.end('Not Found');
+    res.end("Not Found");
   }
 }).listen(3000);
 ```
@@ -84,18 +84,18 @@ createServer(async (req, res) => {
 ### Client-Side Authorization
 
 ```typescript
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
-      scopes: ['repo', 'user'],
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
     }),
   ],
 });
 
 // Start OAuth flow
-await client.authorize('github');
+await client.authorize("github");
 ```
 
 ## Framework-Specific Notes
@@ -103,4 +103,3 @@ await client.authorize('github');
 - **Native HTTP**: Uses Node.js's native `http` module.
 - **Request Conversion**: The adapter converts Node.js `IncomingMessage` to Web Request API.
 - **Helper Functions**: Use `fromNodeHeaders()` to convert Node.js headers to Web Headers.
-

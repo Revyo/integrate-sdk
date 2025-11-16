@@ -5,9 +5,9 @@
 
 import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { createMCPClient, clearClientCache } from "../../src/client.js";
-import { githubPlugin } from "../../src/plugins/github.js";
-import { gmailPlugin } from "../../src/plugins/gmail.js";
-import { createSimplePlugin } from "../../src/plugins/generic.js";
+import { githubIntegration } from "../../src/integrations/github.js";
+import { gmailIntegration } from "../../src/integrations/gmail.js";
+import { createSimpleIntegration } from "../../src/integrations/generic.js";
 
 describe("Edge Cases", () => {
   afterEach(async () => {
@@ -17,8 +17,8 @@ describe("Edge Cases", () => {
   describe("EventEmitter removeAllListeners", () => {
     test("client can be created and event listeners work", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -26,9 +26,9 @@ describe("Edge Cases", () => {
         singleton: false,
       });
 
-      const handler1 = () => {};
-      const handler2 = () => {};
-      const handler3 = () => {};
+      const handler1 = () => { };
+      const handler2 = () => { };
+      const handler3 = () => { };
 
       // Add multiple handlers
       client.on("auth:complete", handler1);
@@ -46,13 +46,13 @@ describe("Edge Cases", () => {
 
   describe("getProviderForTool edge cases", () => {
     test("returns undefined for tool without OAuth provider", () => {
-      const customPlugin = createSimplePlugin({
+      const customIntegration = createSimpleIntegration({
         id: "custom",
         tools: ["custom/tool"],
       });
 
       const client = createMCPClient({
-        plugins: [customPlugin as any],
+        integrations: [customIntegration as any],
         singleton: false,
       });
 
@@ -61,19 +61,19 @@ describe("Edge Cases", () => {
       expect(tool).toBeUndefined(); // Tool not discovered yet
     });
 
-    test("handles multiple plugins with and without OAuth", () => {
-      const customPlugin = createSimplePlugin({
+    test("handles multiple integrations with and without OAuth", () => {
+      const customIntegration = createSimpleIntegration({
         id: "custom",
         tools: ["custom/tool"],
       });
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
-          customPlugin as any,
+          customIntegration as any,
         ],
         singleton: false,
       });
@@ -85,8 +85,8 @@ describe("Edge Cases", () => {
   describe("getEnabledTools filtering", () => {
     test("filters tools correctly before connection", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -103,8 +103,8 @@ describe("Edge Cases", () => {
   describe("Tool name checking", () => {
     test("verifies tool is in enabled list", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -121,8 +121,8 @@ describe("Edge Cases", () => {
   describe("Client state management", () => {
     test("tracks connection state properly", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -142,8 +142,8 @@ describe("Edge Cases", () => {
       }) as any;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -170,15 +170,15 @@ describe("Edge Cases", () => {
     });
   });
 
-  describe("Plugin configuration variations", () => {
-    test("handles plugin with only id and tools", () => {
-      const minimalPlugin = createSimplePlugin({
+  describe("Integration configuration variations", () => {
+    test("handles integration with only id and tools", () => {
+      const minimalIntegration = createSimpleIntegration({
         id: "minimal",
         tools: ["minimal/tool1", "minimal/tool2"],
       });
 
       const client = createMCPClient({
-        plugins: [minimalPlugin as any],
+        integrations: [minimalIntegration as any],
         singleton: false,
       });
 
@@ -186,23 +186,23 @@ describe("Edge Cases", () => {
       expect(client.getOAuthConfig("minimal")).toBeUndefined();
     });
 
-    test("handles mixed plugin types", () => {
-      const simplePlugin = createSimplePlugin({
+    test("handles mixed integration types", () => {
+      const simpleIntegration = createSimpleIntegration({
         id: "simple",
         tools: ["simple/tool"],
       });
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
-          simplePlugin as any,
+          simpleIntegration as any,
         ],
         singleton: false,
       });
@@ -216,8 +216,8 @@ describe("Edge Cases", () => {
   describe("Error event handling", () => {
     test("error handler receives error object", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -252,10 +252,10 @@ describe("Edge Cases", () => {
           // Ignore errors
         }
       }
-      
+
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -264,7 +264,7 @@ describe("Edge Cases", () => {
       });
 
       expect(client.getProviderToken('github')).toBeUndefined();
-      
+
       // Setting and clearing provider tokens
       client.setProviderToken('github', {
         accessToken: 'test',
@@ -272,7 +272,7 @@ describe("Edge Cases", () => {
         expiresIn: 3600,
       });
       expect(client.getProviderToken('github')).toBeDefined();
-      
+
       client.clearSessionToken(); // Clears all provider tokens
       expect(client.getProviderToken('github')).toBeUndefined();
     });
@@ -281,8 +281,8 @@ describe("Edge Cases", () => {
   describe("OAuth config retrieval", () => {
     test("getOAuthConfig returns full config object", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "github-client-id",
             clientSecret: "github-secret",
           }),
@@ -299,12 +299,12 @@ describe("Edge Cases", () => {
 
     test("getAllOAuthConfigs returns Map with correct structure", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "github-id",
             clientSecret: "github-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "gmail-id",
             clientSecret: "gmail-secret",
           }),
@@ -315,10 +315,10 @@ describe("Edge Cases", () => {
       const configs = client.getAllOAuthConfigs();
       expect(configs instanceof Map).toBe(true);
       expect(configs.size).toBe(2);
-      
+
       const githubConfig = configs.get("github");
       const gmailConfig = configs.get("gmail");
-      
+
       expect(githubConfig?.clientId).toBe("github-id");
       expect(gmailConfig?.clientId).toBe("gmail-id");
     });
@@ -327,8 +327,8 @@ describe("Edge Cases", () => {
   describe("Provider authentication state", () => {
     test("isProviderAuthenticated handles unknown providers", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -348,8 +348,8 @@ describe("Edge Cases", () => {
 
     test("getAuthState returns undefined for unknown providers", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -365,8 +365,8 @@ describe("Edge Cases", () => {
   describe("Message handlers", () => {
     test("onMessage returns unsubscribe function", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -374,11 +374,11 @@ describe("Edge Cases", () => {
         singleton: false,
       });
 
-      const handler = () => {};
+      const handler = () => { };
       const unsubscribe = client.onMessage(handler);
 
       expect(typeof unsubscribe).toBe("function");
-      
+
       // Should be able to call unsubscribe
       unsubscribe();
     });
@@ -387,8 +387,8 @@ describe("Edge Cases", () => {
   describe("Client cleanup", () => {
     test("clearClientCache works with multiple clients", async () => {
       createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -396,8 +396,8 @@ describe("Edge Cases", () => {
       });
 
       createMCPClient({
-        plugins: [
-          gmailPlugin({
+        integrations: [
+          gmailIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -408,8 +408,8 @@ describe("Edge Cases", () => {
 
       // Should be able to create new clients after clearing
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -423,7 +423,7 @@ describe("Edge Cases", () => {
   describe("Configuration edge cases", () => {
     test("accepts all optional config parameters", () => {
       const client = createMCPClient({
-        plugins: [],
+        integrations: [],
         sessionToken: "token",
         timeout: 30000,
         headers: { "X-Test": "value" },
@@ -443,7 +443,7 @@ describe("Edge Cases", () => {
 
     test("works with minimal config", () => {
       const client = createMCPClient({
-        plugins: [],
+        integrations: [],
       });
 
       expect(client).toBeDefined();

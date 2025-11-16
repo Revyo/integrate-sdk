@@ -873,7 +873,7 @@ describe("Server-Side toNextJsHandler", () => {
     (global as any).window = undefined;
 
     // Set up server config once for all tests
-    const mockPlugin = {
+    const mockIntegration = {
       id: "github",
       tools: [],
       oauth: {
@@ -884,7 +884,7 @@ describe("Server-Side toNextJsHandler", () => {
     };
 
     const { client } = createMCPServer({
-      plugins: [mockPlugin as any],
+      integrations: [mockIntegration as any],
     });
 
     testClient = client;
@@ -1093,7 +1093,7 @@ describe("Server-Side toNextJsHandler", () => {
 
   it("should handle POST /mcp route via unified handler (for Astro/Remix)", async () => {
     let apiKeyUsed: string | undefined;
-    
+
     const mockFetch = mock(async (url: string, options?: any) => {
       if (url.includes("/api/v1/mcp")) {
         // Capture the API key to verify it's being passed
@@ -1117,10 +1117,10 @@ describe("Server-Side toNextJsHandler", () => {
 
     // Create a fresh server with API key for this test
     (global as any).window = undefined; // Ensure server-side mode
-    
+
     const { client } = createMCPServer({
       apiKey: "test-api-key-unified",
-      plugins: [{
+      integrations: [{
         id: "github",
         tools: [],
         oauth: {
@@ -1180,7 +1180,7 @@ describe("SvelteKit Handler - toSvelteKitHandler", () => {
       (global as any).window = undefined;
 
       const { client } = createMCPServer({
-        plugins: [{
+        integrations: [{
           id: "github",
           tools: [],
           oauth: {
@@ -1248,7 +1248,7 @@ describe("SvelteKit Handler - toSvelteKitHandler", () => {
 
       // Import toSvelteKitHandler
       const { toSvelteKitHandler } = await import("../../src/server");
-      
+
       // Create handler with inline config (like the example)
       const svelteKitHandler = toSvelteKitHandler({
         providers: {
@@ -1308,7 +1308,7 @@ describe("SvelteKit Handler - toSvelteKitHandler", () => {
       global.fetch = mockFetch;
 
       const { toSvelteKitHandler } = await import("../../src/server");
-      
+
       const svelteKitHandler = toSvelteKitHandler({
         providers: {
           github: {
@@ -1361,7 +1361,7 @@ describe("SvelteKit Handler - toSvelteKitHandler", () => {
       global.fetch = mockFetch;
 
       const { toSvelteKitHandler } = await import("../../src/server");
-      
+
       const svelteKitHandler = toSvelteKitHandler({
         providers: {
           github: {
@@ -1401,7 +1401,7 @@ describe("SvelteKit Handler - toSvelteKitHandler", () => {
 
     it("should throw error when providers config is missing", async () => {
       const { toSvelteKitHandler } = await import("../../src/server");
-      
+
       expect(() => {
         toSvelteKitHandler({
           redirectUrl: "/dashboard",
@@ -1411,7 +1411,7 @@ describe("SvelteKit Handler - toSvelteKitHandler", () => {
 
     it("should handle GET /oauth/callback (provider redirect)", async () => {
       const { toSvelteKitHandler } = await import("../../src/server");
-      
+
       const svelteKitHandler = toSvelteKitHandler({
         providers: {
           github: {
@@ -1467,7 +1467,7 @@ describe("SolidStart Handler - toSolidStartHandler", () => {
       (global as any).window = undefined;
 
       const { client } = createMCPServer({
-        plugins: [{
+        integrations: [{
           id: "github",
           tools: [],
           oauth: {
@@ -1532,7 +1532,7 @@ describe("SolidStart Handler - toSolidStartHandler", () => {
 
       // Import toSolidStartHandler
       const { toSolidStartHandler } = await import("../../src/server");
-      
+
       // Create handler with inline config
       const handlers = toSolidStartHandler({
         providers: {
@@ -1589,7 +1589,7 @@ describe("SolidStart Handler - toSolidStartHandler", () => {
       global.fetch = mockFetch;
 
       const { toSolidStartHandler } = await import("../../src/server");
-      
+
       const handlers = toSolidStartHandler({
         providers: {
           github: {
@@ -1639,7 +1639,7 @@ describe("SolidStart Handler - toSolidStartHandler", () => {
       global.fetch = mockFetch;
 
       const { toSolidStartHandler } = await import("../../src/server");
-      
+
       const handlers = toSolidStartHandler({
         providers: {
           github: {
@@ -1676,7 +1676,7 @@ describe("SolidStart Handler - toSolidStartHandler", () => {
 
     it("should throw error when providers config is missing", async () => {
       const { toSolidStartHandler } = await import("../../src/server");
-      
+
       expect(() => {
         toSolidStartHandler({
           redirectUrl: "/dashboard",
@@ -1686,7 +1686,7 @@ describe("SolidStart Handler - toSolidStartHandler", () => {
 
     it("should handle GET /oauth/callback (provider redirect)", async () => {
       const { toSolidStartHandler } = await import("../../src/server");
-      
+
       const handlers = toSolidStartHandler({
         providers: {
           github: {
@@ -1718,7 +1718,7 @@ describe("SolidStart Handler - toSolidStartHandler", () => {
 
     it("should return all HTTP method handlers", async () => {
       const { toSolidStartHandler } = await import("../../src/server");
-      
+
       const handlers = toSolidStartHandler({
         providers: {
           github: {

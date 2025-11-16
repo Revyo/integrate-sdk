@@ -4,8 +4,8 @@
 
 import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { createMCPClient } from "../../src/client.js";
-import { githubPlugin } from "../../src/plugins/github.js";
-import { gmailPlugin } from "../../src/plugins/gmail.js";
+import { githubIntegration } from "../../src/integrations/github.js";
+import { gmailIntegration } from "../../src/integrations/gmail.js";
 
 describe("Client OAuth Methods", () => {
   let originalFetch: typeof fetch;
@@ -21,8 +21,8 @@ describe("Client OAuth Methods", () => {
   describe("Provider Token Management", () => {
     test("getProviderToken returns undefined initially", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -35,8 +35,8 @@ describe("Client OAuth Methods", () => {
 
     test("setProviderToken stores token", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -58,8 +58,8 @@ describe("Client OAuth Methods", () => {
       // This test verifies tokens are loaded on initialization
       // Pre-populate localStorage if we're in a browser-like environment
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -83,8 +83,8 @@ describe("Client OAuth Methods", () => {
       })) as any;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -111,8 +111,8 @@ describe("Client OAuth Methods", () => {
       })) as any;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -138,8 +138,8 @@ describe("Client OAuth Methods", () => {
       })) as any;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -167,8 +167,8 @@ describe("Client OAuth Methods", () => {
       })) as any;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -195,12 +195,12 @@ describe("Client OAuth Methods", () => {
       }) as any;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
-          gmailPlugin({
+          gmailIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -210,12 +210,12 @@ describe("Client OAuth Methods", () => {
       });
 
       const authorized = await client.authorizedProviders();
-      
+
       expect(authorized).toBeInstanceOf(Array);
       expect(authorized.length).toBeGreaterThanOrEqual(0);
     });
 
-    test("only includes OAuth-enabled plugins", async () => {
+    test("only includes OAuth-enabled integrations", async () => {
       global.fetch = mock(async () => ({
         ok: true,
         json: async () => ({
@@ -225,8 +225,8 @@ describe("Client OAuth Methods", () => {
       })) as any;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -236,8 +236,8 @@ describe("Client OAuth Methods", () => {
       });
 
       const authorized = await client.authorizedProviders();
-      
-      // Should only check plugins with OAuth config
+
+      // Should only check integrations with OAuth config
       expect(authorized).toBeInstanceOf(Array);
     });
   });
@@ -245,8 +245,8 @@ describe("Client OAuth Methods", () => {
   describe("authorize", () => {
     test("throws error for non-existent provider", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -259,9 +259,9 @@ describe("Client OAuth Methods", () => {
       ).rejects.toThrow("No OAuth configuration found");
     });
 
-    test("throws error for plugin without OAuth", async () => {
+    test("throws error for integration without OAuth", async () => {
       const client = createMCPClient({
-        plugins: [],
+        integrations: [],
         singleton: false,
       });
 
@@ -282,8 +282,8 @@ describe("Client OAuth Methods", () => {
       })) as any;
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -305,8 +305,8 @@ describe("Client OAuth Methods", () => {
   describe("OAuth Flow Configuration", () => {
     test("accepts popup mode configuration", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -326,8 +326,8 @@ describe("Client OAuth Methods", () => {
 
     test("accepts redirect mode configuration", () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -347,8 +347,8 @@ describe("Client OAuth Methods", () => {
       };
 
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),

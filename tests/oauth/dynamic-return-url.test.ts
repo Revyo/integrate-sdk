@@ -5,7 +5,7 @@
 
 import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { createMCPClient } from "../../src/client.js";
-import { githubPlugin } from "../../src/plugins/github.js";
+import { githubIntegration } from "../../src/integrations/github.js";
 import { OAuthManager } from "../../src/oauth/manager.js";
 import { generateStateWithReturnUrl, parseState } from "../../src/oauth/pkce.js";
 import { createOAuthRedirectHandler } from "../../src/adapters/nextjs-oauth-redirect.js";
@@ -18,7 +18,7 @@ describe("Dynamic Return URL", () => {
 
     beforeEach(() => {
       originalFetch = global.fetch;
-      
+
       // Mock fetch to prevent actual network calls
       global.fetch = mock(async () => ({
         ok: true,
@@ -34,8 +34,8 @@ describe("Dynamic Return URL", () => {
 
     test("authorize accepts returnUrl option", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -54,8 +54,8 @@ describe("Dynamic Return URL", () => {
 
     test("authorize works without returnUrl (backward compatibility)", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -73,8 +73,8 @@ describe("Dynamic Return URL", () => {
 
     test("authorize with returnUrl passes value to OAuth manager", async () => {
       const client = createMCPClient({
-        plugins: [
-          githubPlugin({
+        integrations: [
+          githubIntegration({
             clientId: "test-id",
             clientSecret: "test-secret",
           }),
@@ -103,7 +103,7 @@ describe("Dynamic Return URL", () => {
     beforeEach(() => {
       manager = new OAuthManager(TEST_SERVER_URL, { mode: 'redirect' });
       originalFetch = global.fetch;
-      
+
       global.fetch = mock(async () => ({
         ok: true,
         json: async () => ({
@@ -208,7 +208,7 @@ describe("Dynamic Return URL", () => {
       };
 
       const response = await handler(mockRequest);
-      
+
       // Response should redirect to the returnUrl from state
       expect(response).toBeDefined();
     });
@@ -229,7 +229,7 @@ describe("Dynamic Return URL", () => {
       };
 
       const response = await handler(mockRequest);
-      
+
       expect(response).toBeDefined();
     });
 
@@ -249,7 +249,7 @@ describe("Dynamic Return URL", () => {
       };
 
       const response = await handler(mockRequest);
-      
+
       // Should redirect to fallback URL
       expect(response).toBeDefined();
     });
@@ -275,7 +275,7 @@ describe("Dynamic Return URL", () => {
       };
 
       const response = await handler(mockRequest);
-      
+
       expect(response).toBeDefined();
     });
 
@@ -301,7 +301,7 @@ describe("Dynamic Return URL", () => {
       };
 
       const response = await handler(mockRequest);
-      
+
       // Should use default, not the cross-origin referrer
       expect(response).toBeDefined();
     });
@@ -320,7 +320,7 @@ describe("Dynamic Return URL", () => {
       };
 
       const response = await handler(mockRequest);
-      
+
       expect(response).toBeDefined();
     });
   });
@@ -329,20 +329,20 @@ describe("Dynamic Return URL", () => {
     test("complete flow from authorize to redirect", () => {
       // 1. User starts OAuth from a specific page
       const originPage = "/marketplace/github";
-      
+
       // 2. Generate state with return URL
       const state = generateStateWithReturnUrl(originPage);
-      
+
       // 3. State is sent to OAuth provider (simulated)
       expect(state).toBeDefined();
       expect(state.length).toBeGreaterThan(0);
-      
+
       // 4. OAuth provider returns with same state
       const decoded = parseState(state);
-      
+
       // 5. Return URL is extracted
       expect(decoded.returnUrl).toBe(originPage);
-      
+
       // 6. User is redirected back to origin page
       // (This would happen in createOAuthRedirectHandler)
     });
@@ -350,14 +350,14 @@ describe("Dynamic Return URL", () => {
     test("flow without returnUrl falls back gracefully", () => {
       // 1. User starts OAuth without specifying returnUrl
       const state = generateStateWithReturnUrl();
-      
+
       // 2. State is still valid
       expect(state).toBeDefined();
-      
+
       // 3. No return URL in decoded state
       const decoded = parseState(state);
       expect(decoded.returnUrl).toBeUndefined();
-      
+
       // 4. System would fall back to configured default
     });
   });

@@ -5,16 +5,16 @@
  * It will connect to the server and list available Gmail tools.
  */
 
-import { createMCPClient, gmailPlugin } from "../src/index.js";
+import { createMCPClient, gmailIntegration } from "../src/index.js";
 
 async function testGmailIntegration() {
   console.log("🧪 Testing Gmail Integration\n");
 
-  // Create client with Gmail plugin
+  // Create client with Gmail integration
   // Using placeholder credentials since we're just testing tool availability
   const client = createMCPClient({
-    plugins: [
-      gmailPlugin({
+    integrations: [
+      gmailIntegration({
         clientId: "test-client-id",
         clientSecret: "test-client-secret",
       }),
@@ -36,13 +36,13 @@ async function testGmailIntegration() {
       const gmailToolsList = await client.server.listToolsByIntegration({
         integration: "gmail",
       });
-      
+
       const toolNames = (gmailToolsList.structuredContent?.tools as string[]) || [];
       console.log(`\n📧 Gmail tools available: ${toolNames.length}\n`);
 
       if (toolNames.length > 0) {
         console.log("Available Gmail methods:");
-        
+
         // Get tool descriptions from enabled tools
         const enabledTools = client.getEnabledTools();
         toolNames.forEach((toolName) => {
@@ -61,7 +61,7 @@ async function testGmailIntegration() {
 
     // Test the typed API (will fail without OAuth, but shows the interface)
     console.log("\n📝 Testing typed Gmail API...\n");
-    
+
     console.log("Example usage (requires OAuth):");
     console.log(`
   // Send a message
@@ -100,7 +100,7 @@ async function testGmailIntegration() {
       console.log("✅ Success:", result);
     } catch (error: any) {
       console.log("❌ Expected error (needs OAuth):", error.message);
-      
+
       if (error.message.includes("401") || error.message.includes("authentication") || error.message.includes("Unauthorized")) {
         console.log("\n✅ Gmail integration is working! It's correctly requiring authentication.");
       } else if (error.message.includes("not available")) {

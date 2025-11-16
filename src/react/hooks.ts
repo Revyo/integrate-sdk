@@ -15,7 +15,7 @@ export interface UseIntegrateTokensResult {
    * Current provider tokens (e.g., { github: 'token123', gmail: 'token456' })
    */
   tokens: Record<string, string>;
-  
+
   /**
    * Whether tokens are currently being loaded
    */
@@ -72,11 +72,11 @@ function isReactHooksAvailable(): boolean {
  * 
  * @example
  * ```tsx
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
  * import { useIntegrateTokens } from 'integrate-sdk/react';
  * 
  * const client = createMCPClient({
- *   plugins: [githubPlugin({ clientId: '...' })],
+ *   integrations: [githubIntegration({ clientId: '...' })],
  * });
  * 
  * function ConnectionStatus() {
@@ -186,7 +186,7 @@ export interface UseIntegrateAIOptions {
    * Can be a string (uses .includes()) or RegExp
    */
   apiPattern?: string | RegExp;
-  
+
   /**
    * Enable debug logging
    * Default: false
@@ -212,12 +212,12 @@ export interface UseIntegrateAIOptions {
  * // app/layout.tsx or app/providers.tsx
  * 'use client';
  * 
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
  * import { useIntegrateAI } from 'integrate-sdk/react';
  * 
  * const client = createMCPClient({
- *   plugins: [
- *     githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID }),
+ *   integrations: [
+ *     githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID }),
  *   ],
  * });
  * 
@@ -307,8 +307,8 @@ export function useIntegrateAI(
         typeof input === 'string'
           ? input
           : input instanceof URL
-          ? input.href
-          : (input as Request).url;
+            ? input.href
+            : (input as Request).url;
 
       // Check if this request matches the API pattern
       const shouldIntercept =

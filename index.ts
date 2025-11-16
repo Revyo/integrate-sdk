@@ -1,15 +1,15 @@
 /**
  * Integrate SDK - Main Entry Point
  * 
- * Client-side SDK for MCP with plugin-based configuration
+ * Client-side SDK for MCP with integration-based configuration
  * 
  * @example
  * ```typescript
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
  * 
  * const client = createMCPClient({
- *   plugins: [
- *     githubPlugin({
+ *   integrations: [
+ *     githubIntegration({
  *       scopes: ['repo', 'user'],
  *     }),
  *   ],

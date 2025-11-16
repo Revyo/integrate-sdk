@@ -7,11 +7,11 @@
 import { z } from "zod";
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
-import { 
-  jsonSchemaToZod, 
-  executeToolWithToken, 
-  ensureClientConnected, 
-  type AIToolsOptions 
+import {
+  jsonSchemaToZod,
+  executeToolWithToken,
+  ensureClientConnected,
+  type AIToolsOptions
 } from "./utils.js";
 
 /**
@@ -28,7 +28,7 @@ export interface LangChainTool {
 /**
  * Options for converting MCP tools to LangChain format
  */
-export interface LangChainToolsOptions extends AIToolsOptions {}
+export interface LangChainToolsOptions extends AIToolsOptions { }
 
 /**
  * Convert a single MCP tool to LangChain DynamicStructuredTool format
@@ -100,14 +100,14 @@ export function convertMCPToolsToLangChain(
  * @example
  * ```typescript
  * // Client-side usage
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
- * import { getLangChainTools } from 'integrate-sdk/integrations/langchain';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
+ * import { getLangChainTools } from 'integrate-sdk/ai/langchain';
  * import { DynamicStructuredTool } from '@langchain/core/tools';
  * import { ChatOpenAI } from '@langchain/openai';
  * import { AgentExecutor, createOpenAIFunctionsAgent } from 'langchain/agents';
  * 
  * const client = createMCPClient({
- *   plugins: [githubPlugin({ clientId: '...' })],
+ *   integrations: [githubIntegration({ clientId: '...' })],
  * });
  * 
  * const toolConfigs = await getLangChainTools(client);
@@ -132,11 +132,11 @@ export function convertMCPToolsToLangChain(
  * @example
  * ```typescript
  * // Server-side usage with tokens from client
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
- * import { getLangChainTools } from 'integrate-sdk/integrations/langchain';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
+ * import { getLangChainTools } from 'integrate-sdk/ai/langchain';
  * 
  * const { client: serverClient } = createMCPServer({
- *   plugins: [githubPlugin({ 
+ *   integrations: [githubIntegration({ 
  *     clientId: '...', 
  *     clientSecret: '...' 
  *   })],

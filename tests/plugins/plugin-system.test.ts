@@ -1,147 +1,147 @@
 /**
- * Plugin System Tests
+ * Integration System Tests
  */
 
 import { describe, test, expect } from "bun:test";
-import { githubPlugin } from "../../src/plugins/github.js";
-import { gmailPlugin } from "../../src/plugins/gmail.js";
-import { genericOAuthPlugin, createSimplePlugin } from "../../src/plugins/generic.js";
-import { hasOAuthConfig } from "../../src/plugins/types.js";
+import { githubIntegration } from "../../src/integrations/github.js";
+import { gmailIntegration } from "../../src/integrations/gmail.js";
+import { genericOAuthIntegration, createSimpleIntegration } from "../../src/integrations/generic.js";
+import { hasOAuthConfig } from "../../src/integrations/types.js";
 
-describe("Plugin System", () => {
-  describe("GitHub Plugin", () => {
-    test("creates plugin with correct structure", () => {
-      const plugin = githubPlugin({
+describe("Integration System", () => {
+  describe("GitHub Integration", () => {
+    test("creates integration with correct structure", () => {
+      const integration = githubIntegration({
         clientId: "test-client-id",
         clientSecret: "test-client-secret",
       });
 
-      expect(plugin.id).toBe("github");
-      expect(plugin.tools).toBeArray();
-      expect(plugin.tools.length).toBeGreaterThan(0);
-      expect(plugin.oauth).toBeDefined();
+      expect(integration.id).toBe("github");
+      expect(integration.tools).toBeArray();
+      expect(integration.tools.length).toBeGreaterThan(0);
+      expect(integration.oauth).toBeDefined();
     });
 
     test("includes OAuth configuration", () => {
-      const plugin = githubPlugin({
+      const integration = githubIntegration({
         clientId: "test-id",
         clientSecret: "test-secret",
         scopes: ["repo", "user", "admin:org"],
       });
 
-      expect(plugin.oauth?.provider).toBe("github");
-      expect(plugin.oauth?.clientId).toBe("test-id");
-      expect(plugin.oauth?.clientSecret).toBe("test-secret");
-      expect(plugin.oauth?.scopes).toEqual(["repo", "user", "admin:org"]);
+      expect(integration.oauth?.provider).toBe("github");
+      expect(integration.oauth?.clientId).toBe("test-id");
+      expect(integration.oauth?.clientSecret).toBe("test-secret");
+      expect(integration.oauth?.scopes).toEqual(["repo", "user", "admin:org"]);
     });
 
     test("uses default scopes when not provided", () => {
-      const plugin = githubPlugin({
+      const integration = githubIntegration({
         clientId: "test-id",
         clientSecret: "test-secret",
       });
 
-      expect(plugin.oauth?.scopes).toEqual(["repo", "user"]);
+      expect(integration.oauth?.scopes).toEqual(["repo", "user"]);
     });
 
     test("includes expected tools", () => {
-      const plugin = githubPlugin({
+      const integration = githubIntegration({
         clientId: "test-id",
         clientSecret: "test-secret",
       });
 
-      expect(plugin.tools).toContain("github_create_issue");
-      expect(plugin.tools).toContain("github_list_repos");
-      expect(plugin.tools).toContain("github_create_pull_request");
+      expect(integration.tools).toContain("github_create_issue");
+      expect(integration.tools).toContain("github_list_repos");
+      expect(integration.tools).toContain("github_create_pull_request");
     });
 
     test("has lifecycle hooks defined", () => {
-      const plugin = githubPlugin({
+      const integration = githubIntegration({
         clientId: "test-id",
         clientSecret: "test-secret",
       });
 
-      expect(plugin.onInit).toBeDefined();
-      expect(plugin.onAfterConnect).toBeDefined();
+      expect(integration.onInit).toBeDefined();
+      expect(integration.onAfterConnect).toBeDefined();
     });
 
     test("lifecycle hooks execute successfully", async () => {
-      const plugin = githubPlugin({
+      const integration = githubIntegration({
         clientId: "test-id",
         clientSecret: "test-secret",
       });
 
       // Test onInit
-      await expect(plugin.onInit?.(null as any)).resolves.toBeUndefined();
+      await expect(integration.onInit?.(null as any)).resolves.toBeUndefined();
 
       // Test onAfterConnect
-      await expect(plugin.onAfterConnect?.(null as any)).resolves.toBeUndefined();
+      await expect(integration.onAfterConnect?.(null as any)).resolves.toBeUndefined();
     });
   });
 
-  describe("Gmail Plugin", () => {
-    test("creates plugin with correct structure", () => {
-      const plugin = gmailPlugin({
+  describe("Gmail Integration", () => {
+    test("creates integration with correct structure", () => {
+      const integration = gmailIntegration({
         clientId: "test-client-id",
         clientSecret: "test-client-secret",
       });
 
-      expect(plugin.id).toBe("gmail");
-      expect(plugin.tools).toBeArray();
-      expect(plugin.tools.length).toBeGreaterThan(0);
-      expect(plugin.oauth).toBeDefined();
+      expect(integration.id).toBe("gmail");
+      expect(integration.tools).toBeArray();
+      expect(integration.tools.length).toBeGreaterThan(0);
+      expect(integration.oauth).toBeDefined();
     });
 
     test("includes OAuth configuration", () => {
-      const plugin = gmailPlugin({
+      const integration = gmailIntegration({
         clientId: "test-id",
         clientSecret: "test-secret",
       });
 
-      expect(plugin.oauth?.provider).toBe("gmail");
-      expect(plugin.oauth?.clientId).toBe("test-id");
-      expect(plugin.oauth?.clientSecret).toBe("test-secret");
+      expect(integration.oauth?.provider).toBe("gmail");
+      expect(integration.oauth?.clientId).toBe("test-id");
+      expect(integration.oauth?.clientSecret).toBe("test-secret");
     });
 
     test("includes expected tools", () => {
-      const plugin = gmailPlugin({
+      const integration = gmailIntegration({
         clientId: "test-id",
         clientSecret: "test-secret",
       });
 
-      expect(plugin.tools).toContain("gmail_send_message");
-      expect(plugin.tools).toContain("gmail_list_messages");
-      expect(plugin.tools).toContain("gmail_search_messages");
-      expect(plugin.tools).toContain("gmail_get_message");
+      expect(integration.tools).toContain("gmail_send_message");
+      expect(integration.tools).toContain("gmail_list_messages");
+      expect(integration.tools).toContain("gmail_search_messages");
+      expect(integration.tools).toContain("gmail_get_message");
     });
 
     test("has lifecycle hooks defined", () => {
-      const plugin = gmailPlugin({
+      const integration = gmailIntegration({
         clientId: "test-id",
         clientSecret: "test-secret",
       });
 
-      expect(plugin.onInit).toBeDefined();
-      expect(plugin.onAfterConnect).toBeDefined();
+      expect(integration.onInit).toBeDefined();
+      expect(integration.onAfterConnect).toBeDefined();
     });
 
     test("lifecycle hooks execute successfully", async () => {
-      const plugin = gmailPlugin({
+      const integration = gmailIntegration({
         clientId: "test-id",
         clientSecret: "test-secret",
       });
 
       // Test onInit
-      await expect(plugin.onInit?.(null as any)).resolves.toBeUndefined();
+      await expect(integration.onInit?.(null as any)).resolves.toBeUndefined();
 
       // Test onAfterConnect
-      await expect(plugin.onAfterConnect?.(null as any)).resolves.toBeUndefined();
+      await expect(integration.onAfterConnect?.(null as any)).resolves.toBeUndefined();
     });
   });
 
-  describe("Generic OAuth Plugin", () => {
-    test("creates plugin for server-supported integration", () => {
-      const plugin = genericOAuthPlugin({
+  describe("Generic OAuth Integration", () => {
+    test("creates integration for server-supported integration", () => {
+      const integration = genericOAuthIntegration({
         id: "slack",
         provider: "slack",
         clientId: "slack-id",
@@ -150,9 +150,9 @@ describe("Plugin System", () => {
         tools: ["slack/sendMessage", "slack/listChannels"],
       });
 
-      expect(plugin.id).toBe("slack");
-      expect(plugin.oauth?.provider).toBe("slack");
-      expect(plugin.tools).toEqual(["slack/sendMessage", "slack/listChannels"]);
+      expect(integration.id).toBe("slack");
+      expect(integration.oauth?.provider).toBe("slack");
+      expect(integration.tools).toEqual(["slack/sendMessage", "slack/listChannels"]);
     });
 
     test("supports additional configuration", () => {
@@ -161,7 +161,7 @@ describe("Plugin System", () => {
         apiUrl: "https://api.example.com",
       };
 
-      const plugin = genericOAuthPlugin({
+      const integration = genericOAuthIntegration({
         id: "custom",
         provider: "custom-provider",
         clientId: "id",
@@ -172,7 +172,7 @@ describe("Plugin System", () => {
       });
 
       // The entire config is stored in the OAuth config
-      expect(plugin.oauth?.config).toEqual({
+      expect(integration.oauth?.config).toEqual({
         id: "custom",
         provider: "custom-provider",
         clientId: "id",
@@ -184,23 +184,23 @@ describe("Plugin System", () => {
     });
   });
 
-  describe("Simple Plugin", () => {
-    test("creates plugin without OAuth", () => {
-      const plugin = createSimplePlugin({
+  describe("Simple Integration", () => {
+    test("creates integration without OAuth", () => {
+      const integration = createSimpleIntegration({
         id: "math",
         tools: ["math/add", "math/subtract"],
       });
 
-      expect(plugin.id).toBe("math");
-      expect(plugin.tools).toEqual(["math/add", "math/subtract"]);
-      expect(plugin.oauth).toBeUndefined();
+      expect(integration.id).toBe("math");
+      expect(integration.tools).toEqual(["math/add", "math/subtract"]);
+      expect(integration.oauth).toBeUndefined();
     });
 
     test("supports lifecycle hooks", () => {
       let initCalled = false;
       let connectCalled = false;
 
-      const plugin = createSimplePlugin({
+      const integration = createSimpleIntegration({
         id: "test",
         tools: ["test/tool"],
         onInit: () => {
@@ -211,11 +211,11 @@ describe("Plugin System", () => {
         },
       });
 
-      expect(plugin.onInit).toBeDefined();
-      expect(plugin.onAfterConnect).toBeDefined();
+      expect(integration.onInit).toBeDefined();
+      expect(integration.onAfterConnect).toBeDefined();
 
-      plugin.onInit?.(null as any);
-      plugin.onAfterConnect?.(null as any);
+      integration.onInit?.(null as any);
+      integration.onAfterConnect?.(null as any);
 
       expect(initCalled).toBe(true);
       expect(connectCalled).toBe(true);
@@ -223,22 +223,22 @@ describe("Plugin System", () => {
   });
 
   describe("hasOAuthConfig type guard", () => {
-    test("returns true for plugin with OAuth", () => {
-      const plugin = githubPlugin({
+    test("returns true for integration with OAuth", () => {
+      const integration = githubIntegration({
         clientId: "test-id",
         clientSecret: "test-secret",
       });
 
-      expect(hasOAuthConfig(plugin)).toBe(true);
+      expect(hasOAuthConfig(integration)).toBe(true);
     });
 
-    test("returns false for plugin without OAuth", () => {
-      const plugin = createSimplePlugin({
+    test("returns false for integration without OAuth", () => {
+      const integration = createSimpleIntegration({
         id: "test",
         tools: ["test/tool"],
       });
 
-      expect(hasOAuthConfig(plugin)).toBe(false);
+      expect(hasOAuthConfig(integration)).toBe(false);
     });
   });
 });

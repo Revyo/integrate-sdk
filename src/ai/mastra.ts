@@ -7,11 +7,11 @@
 import { z } from "zod";
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
-import { 
-  jsonSchemaToZod, 
-  executeToolWithToken, 
-  ensureClientConnected, 
-  type AIToolsOptions 
+import {
+  jsonSchemaToZod,
+  executeToolWithToken,
+  ensureClientConnected,
+  type AIToolsOptions
 } from "./utils.js";
 
 /**
@@ -29,7 +29,7 @@ export interface MastraTool {
 /**
  * Options for converting MCP tools to Mastra format
  */
-export interface MastraToolsOptions extends AIToolsOptions {}
+export interface MastraToolsOptions extends AIToolsOptions { }
 
 /**
  * Convert a single MCP tool to Mastra AI SDK format
@@ -85,11 +85,11 @@ export function convertMCPToolsToMastra(
 ): Record<string, MastraTool> {
   const mcpTools = client.getEnabledTools();
   const tools: Record<string, MastraTool> = {};
-  
+
   for (const mcpTool of mcpTools) {
     tools[mcpTool.name] = convertMCPToolToMastra(mcpTool, client, options);
   }
-  
+
   return tools;
 }
 
@@ -106,12 +106,12 @@ export function convertMCPToolsToMastra(
  * @example
  * ```typescript
  * // Client-side usage
- * import { createMCPClient, githubPlugin } from 'integrate-sdk';
- * import { getMastraTools } from 'integrate-sdk/integrations/mastra';
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
+ * import { getMastraTools } from 'integrate-sdk/ai/mastra';
  * import { createTool, Agent } from '@mastra/core';
  * 
  * const client = createMCPClient({
- *   plugins: [githubPlugin({ clientId: '...' })],
+ *   integrations: [githubIntegration({ clientId: '...' })],
  * });
  * 
  * const toolConfigs = await getMastraTools(client);
@@ -135,11 +135,11 @@ export function convertMCPToolsToMastra(
  * @example
  * ```typescript
  * // Server-side usage with tokens from client
- * import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
- * import { getMastraTools } from 'integrate-sdk/integrations/mastra';
+ * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
+ * import { getMastraTools } from 'integrate-sdk/ai/mastra';
  * 
  * const { client: serverClient } = createMCPServer({
- *   plugins: [githubPlugin({ 
+ *   integrations: [githubIntegration({ 
  *     clientId: '...', 
  *     clientSecret: '...' 
  *   })],

@@ -1,4 +1,4 @@
-import { createMCPClient, githubPlugin } from '../src/index.js';
+import { createMCPClient, githubIntegration } from '../src/index.js';
 import { createMCPServer } from '../src/server.js';
 
 /**
@@ -9,8 +9,8 @@ import { createMCPServer } from '../src/server.js';
  */
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID || 'your-client-id',
     }),
   ],
@@ -19,12 +19,12 @@ const client = createMCPClient({
 // Client-side tool calls (no API key - usage tracking happens server-side)
 async function exampleToolCall() {
   await client.connect();
-  
+
   const repo = await client.github.getRepo({
     owner: 'octocat',
     repo: 'Hello-World',
   });
-  
+
   console.log('Repository fetched');
 }
 
@@ -35,8 +35,8 @@ async function exampleToolCall() {
  */
 const { client: serverClient } = createMCPServer({
   apiKey: process.env.INTEGRATE_API_KEY, // ✅ Secure - not exposed to client
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
     }),
@@ -46,13 +46,13 @@ const { client: serverClient } = createMCPServer({
 // Server-side tool calls automatically include X-API-KEY header for usage tracking
 async function serverExampleToolCall() {
   await serverClient.connect();
-  
+
   // This request includes: X-API-KEY: <your-api-key>
   const repo = await serverClient.github.getRepo({
     owner: 'octocat',
     repo: 'Hello-World',
   });
-  
+
   console.log('Repository fetched with usage tracked to API key');
 }
 

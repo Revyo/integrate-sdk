@@ -17,14 +17,14 @@ Use the `useIntegrateAI` hook for automatic token injection:
 
 ```typescript
 // app/providers.tsx
-'use client';
+"use client";
 
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
-import { useIntegrateAI } from 'integrate-sdk/react';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { useIntegrateAI } from "integrate-sdk/react";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  integrations: [
+    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
   ],
 });
 
@@ -40,14 +40,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
 
 export const { client: serverClient } = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ['repo', 'user'],
+      scopes: ["repo", "user"],
     }),
   ],
 });
@@ -57,17 +57,20 @@ export const { client: serverClient } = createMCPServer({
 
 ```typescript
 // app/api/chat/route.ts
-import { serverClient } from '@/lib/integrate-server';
-import { getGoogleTools, executeGoogleFunctionCall } from 'integrate-sdk/integrations/google';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { serverClient } from "@/lib/integrate-server";
+import {
+  getGoogleTools,
+  executeGoogleFunctionCall,
+} from "integrate-sdk/ai/google";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
 
 export async function POST(req: Request) {
   try {
     // Extract provider tokens from request
-    const tokensHeader = req.headers.get('x-integrate-tokens');
-    const providerTokens = JSON.parse(tokensHeader || '{}');
+    const tokensHeader = req.headers.get("x-integrate-tokens");
+    const providerTokens = JSON.parse(tokensHeader || "{}");
 
     // Get tools with user's tokens
     const tools = await getGoogleTools(serverClient, { providerTokens });
@@ -76,7 +79,7 @@ export async function POST(req: Request) {
 
     // Create model with tools
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
+      model: "gemini-2.0-flash-exp",
       tools: [{ functionDeclarations: tools }],
     });
 
@@ -121,13 +124,13 @@ export async function POST(req: Request) {
             parts: [{ text: m.content }],
           })),
           {
-            role: 'model',
-            parts: functionCalls.map(call => ({
+            role: "model",
+            parts: functionCalls.map((call) => ({
               functionCall: { name: call.name, args: call.args },
             })),
           },
           {
-            role: 'function',
+            role: "function",
             parts: functionResults,
           },
         ],
@@ -143,10 +146,7 @@ export async function POST(req: Request) {
       text: response.text(),
     });
   } catch (error: any) {
-    return Response.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return Response.json({ error: error.message }, { status: 500 });
   }
 }
 ```
@@ -158,6 +158,7 @@ export async function POST(req: Request) {
 Converts all enabled MCP tools to Google GenAI format.
 
 **Parameters:**
+
 - `client` - The MCP client instance
 - `options` - Optional configuration
   - `providerTokens` - Provider tokens for server-side usage
@@ -169,6 +170,7 @@ Converts all enabled MCP tools to Google GenAI format.
 Execute a function call from Google GenAI.
 
 **Parameters:**
+
 - `client` - The MCP client instance
 - `functionCall` - Function call object with `name` and `args`
 - `options` - Optional configuration with `providerTokens`
@@ -200,19 +202,19 @@ Google GenAI expects tools in this format:
 ## Complete Example
 
 ```typescript
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { getGoogleTools } from 'integrate-sdk/integrations/google';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getGoogleTools } from "integrate-sdk/ai/google";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
 const tools = await getGoogleTools(serverClient, { providerTokens });
 
 const model = genAI.getGenerativeModel({
-  model: 'gemini-2.0-flash-exp',
+  model: "gemini-2.0-flash-exp",
   tools: [{ functionDeclarations: tools }],
 });
 
 const chat = model.startChat();
-const result = await chat.sendMessage('Create a GitHub issue about bug fixes');
+const result = await chat.sendMessage("Create a GitHub issue about bug fixes");
 
 console.log(result.response.text());
 ```
@@ -220,6 +222,5 @@ console.log(result.response.text());
 ## Next Steps
 
 - [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
-- [Explore other AI providers](/docs/integrations/vercel-ai)
+- [Explore other AI providers](/docs/ai/vercel-ai)
 - [API Reference](/docs/reference/options)
-

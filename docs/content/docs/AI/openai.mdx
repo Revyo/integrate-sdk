@@ -17,14 +17,14 @@ The easiest way is using the `useIntegrateAI` hook, which automatically injects 
 
 ```typescript
 // app/providers.tsx
-'use client';
+"use client";
 
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
-import { useIntegrateAI } from 'integrate-sdk/react';
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { useIntegrateAI } from "integrate-sdk/react";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  integrations: [
+    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
   ],
 });
 
@@ -40,14 +40,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 ```typescript
 // lib/integrate-server.ts
-import { createMCPServer, githubPlugin } from 'integrate-sdk/server';
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
 
 export const { client: serverClient } = createMCPServer({
-  plugins: [
-    githubPlugin({
+  integrations: [
+    githubIntegration({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ['repo', 'user'],
+      scopes: ["repo", "user"],
     }),
   ],
 });
@@ -57,39 +57,39 @@ export const { client: serverClient } = createMCPServer({
 
 ```typescript
 // app/api/chat/route.ts
-import { serverClient } from '@/lib/integrate-server';
-import { getOpenAITools, executeOpenAIToolCall } from 'integrate-sdk/integrations/openai';
-import OpenAI from 'openai';
+import { serverClient } from "@/lib/integrate-server";
+import { getOpenAITools, executeOpenAIToolCall } from "integrate-sdk/ai/openai";
+import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: Request) {
   try {
     // Extract provider tokens from request
-    const tokensHeader = req.headers.get('x-integrate-tokens');
-    const providerTokens = JSON.parse(tokensHeader || '{}');
+    const tokensHeader = req.headers.get("x-integrate-tokens");
+    const providerTokens = JSON.parse(tokensHeader || "{}");
 
     // Get tools with user's tokens
-    const tools = await getOpenAITools(serverClient, { 
+    const tools = await getOpenAITools(serverClient, {
       providerTokens,
-      strict: true // Optional: enable strict mode
+      strict: true, // Optional: enable strict mode
     });
 
     const { messages } = await req.json();
 
     // Create response with tools
     const response = await openai.responses.create({
-      model: 'gpt-4o-2024-11-20',
+      model: "gpt-4o-2024-11-20",
       input: messages,
       tools,
     });
 
     // Handle tool calls
-    const toolCalls = response.output.filter(o => o.type === 'function_call');
-    
+    const toolCalls = response.output.filter((o) => o.type === "function_call");
+
     if (toolCalls.length > 0) {
       const toolResults = [];
-      
+
       for (const toolCall of toolCalls) {
         const result = await executeOpenAIToolCall(
           serverClient,
@@ -100,31 +100,28 @@ export async function POST(req: Request) {
           },
           { providerTokens }
         );
-        
+
         toolResults.push({
           call_id: toolCall.call_id,
-          type: 'function_call_output',
+          type: "function_call_output",
           output: result,
-          status: 'completed',
+          status: "completed",
         });
       }
-      
+
       // Continue conversation with tool results
       const finalResponse = await openai.responses.create({
-        model: 'gpt-4o-2024-11-20',
+        model: "gpt-4o-2024-11-20",
         input: [...messages, ...toolResults],
         tools,
       });
-      
+
       return Response.json(finalResponse);
     }
 
     return Response.json(response);
   } catch (error: any) {
-    return Response.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return Response.json({ error: error.message }, { status: 500 });
   }
 }
 ```
@@ -135,59 +132,64 @@ export async function POST(req: Request) {
 
 ```typescript
 // app/chat/page.tsx
-'use client';
+"use client";
 
-import { useChat } from 'ai/react';
-import { useState, useEffect } from 'react';
-import { createMCPClient, githubPlugin } from 'integrate-sdk';
+import { useChat } from "ai/react";
+import { useState, useEffect } from "react";
+import { createMCPClient, githubIntegration } from "integrate-sdk";
 
 const client = createMCPClient({
-  plugins: [
-    githubPlugin({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
+  integrations: [
+    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
   ],
 });
 
 export default function ChatPage() {
   const [authorized, setAuthorized] = useState(false);
-  
+
   useEffect(() => {
-    client.isAuthorized('github').then(setAuthorized);
+    client.isAuthorized("github").then(setAuthorized);
   }, []);
-  
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: '/api/chat',
-  });
-  
+
+  const { messages, input, handleInputChange, handleSubmit, isLoading } =
+    useChat({
+      api: "/api/chat",
+    });
+
   if (!authorized) {
     return (
       <div>
         <h1>Connect GitHub</h1>
-        <button onClick={() => client.authorize('github').then(() => setAuthorized(true))}>
+        <button
+          onClick={() =>
+            client.authorize("github").then(() => setAuthorized(true))
+          }
+        >
           Connect GitHub
         </button>
       </div>
     );
   }
-  
+
   return (
     <div>
       <h1>AI Chat with GitHub Access</h1>
       <div>
         {messages.map((m) => (
           <div key={m.id}>
-            <strong>{m.role === 'user' ? 'You' : 'AI'}:</strong> {m.content}
+            <strong>{m.role === "user" ? "You" : "AI"}:</strong> {m.content}
           </div>
         ))}
       </div>
       <form onSubmit={handleSubmit}>
-        <input 
-          value={input} 
+        <input
+          value={input}
           onChange={handleInputChange}
           placeholder="Ask AI to use GitHub..."
           disabled={isLoading}
         />
         <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Thinking...' : 'Send'}
+          {isLoading ? "Thinking..." : "Send"}
         </button>
       </form>
     </div>
@@ -202,6 +204,7 @@ export default function ChatPage() {
 Converts all enabled MCP tools to OpenAI Responses API format.
 
 **Parameters:**
+
 - `client` - The MCP client instance
 - `options` - Optional configuration
   - `providerTokens` - Provider tokens for server-side usage
@@ -214,6 +217,7 @@ Converts all enabled MCP tools to OpenAI Responses API format.
 Execute a single tool call from OpenAI's response.
 
 **Parameters:**
+
 - `client` - The MCP client instance
 - `toolCall` - Tool call object with `id`, `name`, and `arguments`
 - `options` - Optional configuration with `providerTokens`
@@ -253,6 +257,5 @@ OpenAI Responses API expects tools in this format:
 ## Next Steps
 
 - [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
-- [Explore other AI providers](/docs/integrations/vercel-ai)
+- [Explore other AI providers](/docs/ai/vercel-ai)
 - [API Reference](/docs/reference/options)
-
