@@ -3,6 +3,30 @@ title: Basic Usage
 description: Get up and running with Integrate SDK in minutes
 ---
 
+## Server Configuration
+
+First, create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
+
+export const { client: serverClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
+  integrations: [
+    githubIntegration({
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+You can get an API key from the [Integrate Dashboard](https://app.integrate.dev).
+
+## Client Configuration
+
 Here's a complete example that connects to the MCP server and calls a GitHub tool:
 
 ```typescript
@@ -13,7 +37,6 @@ import {
 } from "integrate-sdk";
 
 // Create a client with integrations
-// Integrations automatically read GITHUB_CLIENT_ID, GMAIL_CLIENT_ID, etc. from environment
 const client = createMCPClient({
   integrations: [
     githubIntegration({
@@ -21,10 +44,6 @@ const client = createMCPClient({
     }),
     gmailIntegration(),
   ],
-  // OAuth flow configuration (browser only)
-  oauthFlow: {
-    mode: "popup", // or 'redirect' (default)
-  },
 });
 
 // Check if user is authorized (browser only)
@@ -109,6 +128,7 @@ Before using the SDK, you need to create OAuth apps for the services you want to
 Store your credentials in environment variables:
 
 ```bash
+INTEGRATE_API_KEY=your_integrate_api_key
 GITHUB_CLIENT_ID=your_github_client_id
 GITHUB_CLIENT_SECRET=your_github_client_secret
 GMAIL_CLIENT_ID=your_gmail_client_id
