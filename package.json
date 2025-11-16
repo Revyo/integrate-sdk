@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.7.19",
+  "version": "0.7.20",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
@@ -115,7 +115,7 @@
     "sdk",
     "typescript",
     "oauth",
-    "integration"
+    "integrations"
   ],
   "author": "",
   "license": "MIT",
