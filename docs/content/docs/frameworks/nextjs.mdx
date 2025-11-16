@@ -1,0 +1,86 @@
+---
+title: Next.js Adapter
+description: Integrate the Integrate SDK with Next.js
+---
+
+The Integrate SDK provides seamless integration with Next.js through server-side configuration and catch-all route handlers. Set up OAuth in just 2 files.
+
+## Installation
+
+Install the Integrate SDK in your Next.js project:
+
+```bash
+bun add integrate-sdk
+```
+
+## Setup
+
+Setting up OAuth in Next.js requires only **3 files**:
+
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin } from "integrate-sdk/server";
+
+export const { client: serverClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
+  plugins: [
+    githubPlugin({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+Next.js supports automatically importing the environment variables from the .env file.
+
+### 2. Mount the Handler
+
+Create a single catch-all route that handles all OAuth operations at `app/api/integrate/[...all]/route.ts`
+
+```typescript
+import { serverClient } from "@/lib/integrate-server";
+import { toNextJsHandler } from "integrate-sdk/server";
+
+export const { POST, GET } = toNextJsHandler(serverClient);
+```
+
+## Configuration
+
+Add your OAuth credentials to your `.env` file:
+
+```bash
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+```
+
+## Usage Examples
+
+### Client-Side Authorization
+
+Create a client configuration file:
+
+```typescript
+// lib/integrate.ts
+import { createMCPClient, githubPlugin } from "integrate-sdk";
+
+export const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+Then use it in your components:
+
+```typescript
+import { client } from "@/lib/integrate";
+
+// Start OAuth flow
+await client.authorize("github");
+```

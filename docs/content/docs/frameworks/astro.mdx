@@ -1,0 +1,84 @@
+---
+title: Astro Integration
+description: Integrate OAuth with Astro
+---
+
+## Installation
+
+Install the Integrate SDK in your Astro project:
+
+```bash
+bun add integrate-sdk
+```
+
+## Setup
+
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate-server.ts
+import { createMCPServer, githubPlugin } from "integrate-sdk/server";
+
+export const { client: serverClient } = createMCPServer({
+  apiKey: import.meta.env.INTEGRATE_API_KEY,
+  plugins: [
+    githubPlugin({
+      clientId: import.meta.env.GITHUB_CLIENT_ID,
+      clientSecret: import.meta.env.GITHUB_CLIENT_SECRET,
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+### 2. Mount the Handler
+
+Create a catch-all API route at `pages/api/integrate/[...all].ts`:
+
+```typescript
+import { serverClient } from "@/lib/integrate-server";
+import type { APIRoute } from "astro";
+
+export const ALL: APIRoute = async (ctx) => {
+  return serverClient.handler(ctx.request);
+};
+```
+
+## Configuration
+
+Add your OAuth credentials to your `.env` file:
+
+```bash
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+```
+
+## Usage Examples
+
+### Client-Side Authorization
+
+Create a client configuration file:
+
+```typescript
+// lib/integrate.ts
+import { createMCPClient, githubPlugin } from "integrate-sdk";
+
+export const client = createMCPClient({
+  plugins: [
+    githubPlugin({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+Then use it in your components:
+
+```typescript
+import { client } from "@/lib/integrate";
+
+// Start OAuth flow
+await client.authorize("github");
+```

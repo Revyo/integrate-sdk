@@ -19,40 +19,29 @@ Create a server configuration file with your OAuth credentials:
 
 ```typescript
 // lib/integrate-server.ts
-import {
-  createMCPServer,
-  githubPlugin,
-  gmailPlugin,
-} from "integrate-sdk/server";
+import { createMCPServer, githubPlugin } from "integrate-sdk/server";
 
-export const { client: serverClient, handler } = createMCPServer({
+export const { client: serverClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
   plugins: [
     githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       scopes: ["repo", "user"],
-    }),
-    gmailPlugin({
-      clientId: process.env.GMAIL_CLIENT_ID!,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      scopes: ["gmail.send", "gmail.readonly"],
     }),
   ],
 });
 ```
 
+SolidStart supports automatically importing the environment variables from the .env file.
+
 ### 2. Mount the Handler
 
-Create a catch-all API route at `src/routes/api/integrate/[...all].ts`:
+Create a catch-all API route at `routes/api/integrate/[...all].ts`:
 
 ```typescript
 import { toSolidStartHandler } from "integrate-sdk/server";
-import { handler } from "@/lib/integrate-server";
+import { serverClient } from "~/lib/integrate-server";
 
-const handlers = toSolidStartHandler(handler, {
-  redirectUrl: "/dashboard", // Where to redirect after successful OAuth
-  errorRedirectUrl: "/auth-error", // Where to redirect on OAuth errors
-});
+const handlers = toSolidStartHandler(serverClient);
 
 export const { GET, POST, PATCH, PUT, DELETE } = handlers;
 ```
@@ -82,7 +71,6 @@ export const client = createMCPClient({
       scopes: ["repo", "user"],
     }),
   ],
-  oauthFlow: { mode: "popup" },
 });
 ```
 
@@ -94,9 +82,3 @@ import { client } from "@/lib/integrate";
 // Start OAuth flow
 await client.authorize("github");
 ```
-
-## Framework-Specific Notes
-
-- **HTTP Methods**: The handler exports all HTTP methods (GET, POST, PATCH, PUT, DELETE).
-- **Environment Variables**: SolidStart supports `.env` files via Vite.
-- **TypeScript**: Full TypeScript support with Solid's type system.
