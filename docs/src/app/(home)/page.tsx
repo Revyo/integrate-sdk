@@ -24,16 +24,12 @@ const codeSample = `import {
 } from 'integrate-sdk';
 
 export const { client: serverClient } = createMCPServer({
-  redirectUri: 'http://localhost:3000',
+  apiKey: process.env.INTEGRATE_API_KEY,
   plugins: [
     githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
       scopes: ['repo', 'user'],
     }),
     gmailPlugin({
-      clientId: process.env.GMAIL_CLIENT_ID,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET,
       scopes: ['https://www.googleapis.com/auth/gmail.send'],
     }),
   ],
@@ -53,8 +49,6 @@ import { openai } from "@ai-sdk/openai";
 const mcpClient = createMCPServer({
   plugins: [
     githubPlugin({
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
       scopes: ['repo', 'user'],
     }),
   ],
