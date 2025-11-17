@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.7.24",
+  "version": "0.7.25",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
@@ -35,61 +35,9 @@
       "types": "./dist/ai/index.d.ts",
       "import": "./dist/ai/index.js"
     },
-    "./ai/vercel-ai": {
-      "types": "./dist/ai/vercel-ai.d.ts",
-      "import": "./dist/ai/vercel-ai.js"
-    },
-    "./ai/openai": {
-      "types": "./dist/ai/openai.d.ts",
-      "import": "./dist/ai/openai.js"
-    },
-    "./ai/openai-agents": {
-      "types": "./dist/ai/openai-agents.d.ts",
-      "import": "./dist/ai/openai-agents.js"
-    },
-    "./ai/anthropic": {
-      "types": "./dist/ai/anthropic.d.ts",
-      "import": "./dist/ai/anthropic.js"
-    },
-    "./ai/google": {
-      "types": "./dist/ai/google.d.ts",
-      "import": "./dist/ai/google.js"
-    },
-    "./ai/cloudflare": {
-      "types": "./dist/ai/cloudflare.d.ts",
-      "import": "./dist/ai/cloudflare.js"
-    },
-    "./ai/langchain": {
-      "types": "./dist/ai/langchain.d.ts",
-      "import": "./dist/ai/langchain.js"
-    },
-    "./ai/llamaindex": {
-      "types": "./dist/ai/llamaindex.d.ts",
-      "import": "./dist/ai/llamaindex.js"
-    },
-    "./ai/mastra": {
-      "types": "./dist/ai/mastra.d.ts",
-      "import": "./dist/ai/mastra.js"
-    },
-    "./adapters/nextjs": {
-      "types": "./dist/adapters/nextjs.d.ts",
-      "import": "./dist/adapters/nextjs.js"
-    },
-    "./adapters/node": {
-      "types": "./dist/adapters/node.d.ts",
-      "import": "./dist/adapters/node.js"
-    },
-    "./adapters/solid-start": {
-      "types": "./dist/adapters/solid-start.d.ts",
-      "import": "./dist/adapters/solid-start.js"
-    },
-    "./adapters/svelte-kit": {
-      "types": "./dist/adapters/svelte-kit.d.ts",
-      "import": "./dist/adapters/svelte-kit.js"
-    },
-    "./adapters/tanstack-start": {
-      "types": "./dist/adapters/tanstack-start.d.ts",
-      "import": "./dist/adapters/tanstack-start.js"
+    "./adapters": {
+      "types": "./dist/adapters/index.d.ts",
+      "import": "./dist/adapters/index.js"
     }
   },
   "files": [
@@ -103,10 +51,10 @@
   "scripts": {
     "prep": "bun run type-check && bun run build",
     "build": "bun build index.ts server.ts oauth.ts react.ts --outdir dist --target node --format esm --external react && bun run build:adapters && bun run build:ai && bun run build:types && bun run build:copy-types",
-    "build:adapters": "bun build src/adapters/*.ts --outdir dist/adapters --target node --format esm",
+    "build:adapters": "cd src/adapters && bun build *.ts --outdir ../../dist/adapters --target node --format esm && cd ../..",
     "build:ai": "cd src/ai && bun build *.ts --outdir ../../dist/ai --target node --format esm && cd ../..",
     "build:types": "tsc --emitDeclarationOnly --declaration --declarationMap",
-    "build:copy-types": "cp dist/src/ai/*.d.ts dist/ai/ && cp dist/src/ai/*.d.ts.map dist/ai/",
+    "build:copy-types": "cp dist/src/ai/*.d.ts dist/ai/ && cp dist/src/ai/*.d.ts.map dist/ai/ && cp dist/src/adapters/*.d.ts dist/adapters/ && cp dist/src/adapters/*.d.ts.map dist/adapters/",
     "dev": "bun --watch src/index.ts",
     "type-check": "tsc --noEmit",
     "test": "bun test tests/",
