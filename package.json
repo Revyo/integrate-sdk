@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.7.23",
+  "version": "0.7.24",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,10 +22,6 @@
     "./server": {
       "types": "./dist/server.d.ts",
       "import": "./dist/server.js"
-    },
-    "./oauth": {
-      "types": "./dist/oauth.d.ts",
-      "import": "./dist/oauth.js"
     },
     "./react": {
       "types": "./dist/react.d.ts",
@@ -106,9 +102,11 @@
   ],
   "scripts": {
     "prep": "bun run type-check && bun run build",
-    "build": "bun build index.ts server.ts oauth.ts react.ts --outdir dist --target node --format esm --external react && bun run build:adapters && bun run build:types",
+    "build": "bun build index.ts server.ts oauth.ts react.ts --outdir dist --target node --format esm --external react && bun run build:adapters && bun run build:ai && bun run build:types && bun run build:copy-types",
     "build:adapters": "bun build src/adapters/*.ts --outdir dist/adapters --target node --format esm",
+    "build:ai": "cd src/ai && bun build *.ts --outdir ../../dist/ai --target node --format esm && cd ../..",
     "build:types": "tsc --emitDeclarationOnly --declaration --declarationMap",
+    "build:copy-types": "cp dist/src/ai/*.d.ts dist/ai/ && cp dist/src/ai/*.d.ts.map dist/ai/",
     "dev": "bun --watch src/index.ts",
     "type-check": "tsc --noEmit",
     "test": "bun test tests/",
