@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.7.26",
+  "version": "0.7.27",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
@@ -42,7 +42,9 @@
   ],
   "scripts": {
     "prep": "bun run type-check && bun run build",
-    "build": "bun build index.ts server.ts oauth.ts react.ts --outdir dist --target node --format esm --external react && bun run build:adapters && bun run build:ai && bun run build:types && bun run build:copy-types",
+    "build": "bun run build:client && bun run build:server && bun run build:adapters && bun run build:ai && bun run build:types && bun run build:copy-types",
+    "build:client": "bun build index.ts react.ts --outdir dist --target browser --format esm --external react",
+    "build:server": "bun build server.ts oauth.ts --outdir dist --target node --format esm",
     "build:adapters": "cd src/adapters && bun build *.ts --outdir ../../dist/adapters --target node --format esm && cd ../..",
     "build:ai": "cd src/ai && bun build *.ts --outdir ../../dist/ai --target node --format esm && cd ../..",
     "build:types": "tsc --emitDeclarationOnly --declaration --declarationMap",
