@@ -303,7 +303,7 @@ export default async function HomePage() {
                 Get started
                 <ArrowRight className="size-4" aria-hidden />
               </a>
-              <Link href="/docs/ai/vercel-ai" className={secondaryCtaClass}>
+              <Link href="/docs/artificial-intelligence/vercel-ai-sdk" className={secondaryCtaClass}>
                 See the Vercel AI guide
                 <ArrowRight className="size-4" aria-hidden />
               </Link>

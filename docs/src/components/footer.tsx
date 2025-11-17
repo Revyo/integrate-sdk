@@ -49,7 +49,7 @@ export function Footer() {
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/docs/ai/vercel-ai" className="hover:text-blue-600 dark:hover:text-blue-400">
+                                <Link href="/docs/artificial-intelligence/vercel-ai-sdk" className="hover:text-blue-600 dark:hover:text-blue-400">
                                     Vercel AI SDK
                                 </Link>
                             </li>

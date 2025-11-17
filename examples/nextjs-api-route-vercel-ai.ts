@@ -424,7 +424,7 @@ SECURITY NOTES:
 
 For more examples, see:
 - examples/vercel-ai-server-usage.ts (detailed examples)
-- docs/content/docs/ai/vercel-ai.mdx (documentation)
+- docs/content/docs/artificial-intelligence/vercel-ai-sdk.mdx (documentation)
 =============================================================================
 `);
 

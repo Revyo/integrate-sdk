@@ -339,7 +339,7 @@ const result = await generateText({
 });
 ```
 
-[→ View Vercel AI SDK integration guide](https://integrate.dev/docs/ai/vercel-ai)
+[→ View Vercel AI SDK integration guide](https://integrate.dev/docs/artificial-intelligence/vercel-ai-sdk)
 
 ## Documentation
 
@@ -348,7 +348,7 @@ For detailed guides, API reference, and examples, visit the [complete documentat
 - **[Getting Started](https://integrate.dev/docs/getting-started/installation)** - Installation and quick start
 - **[OAuth Flow](https://integrate.dev/docs/guides/oauth-flow)** - OAuth 2.0 authorization guide
 - **[Integrations](https://integrate.dev/docs/integrations)** - Built-in integrations and configuration
-- **[Vercel AI SDK](https://integrate.dev/docs/ai/vercel-ai)** - AI model integration
+- **[Vercel AI SDK](https://integrate.dev/docs/artificial-intelligence/vercel-ai-sdk)** - AI model integration
 - **[Advanced Usage](https://integrate.dev/docs/guides/advanced-usage)** - Error handling, retries, and more
 - **[API Reference](https://integrate.dev/docs/reference/api-reference)** - Complete API documentation
 - **[Architecture](https://integrate.dev/docs/reference/architecture)** - How the SDK works
