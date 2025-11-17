@@ -1281,7 +1281,7 @@ export function createMCPClient<TIntegrations extends readonly MCPIntegration[]>
 
     // Automatically handle OAuth callback if enabled
     if (config.autoHandleOAuthCallback !== false) {
-      processOAuthCallbackFromHash(client);
+      processOAuthCallbackFromHash(client, config.oauthCallbackErrorBehavior);
     }
 
     return client;
@@ -1303,7 +1303,7 @@ export function createMCPClient<TIntegrations extends readonly MCPIntegration[]>
 
     // Automatically handle OAuth callback if enabled
     if (config.autoHandleOAuthCallback !== false) {
-      processOAuthCallbackFromHash(client);
+      processOAuthCallbackFromHash(client, config.oauthCallbackErrorBehavior);
     }
 
     return client;
@@ -1314,11 +1314,17 @@ export function createMCPClient<TIntegrations extends readonly MCPIntegration[]>
  * Process OAuth callback from URL hash fragment
  * Automatically detects and processes #oauth_callback={...} in the URL
  */
-function processOAuthCallbackFromHash(client: MCPClientBase<any>): void {
+function processOAuthCallbackFromHash(
+  client: MCPClientBase<any>,
+  errorBehavior?: { mode: 'silent' | 'console' | 'redirect'; redirectUrl?: string }
+): void {
   // Only run in browser environment with proper window.location
   if (typeof window === 'undefined' || !window.location) {
     return;
   }
+
+  // Default to silent mode
+  const mode = errorBehavior?.mode || 'silent';
 
   try {
     const hash = window.location.hash;
@@ -1337,16 +1343,42 @@ function processOAuthCallbackFromHash(client: MCPClientBase<any>): void {
         if (callbackParams.code && callbackParams.state) {
           // Process the callback asynchronously
           client.handleOAuthCallback(callbackParams).catch((error) => {
-            console.error('Failed to process OAuth callback:', error);
+            // Handle error based on configured behavior
+            if (mode === 'console') {
+              console.error('Failed to process OAuth callback:', error);
+            } else if (mode === 'redirect' && errorBehavior?.redirectUrl) {
+              // Redirect to error page
+              window.location.href = errorBehavior.redirectUrl;
+              return; // Don't clean up hash, let the redirect happen
+            }
+            // 'silent' mode: do nothing, just clean up below
           });
 
-          // Clean up URL hash
-          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          // Clean up URL hash (unless redirecting)
+          if (mode !== 'redirect' || !errorBehavior?.redirectUrl) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
         }
       }
     }
   } catch (error) {
-    console.error('Failed to process OAuth callback from hash:', error);
+    // Handle parsing errors based on configured behavior
+    if (mode === 'console') {
+      console.error('Failed to process OAuth callback from hash:', error);
+    } else if (mode === 'redirect' && errorBehavior?.redirectUrl) {
+      window.location.href = errorBehavior.redirectUrl;
+      return;
+    }
+    // 'silent' mode: suppress error
+    
+    // Clean up URL hash on error (unless redirecting)
+    try {
+      if (mode !== 'redirect' || !errorBehavior?.redirectUrl) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 }
 

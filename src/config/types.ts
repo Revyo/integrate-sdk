@@ -284,6 +284,31 @@ export interface MCPClientConfig<TIntegrations extends readonly MCPIntegration[]
   autoHandleOAuthCallback?: boolean;
 
   /**
+   * Configure behavior when OAuth callback processing fails
+   * 
+   * - 'silent': Clean up URL hash and suppress errors (default)
+   * - 'console': Log error to console and clean up URL hash
+   * - 'redirect': Redirect to specified URL on error
+   * 
+   * @default 'silent'
+   * 
+   * @example
+   * ```typescript
+   * const client = createMCPClient({
+   *   integrations: [githubIntegration({ ... })],
+   *   oauthCallbackErrorBehavior: {
+   *     mode: 'redirect',
+   *     redirectUrl: '/auth-error'
+   *   }
+   * });
+   * ```
+   */
+  oauthCallbackErrorBehavior?: {
+    mode: 'silent' | 'console' | 'redirect';
+    redirectUrl?: string;
+  };
+
+  /**
    * Global OAuth redirect URI for all providers
    * Used as fallback when individual integrations don't specify their own redirectUri
    * 
