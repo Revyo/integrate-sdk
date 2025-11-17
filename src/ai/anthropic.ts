@@ -7,6 +7,7 @@
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
 import { executeToolWithToken, ensureClientConnected, getProviderTokens, type AIToolsOptions } from "./utils.js";
+import type Anthropic from "@anthropic-ai/sdk";
 
 /**
  * Anthropic tool definition
@@ -267,5 +268,104 @@ export async function getAnthropicTools(
 
   const finalOptions = providerTokens ? { ...options, providerTokens } : options;
   return convertMCPToolsToAnthropic(client, finalOptions);
+}
+
+/**
+ * Handle an entire Anthropic Message object
+ * 
+ * This is a convenience function that extracts tool calls from a Message
+ * object, executes them, and returns the results formatted as MessageParam
+ * ready to be passed directly to the next API call.
+ * 
+ * **Auto-extraction**: Provider tokens are automatically extracted from request headers
+ * or environment variables if not provided in options.
+ * 
+ * @param client - The MCP client instance
+ * @param message - The complete Message object from Anthropic
+ * @param options - Optional configuration including provider tokens
+ * @returns Array with a single user message containing tool results, or empty array if no tool calls
+ * 
+ * @example
+ * ```typescript
+ * import { serverClient } from '@/lib/integrate-server';
+ * import { getAnthropicTools, handleAnthropicMessage } from 'integrate-sdk/server';
+ * import Anthropic from '@anthropic-ai/sdk';
+ * 
+ * const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+ * 
+ * export async function POST(req: Request) {
+ *   const { messages } = await req.json();
+ *   
+ *   // Initial request with tools
+ *   const message = await anthropic.messages.create({
+ *     model: 'claude-3-5-sonnet-20241022',
+ *     max_tokens: 1024,
+ *     tools: await getAnthropicTools(serverClient),
+ *     messages,
+ *   });
+ *   
+ *   // If there are tool calls, handle them automatically
+ *   if (message.stop_reason === 'tool_use') {
+ *     const toolMessages = await handleAnthropicMessage(serverClient, message);
+ *     
+ *     // Continue conversation with tool results
+ *     const finalMessage = await anthropic.messages.create({
+ *       model: 'claude-3-5-sonnet-20241022',
+ *       max_tokens: 1024,
+ *       tools: await getAnthropicTools(serverClient),
+ *       messages: [
+ *         ...messages,
+ *         { role: 'assistant', content: message.content },
+ *         ...toolMessages,
+ *       ],
+ *     });
+ *     
+ *     return Response.json(finalMessage);
+ *   }
+ *   
+ *   return Response.json(message);
+ * }
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * // Manual token override
+ * const toolMessages = await handleAnthropicMessage(serverClient, message, {
+ *   providerTokens: { github: 'ghp_...', gmail: 'ya29...' }
+ * });
+ * ```
+ */
+export async function handleAnthropicMessage(
+  client: MCPClient<any>,
+  message: Anthropic.Messages.Message,
+  options?: AnthropicToolsOptions
+): Promise<Anthropic.Messages.MessageParam[]> {
+  // Auto-extract tokens if not provided
+  let providerTokens = options?.providerTokens;
+  if (!providerTokens) {
+    try {
+      providerTokens = await getProviderTokens();
+    } catch {
+      // Token extraction failed - that's okay
+    }
+  }
+
+  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
+  
+  // Execute all tool calls and get results
+  const toolResults = await handleAnthropicToolCalls(client, message.content, finalOptions);
+  
+  // Return empty array if no tool results
+  if (toolResults.length === 0) {
+    return [];
+  }
+  
+  // Format as MessageParam with user role
+  return [
+    {
+      role: 'user',
+      content: toolResults,
+    },
+  ];
 }
 
