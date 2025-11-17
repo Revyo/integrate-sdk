@@ -3,30 +3,48 @@ title: OpenAI
 description: Use MCP tools with OpenAI's Responses API
 ---
 
-The Integrate SDK provides seamless integration with OpenAI's Responses API, allowing AI models to access your integrations through MCP tools. Use it on the frontend with `useIntegrateAI` or on the server with `getOpenAITools`.
+The Integrate SDK provides seamless integration with OpenAI's Responses API, allowing AI models to access your integrations through MCP tools.
 
 ## Installation
+
+Install the Integrate SDK and OpenAI SDK packages:
 
 ```bash
 bun add integrate-sdk openai
 ```
 
-## Frontend Integration
+## Setup
 
-The easiest way is using the `useIntegrateAI` hook, which automatically injects provider tokens:
+Setting up OpenAI integration requires **3 files** (or **5 files** if not using a database):
+
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate.ts
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
+
+export const { client: serverClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+### 2. Providers (only if no database)
+
+If you're not using a database, create a providers component that injects tokens:
 
 ```typescript
 // app/providers.tsx
 "use client";
 
-import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { client } from "integrate-sdk";
 import { useIntegrateAI } from "integrate-sdk/react";
-
-const client = createMCPClient({
-  integrations: [
-    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
-  ],
-});
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useIntegrateAI(client);
@@ -34,228 +52,202 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-## Server-Side Integration
+### 3. Layout (only if no database)
 
-### Setup Server Configuration
+Wrap your app with the Providers component:
 
 ```typescript
-// lib/integrate-server.ts
-import { createMCPServer, githubIntegration } from "integrate-sdk/server";
+// app/layout.tsx
+import { Providers } from "./providers";
 
-export const { client: serverClient } = createMCPServer({
-  integrations: [
-    githubIntegration({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ["repo", "user"],
-    }),
-  ],
-});
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
 ```
 
-### Create Chat API Route
+### 4. OAuth Handler
+
+Create a catch-all route that handles OAuth operations at `app/api/integrate/[...all]/route.ts`:
+
+```typescript
+import { serverClient } from "@/lib/integrate";
+import { toNextJsHandler } from "integrate-sdk/server";
+
+export const { POST, GET } = toNextJsHandler(serverClient);
+```
+
+### 5. Chat API Route
+
+Create a chat route that converts MCP tools to OpenAI format:
 
 ```typescript
 // app/api/chat/route.ts
-import { serverClient } from "@/lib/integrate-server";
-import { getOpenAITools, executeOpenAIToolCall } from "integrate-sdk/ai/openai";
+import { serverClient } from "@/lib/integrate";
+import { getOpenAITools, executeOpenAIToolCall } from "integrate-sdk/server";
 import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: Request) {
-  try {
-    // Extract provider tokens from request
-    const tokensHeader = req.headers.get("x-integrate-tokens");
-    const providerTokens = JSON.parse(tokensHeader || "{}");
+  const { messages } = await req.json();
 
-    // Get tools with user's tokens
-    const tools = await getOpenAITools(serverClient, {
-      providerTokens,
-      strict: true, // Optional: enable strict mode
-    });
+  const tools = await getOpenAITools(serverClient, { strict: true });
 
-    const { messages } = await req.json();
+  const response = await openai.responses.create({
+    model: "gpt-4o-2024-11-20",
+    input: messages,
+    tools,
+  });
 
-    // Create response with tools
-    const response = await openai.responses.create({
+  const toolCalls = response.output.filter((o) => o.type === "function_call");
+
+  if (toolCalls.length > 0) {
+    const toolResults = [];
+
+    for (const toolCall of toolCalls) {
+      const result = await executeOpenAIToolCall(serverClient, {
+        id: toolCall.id,
+        name: toolCall.name,
+        arguments: toolCall.arguments,
+      });
+
+      toolResults.push({
+        call_id: toolCall.call_id,
+        type: "function_call_output",
+        output: result,
+        status: "completed",
+      });
+    }
+
+    const finalResponse = await openai.responses.create({
       model: "gpt-4o-2024-11-20",
-      input: messages,
+      input: [...messages, ...toolResults],
       tools,
     });
 
-    // Handle tool calls
-    const toolCalls = response.output.filter((o) => o.type === "function_call");
-
-    if (toolCalls.length > 0) {
-      const toolResults = [];
-
-      for (const toolCall of toolCalls) {
-        const result = await executeOpenAIToolCall(
-          serverClient,
-          {
-            id: toolCall.id,
-            name: toolCall.name,
-            arguments: toolCall.arguments,
-          },
-          { providerTokens }
-        );
-
-        toolResults.push({
-          call_id: toolCall.call_id,
-          type: "function_call_output",
-          output: result,
-          status: "completed",
-        });
-      }
-
-      // Continue conversation with tool results
-      const finalResponse = await openai.responses.create({
-        model: "gpt-4o-2024-11-20",
-        input: [...messages, ...toolResults],
-        tools,
-      });
-
-      return Response.json(finalResponse);
-    }
-
-    return Response.json(response);
-  } catch (error: any) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json(finalResponse);
   }
+
+  return Response.json(response);
 }
 ```
 
-## Complete Example
+## Usage
 
-### Frontend Component
+Use OpenAI's API in any component:
 
 ```typescript
-// app/chat/page.tsx
+// app/page.tsx
 "use client";
 
-import { useChat } from "ai/react";
-import { useState, useEffect } from "react";
-import { createMCPClient, githubIntegration } from "integrate-sdk";
-
-const client = createMCPClient({
-  integrations: [
-    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
-  ],
-});
+import { useState } from "react";
+import { client } from "integrate-sdk";
 
 export default function ChatPage() {
-  const [authorized, setAuthorized] = useState(false);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [githubAuthorized, setGithubAuthorized] = useState(false);
 
-  useEffect(() => {
-    client.isAuthorized("github").then(setAuthorized);
-  }, []);
+  async function handleGithubClick() {
+    try {
+      if (githubAuthorized) {
+        await client.disconnectProvider("github");
+        setGithubAuthorized(false);
+      } else {
+        await client.authorize("github");
+        setGithubAuthorized(true);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  }
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } =
-    useChat({
-      api: "/api/chat",
-    });
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!input.trim()) return;
 
-  if (!authorized) {
-    return (
-      <div>
-        <h1>Connect GitHub</h1>
-        <button
-          onClick={() =>
-            client.authorize("github").then(() => setAuthorized(true))
-          }
-        >
-          Connect GitHub
-        </button>
-      </div>
-    );
+    const userMessage = { role: "user", content: input };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [...messages, userMessage],
+        }),
+      });
+
+      const data = await response.json();
+      setMessages((prev) => [...prev, { role: "assistant", content: data }]);
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div>
-      <h1>AI Chat with GitHub Access</h1>
-      <div>
-        {messages.map((m) => (
-          <div key={m.id}>
-            <strong>{m.role === "user" ? "You" : "AI"}:</strong> {m.content}
+    <div className="flex flex-col h-screen">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((m, i) => (
+          <div
+            key={i}
+            className={m.role === "user" ? "text-right" : "text-left"}
+          >
+            <div className="inline-block max-w-2xl">
+              {JSON.stringify(m.content)}
+            </div>
           </div>
         ))}
       </div>
-      <form onSubmit={handleSubmit}>
+      <form
+        onSubmit={handleSubmit}
+        className="p-4 border-t border-gray-500 space-y-2"
+      >
         <input
           value={input}
-          onChange={handleInputChange}
-          placeholder="Ask AI to use GitHub..."
-          disabled={isLoading}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask AI anything..."
+          className="w-full px-4 py-2 border border-gray-500 rounded-lg"
+          disabled={loading}
         />
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? "Thinking..." : "Send"}
-        </button>
+        <div className="flex justify-between">
+          <button
+            type="button"
+            onClick={handleGithubClick}
+            className="px-4 py-2 bg-black text-white rounded-lg disabled:opacity-50"
+          >
+            {githubAuthorized ? "Disconnect" : "Connect"} GitHub
+          </button>
+          <button
+            type="submit"
+            disabled={loading || !input.trim()}
+            className="px-4 py-2 bg-black text-white rounded-lg disabled:opacity-50"
+          >
+            Send
+          </button>
+        </div>
       </form>
     </div>
   );
 }
 ```
 
-## API Reference
-
-### `getOpenAITools(client, options?)`
-
-Converts all enabled MCP tools to OpenAI Responses API format.
-
-**Parameters:**
-
-- `client` - The MCP client instance
-- `options` - Optional configuration
-  - `providerTokens` - Provider tokens for server-side usage
-  - `strict` - Whether to use strict mode (default: false)
-
-**Returns:** `Promise<OpenAITool[]>` - Array of tools ready for OpenAI Responses API
-
-### `executeOpenAIToolCall(client, toolCall, options?)`
-
-Execute a single tool call from OpenAI's response.
-
-**Parameters:**
-
-- `client` - The MCP client instance
-- `toolCall` - Tool call object with `id`, `name`, and `arguments`
-- `options` - Optional configuration with `providerTokens`
-
-**Returns:** `Promise<string>` - Tool execution result as JSON string
-
-## Tool Format
-
-OpenAI Responses API expects tools in this format:
-
-```typescript
-{
-  type: 'function',
-  name: 'github_create_issue',
-  description: 'Create a new issue in a GitHub repository',
-  parameters: {
-    type: 'object',
-    properties: {
-      owner: { type: 'string' },
-      repo: { type: 'string' },
-      title: { type: 'string' },
-      body: { type: 'string' }
-    },
-    required: ['owner', 'repo', 'title']
-  },
-  strict: false
-}
-```
-
-## Security Best Practices
-
-1. **OAuth Secrets**: Never expose `clientSecret` to the client
-2. **Token Validation**: Validate tokens on every server request
-3. **HTTPS Only**: Always use HTTPS for token transmission
-4. **Rate Limiting**: Implement per-user rate limits
-
 ## Next Steps
 
-- [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
-- [Explore other AI providers](/docs/artificial-intelligence/vercel-ai-sdk)
-- [API Reference](/docs/reference/options)
+- Explore [Advanced Configuration](/docs/getting-started/advanced-usage)
+- Check the [API Reference](/docs/reference/options) for complete type definitions

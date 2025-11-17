@@ -7,171 +7,21 @@ The Integrate SDK provides seamless integration with Cloudflare Workers AI, allo
 
 ## Installation
 
+Install the Integrate SDK and Cloudflare Workers types:
+
 ```bash
 bun add integrate-sdk @cloudflare/workers-types
 ```
 
-## Cloudflare Worker Integration
+## Setup
 
-### Basic Setup
+### Basic Worker Example
 
 ```typescript
 // worker.ts
-import { createMCPClient, githubIntegration } from "integrate-sdk";
-import {
-  getCloudflareTools,
-  executeCloudflareToolCall,
-} from "integrate-sdk/ai/cloudflare";
-
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    // Create client with integration
-    const client = createMCPClient({
-      integrations: [githubIntegration({ clientId: env.GITHUB_CLIENT_ID })],
-    });
-
-    // Get tools
-    const tools = await getCloudflareTools(client);
-
-    // Use with Cloudflare AI
-    const ai = new Ai(env.AI);
-    const response = await ai.run("@cf/meta/llama-3-8b-instruct", {
-      messages: [
-        { role: "user", content: "Create a GitHub issue about bug fixes" },
-      ],
-      tools: Object.values(tools),
-    });
-
-    // Handle tool calls
-    if (response.tool_calls) {
-      for (const toolCall of response.tool_calls) {
-        await executeCloudflareToolCall(client, toolCall);
-      }
-    }
-
-    return Response.json(response);
-  },
-};
-```
-
-## Server-Side Integration
-
-### Setup Server Configuration
-
-```typescript
-// lib/integrate-server.ts
-import { createMCPServer, githubIntegration } from "integrate-sdk/server";
-
-export const { client: serverClient } = createMCPServer({
-  integrations: [
-    githubIntegration({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ["repo", "user"],
-    }),
-  ],
-});
-```
-
-### Create API Route with Token Injection
-
-```typescript
-// app/api/ai/route.ts
-import { serverClient } from "@/lib/integrate-server";
-import {
-  getCloudflareTools,
-  executeCloudflareToolCall,
-} from "integrate-sdk/ai/cloudflare";
-
-export async function POST(req: Request) {
-  try {
-    // Extract provider tokens from request
-    const tokensHeader = req.headers.get("x-integrate-tokens");
-    const providerTokens = JSON.parse(tokensHeader || "{}");
-
-    // Get tools with user's tokens
-    const tools = await getCloudflareTools(serverClient, { providerTokens });
-
-    const { messages } = await req.json();
-
-    // Use with Cloudflare AI Workers binding
-    const response = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
-      messages,
-      tools: Object.values(tools),
-    });
-
-    // Handle tool calls
-    if (response.tool_calls) {
-      for (const toolCall of response.tool_calls) {
-        await executeCloudflareToolCall(serverClient, toolCall, {
-          providerTokens,
-        });
-      }
-    }
-
-    return Response.json(response);
-  } catch (error: any) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
-}
-```
-
-## API Reference
-
-### `getCloudflareTools(client, options?)`
-
-Converts all enabled MCP tools to Cloudflare Workers AI format.
-
-**Parameters:**
-
-- `client` - The MCP client instance
-- `options` - Optional configuration
-  - `providerTokens` - Provider tokens for server-side usage
-
-**Returns:** `Promise<Record<string, CloudflareTool>>` - Dictionary of tools keyed by name
-
-### `executeCloudflareToolCall(client, toolCall, options?)`
-
-Execute a tool call from Cloudflare Workers AI.
-
-**Parameters:**
-
-- `client` - The MCP client instance
-- `toolCall` - Tool call object with `name` and `arguments`
-- `options` - Optional configuration with `providerTokens`
-
-**Returns:** `Promise<string>` - Tool execution result as JSON string
-
-## Tool Format
-
-Cloudflare Workers AI expects tools in this format:
-
-```typescript
-{
-  type: 'function',
-  function: {
-    name: 'github_create_issue',
-    description: 'Create a new issue in a GitHub repository',
-    parameters: {
-      type: 'object',
-      properties: {
-        owner: { type: 'string', description: 'Repository owner' },
-        repo: { type: 'string', description: 'Repository name' },
-        title: { type: 'string', description: 'Issue title' },
-        body: { type: 'string', description: 'Issue body' }
-      },
-      required: ['owner', 'repo', 'title']
-    }
-  }
-}
-```
-
-## Complete Worker Example
-
-```typescript
 import { Ai } from "@cloudflare/ai";
 import { createMCPClient, githubIntegration } from "integrate-sdk";
-import { getCloudflareTools } from "integrate-sdk/ai/cloudflare";
+import { getCloudflareTools } from "integrate-sdk/server";
 
 export interface Env {
   AI: any;
@@ -206,6 +56,56 @@ export default {
 };
 ```
 
+## Server-Side with Token Injection
+
+For Next.js or other frameworks running on Cloudflare:
+
+### 1. Server Configuration
+
+```typescript
+// lib/integrate.ts
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
+
+export const { client: serverClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+### 2. AI API Route
+
+```typescript
+// app/api/ai/route.ts
+import { serverClient } from "@/lib/integrate";
+import {
+  getCloudflareTools,
+  executeCloudflareToolCall,
+} from "integrate-sdk/server";
+
+export async function POST(req: Request) {
+  const { messages } = await req.json();
+
+  const tools = await getCloudflareTools(serverClient);
+
+  const response = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
+    messages,
+    tools: Object.values(tools),
+  });
+
+  if (response.tool_calls) {
+    for (const toolCall of response.tool_calls) {
+      await executeCloudflareToolCall(serverClient, toolCall);
+    }
+  }
+
+  return Response.json(response);
+}
+```
+
 ## Supported Models
 
 Cloudflare Workers AI supports function calling with models like:
@@ -218,6 +118,5 @@ Check [Cloudflare's documentation](https://developers.cloudflare.com/workers-ai/
 
 ## Next Steps
 
-- [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
-- [Explore other AI providers](/docs/artificial-intelligence/vercel-ai-sdk)
-- [API Reference](/docs/reference/options)
+- Explore [Advanced Configuration](/docs/getting-started/advanced-usage)
+- Check the [API Reference](/docs/reference/options) for complete type definitions

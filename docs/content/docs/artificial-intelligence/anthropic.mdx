@@ -3,30 +3,48 @@ title: Anthropic Claude
 description: Use MCP tools with Anthropic's Claude API
 ---
 
-The Integrate SDK provides seamless integration with Anthropic's Claude API, allowing Claude to access your integrations through MCP tools with the `useIntegrateAI` hook or `getAnthropicTools` on the server.
+The Integrate SDK provides seamless integration with Anthropic's Claude API, allowing Claude to access your integrations through MCP tools.
 
 ## Installation
+
+Install the Integrate SDK and Anthropic SDK packages:
 
 ```bash
 bun add integrate-sdk @anthropic-ai/sdk
 ```
 
-## Frontend Integration
+## Setup
 
-Use the `useIntegrateAI` hook for automatic token injection:
+Setting up Anthropic integration requires **3 files** (or **5 files** if not using a database):
+
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate.ts
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
+
+export const { client: serverClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+### 2. Providers (only if no database)
+
+If you're not using a database, create a providers component that injects tokens:
 
 ```typescript
 // app/providers.tsx
 "use client";
 
-import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { client } from "integrate-sdk";
 import { useIntegrateAI } from "integrate-sdk/react";
-
-const client = createMCPClient({
-  integrations: [
-    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
-  ],
-});
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useIntegrateAI(client);
@@ -34,116 +52,123 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-## Server-Side Integration
+### 3. Layout (only if no database)
 
-### Setup Server Configuration
+Wrap your app with the Providers component:
 
 ```typescript
-// lib/integrate-server.ts
-import { createMCPServer, githubIntegration } from "integrate-sdk/server";
+// app/layout.tsx
+import { Providers } from "./providers";
 
-export const { client: serverClient } = createMCPServer({
-  integrations: [
-    githubIntegration({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ["repo", "user"],
-    }),
-  ],
-});
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
 ```
 
-### Create Chat API Route
+### 4. OAuth Handler
+
+Create a catch-all route that handles OAuth operations at `app/api/integrate/[...all]/route.ts`:
+
+```typescript
+import { serverClient } from "@/lib/integrate";
+import { toNextJsHandler } from "integrate-sdk/server";
+
+export const { POST, GET } = toNextJsHandler(serverClient);
+```
+
+### 5. Chat API Route
+
+Create a chat route that converts MCP tools to Anthropic format:
 
 ```typescript
 // app/api/chat/route.ts
-import { serverClient } from "@/lib/integrate-server";
+import { serverClient } from "@/lib/integrate";
 import {
   getAnthropicTools,
   handleAnthropicToolCalls,
-} from "integrate-sdk/ai/anthropic";
+} from "integrate-sdk/server";
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req: Request) {
-  try {
-    // Extract provider tokens from request
-    const tokensHeader = req.headers.get("x-integrate-tokens");
-    const providerTokens = JSON.parse(tokensHeader || "{}");
+  const { messages } = await req.json();
 
-    // Get tools with user's tokens
-    const tools = await getAnthropicTools(serverClient, { providerTokens });
+  const tools = await getAnthropicTools(serverClient);
 
-    const { messages } = await req.json();
+  const message = await anthropic.messages.create({
+    model: "claude-3-5-sonnet-20241022",
+    max_tokens: 1024,
+    tools,
+    messages,
+  });
 
-    // Create message with tools
-    const message = await anthropic.messages.create({
+  const toolResults = await handleAnthropicToolCalls(
+    serverClient,
+    message.content
+  );
+
+  if (toolResults.length > 0) {
+    const finalMessage = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20241022",
       max_tokens: 1024,
       tools,
-      messages,
+      messages: [
+        ...messages,
+        { role: "assistant", content: message.content },
+        { role: "user", content: toolResults },
+      ],
     });
 
-    // Handle any tool calls
-    const toolResults = await handleAnthropicToolCalls(
-      serverClient,
-      message.content,
-      { providerTokens }
-    );
-
-    // If there are tool results, continue the conversation
-    if (toolResults.length > 0) {
-      const finalMessage = await anthropic.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 1024,
-        tools,
-        messages: [
-          ...messages,
-          { role: "assistant", content: message.content },
-          { role: "user", content: toolResults },
-        ],
-      });
-
-      return Response.json(finalMessage);
-    }
-
-    return Response.json(message);
-  } catch (error: any) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json(finalMessage);
   }
+
+  return Response.json(message);
 }
 ```
 
-## Complete Example
+## Usage
 
-### Frontend Component
+Use Anthropic's Claude in any component:
 
 ```typescript
-// app/chat/page.tsx
+// app/page.tsx
 "use client";
 
 import { useState } from "react";
-import { createMCPClient, githubIntegration } from "integrate-sdk";
-
-const client = createMCPClient({
-  integrations: [
-    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
-  ],
-});
+import { client } from "integrate-sdk";
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [authorized, setAuthorized] = useState(false);
+  const [githubAuthorized, setGithubAuthorized] = useState(false);
 
-  const handleConnect = async () => {
-    await client.authorize("github");
-    setAuthorized(true);
-  };
+  async function handleGithubClick() {
+    try {
+      if (githubAuthorized) {
+        await client.disconnectProvider("github");
+        setGithubAuthorized(false);
+      } else {
+        await client.authorize("github");
+        setGithubAuthorized(true);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim()) return;
 
@@ -171,90 +196,56 @@ export default function ChatPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  if (!authorized) {
-    return (
-      <div>
-        <button onClick={handleConnect}>Connect GitHub</button>
-      </div>
-    );
   }
 
   return (
-    <div>
-      <h1>Claude with GitHub Access</h1>
-      <div>
+    <div className="flex flex-col h-screen">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((m, i) => (
-          <div key={i}>
-            <strong>{m.role}:</strong> {JSON.stringify(m.content)}
+          <div
+            key={i}
+            className={m.role === "user" ? "text-right" : "text-left"}
+          >
+            <div className="inline-block max-w-2xl">
+              {JSON.stringify(m.content)}
+            </div>
           </div>
         ))}
       </div>
-      <form onSubmit={handleSubmit}>
+      <form
+        onSubmit={handleSubmit}
+        className="p-4 border-t border-gray-500 space-y-2"
+      >
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask Claude to use GitHub..."
+          placeholder="Ask Claude anything..."
+          className="w-full px-4 py-2 border border-gray-500 rounded-lg"
+          disabled={loading}
         />
-        <button type="submit" disabled={loading}>
-          {loading ? "Thinking..." : "Send"}
-        </button>
+        <div className="flex justify-between">
+          <button
+            type="button"
+            onClick={handleGithubClick}
+            className="px-4 py-2 bg-black text-white rounded-lg disabled:opacity-50"
+          >
+            {githubAuthorized ? "Disconnect" : "Connect"} GitHub
+          </button>
+          <button
+            type="submit"
+            disabled={loading || !input.trim()}
+            className="px-4 py-2 bg-black text-white rounded-lg disabled:opacity-50"
+          >
+            Send
+          </button>
+        </div>
       </form>
     </div>
   );
 }
 ```
 
-## API Reference
-
-### `getAnthropicTools(client, options?)`
-
-Converts all enabled MCP tools to Anthropic Claude API format.
-
-**Parameters:**
-
-- `client` - The MCP client instance
-- `options` - Optional configuration
-  - `providerTokens` - Provider tokens for server-side usage
-
-**Returns:** `Promise<AnthropicTool[]>` - Array of tools ready for Claude API
-
-### `handleAnthropicToolCalls(client, messageContent, options?)`
-
-Handles all tool calls from Claude's message response.
-
-**Parameters:**
-
-- `client` - The MCP client instance
-- `messageContent` - Array of content blocks from Claude's message
-- `options` - Optional configuration with `providerTokens`
-
-**Returns:** `Promise<AnthropicToolResultBlock[]>` - Tool results ready to send back to Claude
-
-## Tool Format
-
-Anthropic Claude expects tools in this format:
-
-```typescript
-{
-  name: 'github_create_issue',
-  description: 'Create a new issue in a GitHub repository',
-  input_schema: {
-    type: 'object',
-    properties: {
-      owner: { type: 'string' },
-      repo: { type: 'string' },
-      title: { type: 'string' },
-      body: { type: 'string' }
-    },
-    required: ['owner', 'repo', 'title']
-  }
-}
-```
-
 ## Next Steps
 
-- [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
-- [Explore other AI providers](/docs/artificial-intelligence/vercel-ai-sdk)
-- [API Reference](/docs/reference/options)
+- Explore [Advanced Configuration](/docs/getting-started/advanced-usage)
+- Check the [API Reference](/docs/reference/options) for complete type definitions

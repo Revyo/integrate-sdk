@@ -7,26 +7,44 @@ The Integrate SDK provides seamless integration with Mastra AI SDK, allowing you
 
 ## Installation
 
+Install the Integrate SDK and Mastra packages:
+
 ```bash
 bun add integrate-sdk @mastra/core
 ```
 
-## Frontend Integration
+## Setup
 
-Use the `useIntegrateAI` hook for automatic token injection:
+Setting up Mastra integration requires **3 files** (or **5 files** if not using a database):
+
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate.ts
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
+
+export const { client: serverClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+### 2. Providers (only if no database)
+
+If you're not using a database, create a providers component that injects tokens:
 
 ```typescript
 // app/providers.tsx
 "use client";
 
-import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { client } from "integrate-sdk";
 import { useIntegrateAI } from "integrate-sdk/react";
-
-const client = createMCPClient({
-  integrations: [
-    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
-  ],
-});
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useIntegrateAI(client);
@@ -34,227 +52,169 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-## Server-Side Integration
+### 3. Layout (only if no database)
 
-### Setup Server Configuration
+Wrap your app with the Providers component:
 
 ```typescript
-// lib/integrate-server.ts
-import { createMCPServer, githubIntegration } from "integrate-sdk/server";
+// app/layout.tsx
+import { Providers } from "./providers";
 
-export const { client: serverClient } = createMCPServer({
-  integrations: [
-    githubIntegration({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ["repo", "user"],
-    }),
-  ],
-});
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
 ```
 
-### Create Agent API Route
+### 4. OAuth Handler
+
+Create a catch-all route that handles OAuth operations at `app/api/integrate/[...all]/route.ts`:
+
+```typescript
+import { serverClient } from "@/lib/integrate";
+import { toNextJsHandler } from "integrate-sdk/server";
+
+export const { POST, GET } = toNextJsHandler(serverClient);
+```
+
+### 5. Agent API Route
+
+Create an agent route that converts MCP tools to Mastra format:
 
 ```typescript
 // app/api/agent/route.ts
-import { serverClient } from "@/lib/integrate-server";
-import { getMastraTools } from "integrate-sdk/ai/mastra";
+import { serverClient } from "@/lib/integrate";
+import { getMastraTools } from "integrate-sdk/server";
 import { Agent, createTool } from "@mastra/core";
 
 export async function POST(req: Request) {
-  try {
-    // Extract provider tokens from request
-    const tokensHeader = req.headers.get("x-integrate-tokens");
-    const providerTokens = JSON.parse(tokensHeader || "{}");
+  const { message } = await req.json();
 
-    // Get tool configs
-    const toolConfigs = await getMastraTools(serverClient, { providerTokens });
+  const toolConfigs = await getMastraTools(serverClient);
 
-    // Create Mastra tools
-    const tools = Object.fromEntries(
-      Object.entries(toolConfigs).map(([id, config]) => [
-        id,
-        createTool(config),
-      ])
-    );
+  const tools = Object.fromEntries(
+    Object.entries(toolConfigs).map(([id, config]) => [id, createTool(config)])
+  );
 
-    const { message } = await req.json();
-
-    // Create agent
-    const agent = new Agent({
-      tools,
-      model: {
-        provider: "openai",
-        name: "gpt-4",
-      },
-    });
-
-    // Generate response
-    const result = await agent.generate(message);
-
-    return Response.json({ result });
-  } catch (error: any) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
-}
-```
-
-## Complete Example
-
-### Using Mastra Agent
-
-```typescript
-import { getMastraTools } from "integrate-sdk/ai/mastra";
-import { Agent, createTool } from "@mastra/core";
-
-const toolConfigs = await getMastraTools(serverClient, { providerTokens });
-
-const tools = Object.fromEntries(
-  Object.entries(toolConfigs).map(([id, config]) => [id, createTool(config)])
-);
-
-const agent = new Agent({
-  tools,
-  model: {
-    provider: "openai",
-    name: "gpt-4",
-  },
-  instructions: "You are a helpful assistant with access to GitHub.",
-});
-
-const result = await agent.generate("Create a GitHub issue about bug fixes");
-console.log(result);
-```
-
-### Using with Workflows
-
-```typescript
-import { getMastraTools } from "integrate-sdk/ai/mastra";
-import { Workflow, createTool } from "@mastra/core";
-
-const toolConfigs = await getMastraTools(serverClient, { providerTokens });
-
-const tools = Object.fromEntries(
-  Object.entries(toolConfigs).map(([id, config]) => [id, createTool(config)])
-);
-
-const workflow = new Workflow({
-  name: "github-workflow",
-  triggerSchema: z.object({
-    action: z.string(),
-  }),
-});
-
-workflow.step("analyze", async ({ context }) => {
-  // Use tools in workflow steps
-  const result = await tools.github_list_repos.execute({
-    context: { per_page: 10 },
-  });
-
-  return { repos: result };
-});
-
-workflow.step("create-issue", async ({ context }) => {
-  const result = await tools.github_create_issue.execute({
-    context: {
-      owner: "user",
-      repo: "repo",
-      title: "Automated Issue",
-      body: `Found ${context.repos.length} repositories`,
+  const agent = new Agent({
+    tools,
+    model: {
+      provider: "openai",
+      name: "gpt-4",
     },
   });
 
-  return { issue: result };
-});
+  const result = await agent.generate(message);
 
-const result = await workflow.execute({
-  triggerData: { action: "analyze-and-create" },
-});
-```
-
-## API Reference
-
-### `getMastraTools(client, options?)`
-
-Converts all enabled MCP tools to Mastra AI SDK format.
-
-**Parameters:**
-
-- `client` - The MCP client instance
-- `options` - Optional configuration
-  - `providerTokens` - Provider tokens for server-side usage
-
-**Returns:** `Promise<Record<string, MastraTool>>` - Dictionary of tool configurations keyed by ID
-
-## Tool Format
-
-Mastra tools use this configuration format:
-
-```typescript
-{
-  id: 'github_create_issue',
-  description: 'Create a new issue in a GitHub repository',
-  inputSchema: z.object({
-    owner: z.string(),
-    repo: z.string(),
-    title: z.string(),
-    body: z.string().optional(),
-  }),
-  execute: async ({ context }) => {
-    // Tool execution logic
-    return result;
-  }
+  return Response.json({ result });
 }
 ```
 
-## Advanced Usage
+## Usage
 
-### Custom Model Configuration
-
-```typescript
-const agent = new Agent({
-  tools,
-  model: {
-    provider: "anthropic",
-    name: "claude-3-5-sonnet-20241022",
-    toolChoice: "auto",
-  },
-  temperature: 0.7,
-});
-```
-
-### With Observability
+Use Mastra in any component:
 
 ```typescript
-import { Agent } from "@mastra/core";
-import { getMastraTools } from "integrate-sdk/ai/mastra";
+// app/page.tsx
+"use client";
 
-const tools = await getMastraTools(serverClient, { providerTokens });
+import { useState } from "react";
+import { client } from "integrate-sdk";
 
-const agent = new Agent({
-  tools: Object.fromEntries(
-    Object.entries(tools).map(([id, config]) => [id, createTool(config)])
-  ),
-  model: { provider: "openai", name: "gpt-4" },
-  observability: {
-    enabled: true,
-    provider: "langfuse",
-  },
-});
-```
+export default function AgentPage() {
+  const [message, setMessage] = useState("");
+  const [result, setResult] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [githubAuthorized, setGithubAuthorized] = useState(false);
 
-### Streaming Responses
+  async function handleGithubClick() {
+    try {
+      if (githubAuthorized) {
+        await client.disconnectProvider("github");
+        setGithubAuthorized(false);
+      } else {
+        await client.authorize("github");
+        setGithubAuthorized(true);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  }
 
-```typescript
-const stream = await agent.stream("List my GitHub repositories");
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!message.trim()) return;
 
-for await (const chunk of stream) {
-  console.log(chunk);
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+
+      const data = await response.json();
+      setResult(data.result);
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-screen">
+      <div className="flex-1 overflow-y-auto p-4">
+        {result && (
+          <div className="p-4 bg-gray-100 rounded-lg">
+            <pre>{JSON.stringify(result, null, 2)}</pre>
+          </div>
+        )}
+      </div>
+      <form
+        onSubmit={handleSubmit}
+        className="p-4 border-t border-gray-500 space-y-2"
+      >
+        <input
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Ask the agent anything..."
+          className="w-full px-4 py-2 border border-gray-500 rounded-lg"
+          disabled={loading}
+        />
+        <div className="flex justify-between">
+          <button
+            type="button"
+            onClick={handleGithubClick}
+            className="px-4 py-2 bg-black text-white rounded-lg disabled:opacity-50"
+          >
+            {githubAuthorized ? "Disconnect" : "Connect"} GitHub
+          </button>
+          <button
+            type="submit"
+            disabled={loading || !message.trim()}
+            className="px-4 py-2 bg-black text-white rounded-lg disabled:opacity-50"
+          >
+            Run Agent
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }
 ```
 
 ## Next Steps
 
-- [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
-- [Explore other AI providers](/docs/artificial-intelligence/vercel-ai-sdk)
-- [API Reference](/docs/reference/options)
+- Explore [Advanced Configuration](/docs/getting-started/advanced-usage)
+- Check the [API Reference](/docs/reference/options) for complete type definitions

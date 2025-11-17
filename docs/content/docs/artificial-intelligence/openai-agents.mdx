@@ -7,26 +7,44 @@ The Integrate SDK provides seamless integration with the `@openai/agents` packag
 
 ## Installation
 
+Install the Integrate SDK and OpenAI Agents packages:
+
 ```bash
 bun add integrate-sdk @openai/agents
 ```
 
-## Frontend Integration
+## Setup
 
-Use the `useIntegrateAI` hook for automatic token injection:
+Setting up OpenAI Agents integration requires **3 files** (or **5 files** if not using a database):
+
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate.ts
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
+
+export const { client: serverClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+### 2. Providers (only if no database)
+
+If you're not using a database, create a providers component that injects tokens:
 
 ```typescript
 // app/providers.tsx
 "use client";
 
-import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { client } from "integrate-sdk";
 import { useIntegrateAI } from "integrate-sdk/react";
-
-const client = createMCPClient({
-  integrations: [
-    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
-  ],
-});
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useIntegrateAI(client);
@@ -34,101 +52,101 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-## Server-Side Integration
+### 3. Layout (only if no database)
 
-### Setup Server Configuration
-
-```typescript
-// lib/integrate-server.ts
-import {
-  createMCPServer,
-  githubIntegration,
-  gmailIntegration,
-} from "integrate-sdk/server";
-
-export const { client: serverClient } = createMCPServer({
-  integrations: [
-    githubIntegration({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ["repo", "user"],
-    }),
-    gmailIntegration({
-      clientId: process.env.GMAIL_CLIENT_ID!,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-      scopes: ["gmail.send"],
-    }),
-  ],
-});
-```
-
-### Create Agent API Route
+Wrap your app with the Providers component:
 
 ```typescript
-// app/api/agent/route.ts
-import { serverClient } from "@/lib/integrate-server";
-import { getOpenAIAgentsTools } from "integrate-sdk/ai/openai-agents";
-import { Agent } from "@openai/agents";
+// app/layout.tsx
+import { Providers } from "./providers";
 
-export async function POST(req: Request) {
-  try {
-    // Extract provider tokens from request
-    const tokensHeader = req.headers.get("x-integrate-tokens");
-    const providerTokens = JSON.parse(tokensHeader || "{}");
-
-    // Get tools with user's tokens
-    const toolConfigs = await getOpenAIAgentsTools(serverClient, {
-      providerTokens,
-    });
-
-    const { message } = await req.json();
-
-    // Create agent with tools
-    const agent = new Agent({
-      model: "gpt-4o",
-      tools: toolConfigs,
-    });
-
-    // Run agent
-    const result = await agent.run(message);
-
-    return Response.json({ result });
-  } catch (error: any) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
 }
 ```
 
-## Complete Example
+### 4. OAuth Handler
 
-### Frontend Component
+Create a catch-all route that handles OAuth operations at `app/api/integrate/[...all]/route.ts`:
 
 ```typescript
-// app/agent/page.tsx
+import { serverClient } from "@/lib/integrate";
+import { toNextJsHandler } from "integrate-sdk/server";
+
+export const { POST, GET } = toNextJsHandler(serverClient);
+```
+
+### 5. Agent API Route
+
+Create an agent route that converts MCP tools to OpenAI Agents format:
+
+```typescript
+// app/api/agent/route.ts
+import { serverClient } from "@/lib/integrate";
+import { getOpenAIAgentsTools } from "integrate-sdk/server";
+import { Agent } from "@openai/agents";
+
+export async function POST(req: Request) {
+  const { message } = await req.json();
+
+  const toolConfigs = await getOpenAIAgentsTools(serverClient);
+
+  const agent = new Agent({
+    model: "gpt-4o",
+    tools: toolConfigs,
+  });
+
+  const result = await agent.run(message);
+
+  return Response.json({ result });
+}
+```
+
+## Usage
+
+Use OpenAI Agents in any component:
+
+```typescript
+// app/page.tsx
 "use client";
 
 import { useState } from "react";
-import { createMCPClient, githubIntegration } from "integrate-sdk";
-
-const client = createMCPClient({
-  integrations: [
-    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
-  ],
-});
+import { client } from "integrate-sdk";
 
 export default function AgentPage() {
   const [message, setMessage] = useState("");
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [authorized, setAuthorized] = useState(false);
+  const [githubAuthorized, setGithubAuthorized] = useState(false);
 
-  const handleConnect = async () => {
-    await client.authorize("github");
-    setAuthorized(true);
-  };
+  async function handleGithubClick() {
+    try {
+      if (githubAuthorized) {
+        await client.disconnectProvider("github");
+        setGithubAuthorized(false);
+      } else {
+        await client.authorize("github");
+        setGithubAuthorized(true);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!message.trim()) return;
+
     setLoading(true);
 
     try {
@@ -145,95 +163,51 @@ export default function AgentPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  if (!authorized) {
-    return (
-      <div>
-        <button onClick={handleConnect}>Connect GitHub</button>
-      </div>
-    );
   }
 
   return (
-    <div>
-      <h1>OpenAI Agent with GitHub Access</h1>
-      <form onSubmit={handleSubmit}>
+    <div className="flex flex-col h-screen">
+      <div className="flex-1 overflow-y-auto p-4">
+        {result && (
+          <div className="p-4 bg-gray-100 rounded-lg">
+            <pre>{JSON.stringify(result, null, 2)}</pre>
+          </div>
+        )}
+      </div>
+      <form
+        onSubmit={handleSubmit}
+        className="p-4 border-t border-gray-500 space-y-2"
+      >
         <input
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Ask the agent to use GitHub..."
+          placeholder="Ask the agent anything..."
+          className="w-full px-4 py-2 border border-gray-500 rounded-lg"
+          disabled={loading}
         />
-        <button type="submit" disabled={loading}>
-          {loading ? "Running..." : "Run Agent"}
-        </button>
+        <div className="flex justify-between">
+          <button
+            type="button"
+            onClick={handleGithubClick}
+            className="px-4 py-2 bg-black text-white rounded-lg disabled:opacity-50"
+          >
+            {githubAuthorized ? "Disconnect" : "Connect"} GitHub
+          </button>
+          <button
+            type="submit"
+            disabled={loading || !message.trim()}
+            className="px-4 py-2 bg-black text-white rounded-lg disabled:opacity-50"
+          >
+            Run Agent
+          </button>
+        </div>
       </form>
-      {result && <pre>{JSON.stringify(result, null, 2)}</pre>}
     </div>
   );
 }
 ```
 
-## API Reference
-
-### `getOpenAIAgentsTools(client, options?)`
-
-Converts all enabled MCP tools to `@openai/agents` format.
-
-**Parameters:**
-
-- `client` - The MCP client instance
-- `options` - Optional configuration
-  - `providerTokens` - Provider tokens for server-side usage
-
-**Returns:** `Promise<OpenAIAgentsTool[]>` - Array of tool configurations
-
-## Tool Format
-
-OpenAI Agents expects tools with this structure:
-
-```typescript
-{
-  name: 'github_create_issue',
-  description: 'Create a new issue in a GitHub repository',
-  parameters: z.object({
-    owner: z.string(),
-    repo: z.string(),
-    title: z.string(),
-    body: z.string().optional(),
-  }),
-  execute: async (args) => {
-    // Tool execution logic
-    return result;
-  }
-}
-```
-
-## Advanced Usage
-
-### Custom Agent Configuration
-
-```typescript
-import { Agent } from "@openai/agents";
-import { getOpenAIAgentsTools } from "integrate-sdk/ai/openai-agents";
-
-const toolConfigs = await getOpenAIAgentsTools(serverClient, {
-  providerTokens,
-});
-
-const agent = new Agent({
-  model: "gpt-4o",
-  tools: toolConfigs,
-  instructions: "You are a helpful assistant with access to GitHub.",
-  temperature: 0.7,
-  maxTokens: 1000,
-});
-
-const result = await agent.run("Create a new GitHub issue about bug fixes");
-```
-
 ## Next Steps
 
-- [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
-- [Explore other AI providers](/docs/artificial-intelligence/vercel-ai-sdk)
-- [API Reference](/docs/reference/options)
+- Explore [Advanced Configuration](/docs/getting-started/advanced-usage)
+- Check the [API Reference](/docs/reference/options) for complete type definitions

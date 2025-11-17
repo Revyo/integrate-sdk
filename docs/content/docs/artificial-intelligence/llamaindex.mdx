@@ -7,26 +7,44 @@ The Integrate SDK provides seamless integration with LlamaIndex, allowing you to
 
 ## Installation
 
+Install the Integrate SDK and LlamaIndex packages:
+
 ```bash
 bun add integrate-sdk llamaindex
 ```
 
-## Frontend Integration
+## Setup
 
-Use the `useIntegrateAI` hook for automatic token injection:
+Setting up LlamaIndex integration requires **3 files** (or **5 files** if not using a database):
+
+### 1. Server Configuration
+
+Create a server configuration file with your OAuth credentials:
+
+```typescript
+// lib/integrate.ts
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
+
+export const { client: serverClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+### 2. Providers (only if no database)
+
+If you're not using a database, create a providers component that injects tokens:
 
 ```typescript
 // app/providers.tsx
 "use client";
 
-import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { client } from "integrate-sdk";
 import { useIntegrateAI } from "integrate-sdk/react";
-
-const client = createMCPClient({
-  integrations: [
-    githubIntegration({ clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID! }),
-  ],
-});
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useIntegrateAI(client);
@@ -34,203 +52,170 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-## Server-Side Integration
+### 3. Layout (only if no database)
 
-### Setup Server Configuration
+Wrap your app with the Providers component:
 
 ```typescript
-// lib/integrate-server.ts
-import { createMCPServer, githubIntegration } from "integrate-sdk/server";
+// app/layout.tsx
+import { Providers } from "./providers";
 
-export const { client: serverClient } = createMCPServer({
-  integrations: [
-    githubIntegration({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scopes: ["repo", "user"],
-    }),
-  ],
-});
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
 ```
 
-### Create Agent API Route
+### 4. OAuth Handler
+
+Create a catch-all route that handles OAuth operations at `app/api/integrate/[...all]/route.ts`:
+
+```typescript
+import { serverClient } from "@/lib/integrate";
+import { toNextJsHandler } from "integrate-sdk/server";
+
+export const { POST, GET } = toNextJsHandler(serverClient);
+```
+
+### 5. Agent API Route
+
+Create an agent route that converts MCP tools to LlamaIndex format:
 
 ```typescript
 // app/api/agent/route.ts
-import { serverClient } from "@/lib/integrate-server";
-import { getLlamaIndexTools } from "integrate-sdk/ai/llamaindex";
+import { serverClient } from "@/lib/integrate";
+import { getLlamaIndexTools } from "integrate-sdk/server";
 import { OpenAIAgent, tool } from "llamaindex";
 
 export async function POST(req: Request) {
-  try {
-    // Extract provider tokens from request
-    const tokensHeader = req.headers.get("x-integrate-tokens");
-    const providerTokens = JSON.parse(tokensHeader || "{}");
+  const { message } = await req.json();
 
-    // Get tool configs
-    const toolConfigs = await getLlamaIndexTools(serverClient, {
-      providerTokens,
-    });
+  const toolConfigs = await getLlamaIndexTools(serverClient);
+  const tools = toolConfigs.map((config) => tool(config));
 
-    // Create LlamaIndex tools
-    const tools = toolConfigs.map((config) => tool(config));
+  const agent = new OpenAIAgent({ tools });
+  const response = await agent.chat({ message });
 
-    const { message } = await req.json();
+  return Response.json({
+    response: response.response,
+    sources: response.sources,
+  });
+}
+```
 
-    // Create agent
-    const agent = new OpenAIAgent({ tools });
+## Usage
 
-    // Run agent
-    const response = await agent.chat({ message });
+Use LlamaIndex in any component:
 
-    return Response.json({
-      response: response.response,
-      sources: response.sources,
-    });
-  } catch (error: any) {
-    return Response.json({ error: error.message }, { status: 500 });
+```typescript
+// app/page.tsx
+"use client";
+
+import { useState } from "react";
+import { client } from "integrate-sdk";
+
+export default function AgentPage() {
+  const [message, setMessage] = useState("");
+  const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [githubAuthorized, setGithubAuthorized] = useState(false);
+
+  async function handleGithubClick() {
+    try {
+      if (githubAuthorized) {
+        await client.disconnectProvider("github");
+        setGithubAuthorized(false);
+      } else {
+        await client.authorize("github");
+        setGithubAuthorized(true);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
   }
-}
-```
 
-## Complete Example
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!message.trim()) return;
 
-### Using OpenAI Agent
+    setLoading(true);
 
-```typescript
-import { getLlamaIndexTools } from "integrate-sdk/ai/llamaindex";
-import { OpenAIAgent, tool } from "llamaindex";
+    try {
+      const response = await fetch("/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
 
-const toolConfigs = await getLlamaIndexTools(serverClient, { providerTokens });
-
-const tools = toolConfigs.map((config) => tool(config));
-
-const agent = new OpenAIAgent({
-  tools,
-  systemPrompt: "You are a helpful assistant with access to GitHub.",
-});
-
-const response = await agent.chat({
-  message: "Create a GitHub issue about bug fixes",
-});
-
-console.log(response.response);
-```
-
-### Using with Query Engine
-
-```typescript
-import { getLlamaIndexTools } from "integrate-sdk/ai/llamaindex";
-import { OpenAIAgent, VectorStoreIndex, tool } from "llamaindex";
-
-// Create index from documents
-const index = await VectorStoreIndex.fromDocuments(documents);
-const queryEngine = index.asQueryEngine();
-
-// Get tools
-const toolConfigs = await getLlamaIndexTools(serverClient, { providerTokens });
-const tools = toolConfigs.map((config) => tool(config));
-
-// Add query engine as a tool
-const queryTool = tool({
-  name: "query_documents",
-  description: "Search through documents",
-  parameters: z.object({
-    query: z.string(),
-  }),
-  execute: async ({ query }) => {
-    const response = await queryEngine.query({ query });
-    return response.toString();
-  },
-});
-
-// Create agent with both tools
-const agent = new OpenAIAgent({
-  tools: [...tools, queryTool],
-});
-
-const response = await agent.chat({
-  message: "Search for bugs and create a GitHub issue",
-});
-```
-
-## API Reference
-
-### `getLlamaIndexTools(client, options?)`
-
-Converts all enabled MCP tools to LlamaIndex format.
-
-**Parameters:**
-
-- `client` - The MCP client instance
-- `options` - Optional configuration
-  - `providerTokens` - Provider tokens for server-side usage
-
-**Returns:** `Promise<LlamaIndexTool[]>` - Array of tool configurations ready for LlamaIndex
-
-## Tool Format
-
-LlamaIndex tools use this configuration format:
-
-```typescript
-{
-  name: 'github_create_issue',
-  description: 'Create a new issue in a GitHub repository',
-  parameters: z.object({
-    owner: z.string(),
-    repo: z.string(),
-    title: z.string(),
-    body: z.string().optional(),
-  }),
-  execute: async (input) => {
-    // Tool execution logic
-    return JSON.stringify(result);
+      const data = await response.json();
+      setResult(data);
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
+    }
   }
+
+  return (
+    <div className="flex flex-col h-screen">
+      <div className="flex-1 overflow-y-auto p-4">
+        {result && (
+          <div className="p-4 bg-gray-100 rounded-lg">
+            <div className="mb-2">
+              <strong>Response:</strong> {result.response}
+            </div>
+            {result.sources && result.sources.length > 0 && (
+              <div>
+                <strong>Sources:</strong>
+                <pre>{JSON.stringify(result.sources, null, 2)}</pre>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <form
+        onSubmit={handleSubmit}
+        className="p-4 border-t border-gray-500 space-y-2"
+      >
+        <input
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Ask the agent anything..."
+          className="w-full px-4 py-2 border border-gray-500 rounded-lg"
+          disabled={loading}
+        />
+        <div className="flex justify-between">
+          <button
+            type="button"
+            onClick={handleGithubClick}
+            className="px-4 py-2 bg-black text-white rounded-lg disabled:opacity-50"
+          >
+            {githubAuthorized ? "Disconnect" : "Connect"} GitHub
+          </button>
+          <button
+            type="submit"
+            disabled={loading || !message.trim()}
+            className="px-4 py-2 bg-black text-white rounded-lg disabled:opacity-50"
+          >
+            Run Agent
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }
-```
-
-## Advanced Usage
-
-### Custom Agent Configuration
-
-```typescript
-const agent = new OpenAIAgent({
-  tools,
-  model: "gpt-4",
-  temperature: 0.7,
-  maxTokens: 1000,
-  systemPrompt: "You are an expert software engineer.",
-});
-```
-
-### Streaming Responses
-
-```typescript
-const response = await agent.chat({
-  message: "List my GitHub repositories",
-  stream: true,
-});
-
-for await (const chunk of response) {
-  console.log(chunk);
-}
-```
-
-### With Custom Tool Selection
-
-```typescript
-const toolConfigs = await getLlamaIndexTools(serverClient, { providerTokens });
-
-// Only GitHub issue-related tools
-const issueTools = toolConfigs
-  .filter(
-    (config) => config.name.includes("issue") || config.name.includes("create")
-  )
-  .map((config) => tool(config));
 ```
 
 ## Next Steps
 
-- [Set up OAuth routes in Next.js](/docs/oauth/nextjs)
-- [Explore other AI providers](/docs/artificial-intelligence/vercel-ai-sdk)
-- [API Reference](/docs/reference/options)
+- Explore [Advanced Configuration](/docs/getting-started/advanced-usage)
+- Check the [API Reference](/docs/reference/options) for complete type definitions

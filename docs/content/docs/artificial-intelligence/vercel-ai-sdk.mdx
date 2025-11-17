@@ -15,7 +15,7 @@ bun add integrate-sdk ai @ai-sdk/react
 
 ## Setup
 
-Setting up Vercel AI integration requires **5 files**:
+Setting up Vercel AI integration requires **3 files** (or **5 files** if not using a database):
 
 ### 1. Server Configuration
 
@@ -35,9 +35,9 @@ export const { client: serverClient } = createMCPServer({
 });
 ```
 
-### 2. Providers
+### 2. Providers (only if no database)
 
-Create a providers component that injects tokens into AI SDK requests:
+If you're not using a database, create a providers component that injects tokens:
 
 ```typescript
 // app/providers.tsx
@@ -52,7 +52,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-### 3. Layout
+### 3. Layout (only if no database)
 
 Wrap your app with the Providers component:
 
