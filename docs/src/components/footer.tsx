@@ -59,13 +59,13 @@ export function Footer() {
                         <p className="font-semibold text-zinc-900 dark:text-white">Resources</p>
                         <ul className="space-y-1">
                             <li>
-                                <Link href="/docs/reference/architecture" className="hover:text-blue-600 dark:hover:text-blue-400">
-                                    Architecture
+                                <Link href="https://discord.gg/7bAnb7CGGm" target='_blank' className="hover:text-blue-600 dark:hover:text-blue-400">
+                                    Community
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/docs/guides/advanced-usage" className="hover:text-blue-600 dark:hover:text-blue-400">
-                                    Advanced usage
+                                <Link href="https://github.com/integratedotdev/examples" target='_blank' className="hover:text-blue-600 dark:hover:text-blue-400">
+                                    Examples
                                 </Link>
                             </li>
                             <li>

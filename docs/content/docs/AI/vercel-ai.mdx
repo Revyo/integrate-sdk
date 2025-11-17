@@ -15,22 +15,13 @@ The easiest way to integrate with Vercel AI SDK on the frontend is using the `us
 // app/providers.tsx (or app/layout.tsx)
 "use client";
 
-import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { serverClient } from "@/lib/integrate";
 import { useIntegrateAI } from "integrate-sdk/react";
 
-const client = createMCPClient({
-  integrations: [
-    githubIntegration({
-      clientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
-    }),
-  ],
-});
-
 export function Providers({ children }: { children: React.ReactNode }) {
-  // Install global fetch interceptor once at app root
-  useIntegrateAI(client);
+  useIntegrateAI(serverClient);
 
-  return <>{children}</>;
+  return children;
 }
 ```
 
@@ -43,9 +34,7 @@ Now any component can use Vercel AI SDK's `useChat` hook without manual token ma
 import { useChat } from "ai/react";
 
 export default function ChatPage() {
-  const { messages, input, handleInputChange, handleSubmit } = useChat({
-    api: "/api/chat", // Tokens automatically injected!
-  });
+  const { messages, input, handleInputChange, handleSubmit } = useChat();
 
   return (
     <div>

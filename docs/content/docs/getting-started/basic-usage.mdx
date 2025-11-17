@@ -8,7 +8,7 @@ description: Get up and running with Integrate SDK in minutes
 First, create a server configuration file with your OAuth credentials:
 
 ```typescript
-// lib/integrate-server.ts
+// lib/integrate.ts
 import { createMCPServer, githubIntegration } from "integrate-sdk/server";
 
 export const { client: serverClient } = createMCPServer({
@@ -25,34 +25,19 @@ export const { client: serverClient } = createMCPServer({
 
 You can get an API key from the [Integrate Dashboard](https://app.integrate.dev).
 
-## Client Configuration
+## Client Usage
 
-Here's a complete example that connects to the MCP server and calls a GitHub tool:
+The client is automatically configured when making requests to the server.
+
+Here's a complete example that calls a GitHub tool:
 
 ```typescript
-import {
-  createMCPClient,
-  githubIntegration,
-  gmailIntegration,
-} from "integrate-sdk";
+import { client } from "integrate-sdk";
 
-// Create a client with integrations
-const client = createMCPClient({
-  integrations: [
-    githubIntegration({
-      scopes: ["repo", "user"],
-    }),
-    gmailIntegration(),
-  ],
-});
-
-// Check if user is authorized (browser only)
 if (!(await client.isAuthorized("github"))) {
-  // Initiate OAuth flow
   await client.authorize("github");
 }
 
-// Call tools with typed methods
 const result = await client.github.createIssue({
   owner: "owner",
   repo: "repo",
@@ -80,28 +65,17 @@ The SDK works in both browser and Node.js environments, but with different capab
 - Perfect for backend API routes
 
 ```typescript
-// Server-side usage (Node.js)
-const client = createMCPClient({
-  integrations: [
-    githubIntegration({
-      /* ... */
-    }),
-  ],
-});
+import { client } from "integrate-sdk";
 
-// Set the access token for the provider
 client.setProviderToken("github", {
-  accessToken: userAccessToken, // From your database
+  accessToken: userAccessToken,
   tokenType: "Bearer",
   expiresIn: 3600,
 });
 
-// ✅ API calls work fine
 const repos = await client.github.listRepos({ username: "octocat" });
 
-// ❌ OAuth UI throws error on server
 await client.authorize("github");
-// Error: can only be used in browser environments
 ```
 
 💡 **Tip:** Handle OAuth authorization in the browser, then store the access token in your database for backend API calls.
@@ -111,11 +85,7 @@ await client.authorize("github");
 ### 1. Import the SDK
 
 ```typescript
-import {
-  createMCPClient,
-  githubIntegration,
-  gmailIntegration,
-} from "integrate-sdk";
+import { client } from "integrate-sdk";
 ```
 
 ### 2. Set Up OAuth Credentials
@@ -135,26 +105,11 @@ GMAIL_CLIENT_ID=your_gmail_client_id
 GMAIL_CLIENT_SECRET=your_gmail_client_secret
 ```
 
-### 3. Create the Client
-
-Integrations automatically read credentials from standard environment variables:
+### 3. Call Tools
 
 ```typescript
-const client = createMCPClient({
-  integrations: [
-    githubIntegration({
-      scopes: ["repo", "user"],
-    }),
-  ],
-});
-```
+import { client } from "integrate-sdk";
 
-The `githubIntegration` automatically looks for `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in your environment. Similarly, `gmailIntegration` looks for `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET`.
-
-### 4. Call Tools
-
-```typescript
-// Use typed methods for built-in integrations
 const result = await client.github.createIssue({
   owner: "owner",
   repo: "repo",
@@ -168,6 +123,8 @@ const result = await client.github.createIssue({
 To see what tools are available:
 
 ```typescript
+import { client } from "integrate-sdk";
+
 const tools = client.getEnabledTools();
 console.log(
   "Available tools:",
@@ -180,6 +137,8 @@ console.log(
 Wrap your code in try-catch blocks to handle errors:
 
 ```typescript
+import { client } from "integrate-sdk";
+
 try {
   const result = await client.github.createIssue({
     owner: "owner",

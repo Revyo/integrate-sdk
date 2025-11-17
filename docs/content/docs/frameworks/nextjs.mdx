@@ -22,7 +22,7 @@ Setting up OAuth in Next.js requires only **3 files**:
 Create a server configuration file with your OAuth credentials:
 
 ```typescript
-// lib/integrate-server.ts
+// lib/integrate.ts
 import { createMCPServer, githubIntegration } from "integrate-sdk/server";
 
 export const { client: serverClient } = createMCPServer({
@@ -44,7 +44,7 @@ You can get an API key from the [Integrate Dashboard](https://app.integrate.dev)
 Create a single catch-all route that handles all OAuth operations at `app/api/integrate/[...all]/route.ts`
 
 ```typescript
-import { serverClient } from "@/lib/integrate-server";
+import { serverClient } from "@/lib/integrate";
 import { toNextJsHandler } from "integrate-sdk/server";
 
 export const { POST, GET } = toNextJsHandler(serverClient);
@@ -63,26 +63,10 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 
 ### Client-Side Authorization
 
-Create a client configuration file:
+The client is automatically configured when making requests to the server.
 
 ```typescript
-// lib/integrate.ts
-import { createMCPClient, githubIntegration } from "integrate-sdk";
+import { client } from "integrate-sdk";
 
-export const client = createMCPClient({
-  integrations: [
-    githubIntegration({
-      scopes: ["repo", "user"],
-    }),
-  ],
-});
-```
-
-Then use it in your components:
-
-```typescript
-import { client } from "@/lib/integrate";
-
-// Start OAuth flow
 await client.authorize("github");
 ```

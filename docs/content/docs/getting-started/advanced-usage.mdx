@@ -3,7 +3,32 @@ title: Advanced Usage
 description: Advanced configuration options and patterns for power users
 ---
 
-This guide covers advanced configuration options for `createMCPClient` and `createMCPServer` that give you fine-grained control over connection behavior, OAuth flows, error handling, and more.
+This guide covers advanced configuration options for power users who need custom client configuration and fine-grained control over connection behavior, OAuth flows, error handling, and more.
+
+## Custom Client Configuration
+
+For advanced use cases, you can create a custom configured client instead of using the default client:
+
+```typescript
+// lib/integrate-client.ts
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
+export const client = createMCPClient({
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+```
+
+Then import and use your custom client:
+
+```typescript
+import { client } from "@/lib/integrate-client";
+
+await client.authorize("github");
+```
 
 ## Connection Modes
 
@@ -12,43 +37,38 @@ Control when and how the client connects to the MCP server.
 ```typescript
 import { createMCPClient, githubIntegration } from "integrate-sdk";
 
-// Lazy connection (default) - connects automatically on first method call
 const client = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
-  connectionMode: "lazy", // Default
+  connectionMode: "lazy",
 });
 
-// No need to call connect()!
-await client.github.listOwnRepos({}); // Automatically connects
+await client.github.listOwnRepos({});
 
-// Eager connection - connects immediately when created
 const eagerClient = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
   connectionMode: "eager",
 });
-// Connects in background immediately
 
-// Manual connection - original behavior
 const manualClient = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
   connectionMode: "manual",
 });
 
-await manualClient.connect(); // Required!
+await manualClient.connect();
 await manualClient.github.listOwnRepos({});
-await manualClient.disconnect(); // Required cleanup
+await manualClient.disconnect();
 ```
 
 ### When to Use Each Mode
@@ -62,38 +82,34 @@ await manualClient.disconnect(); // Required cleanup
 By default, `createMCPClient` returns cached instances to improve performance and reduce connections.
 
 ```typescript
-// Singleton enabled (default) - reuses client instances
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
 const client1 = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
-    }),
-  ],
-  singleton: true, // Default
-});
-
-const client2 = createMCPClient({
-  integrations: [
-    githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
   singleton: true,
 });
 
-// client1 === client2 (same instance if config matches)
+const client2 = createMCPClient({
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+  singleton: true,
+});
 
-// Disable singleton - always create new instances
 const uniqueClient = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
   singleton: false,
 });
-
-// uniqueClient is always a new instance
 ```
 
 ### Clearing the Cache
@@ -110,28 +126,26 @@ await clearClientCache();
 Control whether clients automatically disconnect on process exit.
 
 ```typescript
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
 const client = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
-  autoCleanup: true, // Default - automatically disconnects on exit
+  autoCleanup: true,
 });
 
-// No cleanup needed - handles SIGINT, SIGTERM, beforeExit
-
-// Disable auto-cleanup for manual control
 const manualClient = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
   autoCleanup: false,
 });
 
-// You must manually disconnect
 await manualClient.disconnect();
 ```
 
@@ -140,43 +154,37 @@ await manualClient.disconnect();
 Handle expired or invalid OAuth tokens automatically.
 
 ```typescript
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
 const client = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
-
-  // Called when authentication fails
   onReauthRequired: async (context) => {
     console.log(`Re-auth needed for ${context.provider}`);
     console.log(`Error: ${context.error.message}`);
     console.log(`Tool: ${context.toolName}`);
-
-    // Trigger your OAuth flow here
     try {
       await client.authorize(context.provider);
-      return true; // Re-auth successful
+      return true;
     } catch (error) {
       console.error("Re-auth failed:", error);
-      return false; // Re-auth failed
+      return false;
     }
   },
-
-  // Number of automatic retry attempts
-  maxReauthRetries: 1, // Default: 1
+  maxReauthRetries: 1,
 });
 
-// When a tool call fails with auth error:
-// 1. onReauthRequired is called
-// 2. If it returns true, the tool call is retried
-// 3. Up to maxReauthRetries times
 try {
   await client.github.createIssue({
-    /* ... */
+    owner: "owner",
+    repo: "repo",
+    title: "Test issue",
   });
 } catch (error) {
-  // Only thrown if re-auth fails or max retries exceeded
+  console.error("Failed:", error);
 }
 ```
 
@@ -185,27 +193,22 @@ try {
 Customize the OAuth authorization experience.
 
 ```typescript
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
 const client = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
-
   oauthFlow: {
-    // Mode: 'popup' or 'redirect'
-    mode: "popup", // Default: 'redirect'
-
-    // Popup window dimensions (popup mode only)
+    mode: "popup",
     popupOptions: {
       width: 600,
       height: 700,
     },
-
-    // Custom callback handler
     onAuthCallback: async (provider, code, state) => {
       console.log(`Received callback for ${provider}`);
-      // Handle custom logic here
     },
   },
 });
@@ -231,24 +234,17 @@ const client = createMCPClient({
 Fine-tune OAuth behavior and URLs.
 
 ```typescript
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
 const client = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
-
-  // Base URL for OAuth API routes (default: '/api/integrate/oauth')
   oauthApiBase: "/api/integrate/oauth",
-
-  // Global redirect URI for all providers
-  // Auto-detected from window.location.origin if not provided
   redirectUri: "https://myapp.com/api/integrate/oauth/callback",
-
-  // Auto-handle OAuth callbacks from URL hash (default: true)
   autoHandleOAuthCallback: true,
-
-  // Manual session token (if you manage tokens externally)
   sessionToken: "existing-session-token",
 });
 ```
@@ -258,29 +254,41 @@ const client = createMCPClient({
 **Client-side:**
 
 ```typescript
-// Auto-detects: window.location.origin + oauthApiBase + '/callback'
-// Example: http://localhost:3000/api/integrate/oauth/callback
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
+const client = createMCPClient({
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
 ```
 
 **Server-side:**
 
 ```typescript
-import { createMCPServer } from "integrate-sdk/server";
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
 
 const { client } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
   integrations: [
-    /* ... */
+    githubIntegration({
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      scopes: ["repo", "user"],
+    }),
   ],
-  // Auto-detects from environment variables:
-  // 1. INTEGRATE_URL (primary)
-  // 2. VERCEL_URL (falls back)
-  // 3. http://localhost:3000/api/integrate/oauth/callback (default)
 });
 
-// Or provide explicitly:
 const { client: explicitClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
   integrations: [
-    /* ... */
+    githubIntegration({
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      scopes: ["repo", "user"],
+    }),
   ],
   redirectUri: process.env.OAUTH_REDIRECT_URI,
 });
@@ -291,13 +299,14 @@ const { client: explicitClient } = createMCPServer({
 Customize the client identity sent to the MCP server.
 
 ```typescript
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
 const client = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
-
   clientInfo: {
     name: "my-app",
     version: "1.2.3",
@@ -310,21 +319,19 @@ const client = createMCPClient({
 Configure HTTP transport settings.
 
 ```typescript
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
 const client = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
-
-  // Custom headers for all requests
   headers: {
     "X-Custom-Header": "value",
     "X-App-Version": "1.0.0",
   },
-
-  // Request timeout in milliseconds (default: 30000)
-  timeout: 60000, // 60 seconds
+  timeout: 60000,
 });
 ```
 
@@ -336,27 +343,22 @@ const client = createMCPClient({
 import { createMCPServer, githubIntegration } from "integrate-sdk/server";
 
 export const { client, POST, GET } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
   integrations: [
     githubIntegration({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!, // Server only!
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
       scopes: ["repo", "user"],
     }),
   ],
-
-  // All client options work here too
   connectionMode: "lazy",
   singleton: true,
   autoCleanup: true,
   timeout: 30000,
-
-  // Server-specific: OAuth redirect URI
-  // Auto-detects from INTEGRATE_URL or VERCEL_URL
   redirectUri: process.env.OAUTH_REDIRECT_URI,
 });
 
-// Exported route handlers
-export { POST, GET }; // Use in app/api/integrate/oauth/[action]/route.ts
+export { POST, GET };
 ```
 
 ## Event Listeners
@@ -364,44 +366,36 @@ export { POST, GET }; // Use in app/api/integrate/oauth/[action]/route.ts
 Listen to OAuth events for custom logic.
 
 ```typescript
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
 const client = createMCPClient({
   integrations: [
     githubIntegration({
-      /* ... */
+      scopes: ["repo", "user"],
     }),
   ],
 });
 
-// Auth started
 client.on("auth:started", ({ provider }) => {
   console.log(`Starting OAuth for ${provider}`);
 });
 
-// Auth completed
 client.on("auth:complete", ({ provider, accessToken, expiresAt }) => {
   console.log(`${provider} authorized until ${expiresAt}`);
-  // Save to analytics, update UI, etc.
 });
 
-// Auth error
 client.on("auth:error", ({ provider, error }) => {
   console.error(`Auth error for ${provider}:`, error.message);
-  // Show error UI, log to monitoring
 });
 
-// Provider disconnected
 client.on("auth:disconnect", ({ provider }) => {
   console.log(`${provider} disconnected`);
-  // Update UI state
 });
 
-// All providers logged out
 client.on("auth:logout", () => {
   console.log("User logged out from all services");
-  // Redirect to login, clear state
 });
 
-// Remove listener
 const handler = ({ provider }) => console.log(provider);
 client.on("auth:complete", handler);
 client.off("auth:complete", handler);
@@ -412,23 +406,28 @@ client.off("auth:complete", handler);
 Work with provider tokens directly.
 
 ```typescript
-// Get token for a specific provider
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
+const client = createMCPClient({
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+
 const githubToken = client.getProviderToken("github");
 console.log(githubToken.accessToken);
 console.log(githubToken.expiresAt);
 
-// Set token manually (e.g., from database)
 client.setProviderToken("github", {
   accessToken: "ghp_...",
   tokenType: "Bearer",
   expiresIn: 3600,
 });
 
-// Get all provider tokens (useful for server-side)
 const allTokens = client.getAllProviderTokens();
-// { github: 'ghp_...', gmail: 'ya29...' }
 
-// Send tokens to server
 await fetch("/api/ai", {
   method: "POST",
   headers: {
@@ -443,14 +442,21 @@ await fetch("/api/ai", {
 Multiple ways to check if providers are authorized.
 
 ```typescript
-// Check single provider
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
+const client = createMCPClient({
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+
 const isAuthorized = await client.isAuthorized("github");
 
-// Get all authorized providers
 const authorized = await client.authorizedProviders();
-console.log(authorized); // ['github', 'gmail']
+console.log(authorized);
 
-// Get detailed status
 const status = await client.getAuthorizationStatus("github");
 console.log(status.authorized);
 console.log(status.scopes);
@@ -462,16 +468,22 @@ console.log(status.expiresAt);
 Manage user sessions.
 
 ```typescript
-// Disconnect a single provider
+import { createMCPClient, githubIntegration } from "integrate-sdk";
+
+const client = createMCPClient({
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+});
+
 await client.disconnectProvider("github");
 
-// Check - no longer authorized
-const isAuthorized = await client.isAuthorized("github"); // false
+const isAuthorized = await client.isAuthorized("github");
 
-// Logout from all providers
 await client.logout();
 
-// All providers now require re-authorization
 await client.authorize("github");
 await client.authorize("gmail");
 ```
@@ -481,61 +493,40 @@ await client.authorize("gmail");
 Here's a comprehensive example using multiple advanced features:
 
 ```typescript
-import {
-  createMCPClient,
-  githubIntegration,
-  gmailIntegration,
-} from "integrate-sdk";
+import { createMCPClient, githubIntegration, gmailIntegration } from "integrate-sdk";
 
 const client = createMCPClient({
-  // Integrations
   integrations: [
     githubIntegration({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       scopes: ["repo", "user"],
     }),
-    gmailIntegration({
-      clientId: process.env.GMAIL_CLIENT_ID!,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
-    }),
+    gmailIntegration(),
   ],
-
-  // Connection
   connectionMode: "lazy",
   singleton: true,
   autoCleanup: true,
-
-  // OAuth
   oauthFlow: {
     mode: "popup",
     popupOptions: { width: 600, height: 700 },
   },
   oauthApiBase: "/api/integrate/oauth",
   autoHandleOAuthCallback: true,
-
-  // Re-authentication
   onReauthRequired: async ({ provider, error }) => {
     console.log(`Re-auth needed for ${provider}: ${error.message}`);
     await client.authorize(provider);
     return true;
   },
   maxReauthRetries: 2,
-
-  // HTTP
   timeout: 60000,
   headers: {
     "X-App-Version": "1.0.0",
   },
-
-  // Client info
   clientInfo: {
     name: "my-awesome-app",
     version: "1.0.0",
   },
 });
 
-// Event listeners
 client.on("auth:complete", ({ provider }) => {
   console.log(`✅ ${provider} connected`);
 });
@@ -544,7 +535,6 @@ client.on("auth:error", ({ provider, error }) => {
   console.error(`❌ ${provider} error:`, error);
 });
 
-// Use the client
 try {
   await client.github.createIssue({
     owner: "owner",

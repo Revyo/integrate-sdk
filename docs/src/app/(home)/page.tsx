@@ -21,7 +21,7 @@ const codeSample = `import {
   createMCPServer,
   githubIntegration,
   gmailIntegration,
-} from 'integrate-sdk';
+} from 'integrate-sdk/server';
 
 export const { client: serverClient } = createMCPServer({
   apiKey: process.env.INTEGRATE_API_KEY,
@@ -41,31 +41,22 @@ await client.github.createIssue({
   title: 'Ship agent hand-offs',
 });`;
 
-const vercelAICodeSample = `import { createMCPServer, githubIntegration, getVercelAITools } from "integrate-sdk";
-import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+const vercelAICodeSample = `import { serverClient } from "@/lib/integrate";
+import { getVercelAITools } from "integrate-sdk/server";
+import { convertToModelMessages, stepCountIs, streamText } from "ai";
 
-// 1. Create and connect MCP client
-const mcpClient = createMCPServer({
-  integrations: [
-    githubIntegration({
-      scopes: ['repo', 'user'],
-    }),
-  ],
-});
+export async function POST(req: Request) {
+    const { messages } = await req.json();
 
-// 2. Get tools in Vercel AI SDK format
-const tools = getVercelAITools(mcpClient);
+    const result = streamText({
+        model: "openai/gpt-5-mini",
+        messages: convertToModelMessages(messages),
+        tools: await getVercelAITools(serverClient),
+        stopWhen: stepCountIs(5),
+    });
 
-// 3. Use with AI models
-const result = await generateText({
-  model: openai("gpt-5"),
-  prompt: 'Create a GitHub issue titled "Bug in login" in myrepo',
-  tools,
-  maxSteps: 5,
-});
-
-console.log(result.text);`;
+    return result.toUIMessageStreamResponse();
+}`;
 
 const primaryCtaClass = cn(
   buttonVariants({ variant: 'primary', size: 'sm' }),
@@ -98,18 +89,18 @@ const featureHighlights = [
   },
 ];
 
-const buildingBlocks = [
-  {
-    title: 'Integration architecture',
-    description:
-      'Enable only the MCP tools you need. Each integration brings typed method calls, validation, and discovery.',
-  },
-  {
-    title: 'Observability built-in',
-    description:
-      'Log, replay, and audit every tool call to understand how agents are acting on external systems.',
-  },
-];
+// const buildingBlocks = [
+//   {
+//     title: 'Integration architecture',
+//     description:
+//       'Enable only the MCP tools you need. Each integration brings typed method calls, validation, and discovery.',
+//   },
+//   {
+//     title: 'Observability built-in',
+//     description:
+//       'Log, replay, and audit every tool call to understand how agents are acting on external systems.',
+//   },
+// ];
 
 const integrationStacks = [
   'GitHub',
@@ -151,10 +142,10 @@ export default async function HomePage() {
           <div className="absolute -left-20 bottom-0 size-88 rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-500/30" aria-hidden />
           <div className={cn(layoutWidthClass, 'relative grid gap-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center')}>
             <div className="space-y-7">
-              <span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white/80 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300">
+              {/* <span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white/80 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300">
                 <Sparkles className="size-3.5" aria-hidden />
                 The MCP bridge for AI developers
-              </span>
+              </span> */}
               <h1 className="text-pretty text-4xl font-semibold leading-tight text-zinc-900 dark:text-white sm:text-5xl lg:text-5xl">
                 Connect AI agents to production services without shipping new backends.
               </h1>
@@ -226,15 +217,15 @@ export default async function HomePage() {
         <section className={cn(layoutWidthClass, 'grid gap-12 lg:grid-cols-[1fr_1fr] lg:items-center')}>
           <div className="space-y-6">
             <span className="inline-flex items-center rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
-              Build on proven patterns
+              Making AI agents simpler than ever
             </span>
             <h2 className="text-pretty text-3xl font-semibold text-zinc-900 dark:text-white sm:text-4xl">
               The building blocks for production-ready AI integrations.
             </h2>
             <p className="text-base text-zinc-600 dark:text-zinc-300">
-              Integrate SDK packages best practices learned from teams connecting autonomous agents to critical systems. Stay type-safe, compliant, and resilient without reinventing your backend.
+              Integrate SDK provides building blocks for connecting autonomous agents to critical systems. Stay type-safe, compliant, and resilient without reinventing your backend while following best practices. Supports all major frameworks and AI SDKs.
             </p>
-            <ul className="grid gap-5">
+            {/* <ul className="grid gap-5">
               {buildingBlocks.map((item) => (
                 <li key={item.title} className="rounded-2xl border border-zinc-200 bg-white/60 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60">
                   <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
@@ -245,7 +236,7 @@ export default async function HomePage() {
                   </p>
                 </li>
               ))}
-            </ul>
+            </ul> */}
           </div>
           <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white/80 shadow-xl backdrop-blur-sm dark:border-zinc-700/60 dark:bg-zinc-900/70">
             <div className="text-sm">
