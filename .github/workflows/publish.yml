@@ -11,6 +11,9 @@ on:
       - ".github/**"
       - "!.github/workflows/publish.yml"
 
+permissions:
+  contents: write  # Required to create releases and tags
+
 jobs:
   check-version:
     runs-on: ubuntu-latest
@@ -87,13 +90,18 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Create Git Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a v${{ needs.check-version.outputs.version }} -m "Release v${{ needs.check-version.outputs.version }}"
+          git push origin v${{ needs.check-version.outputs.version }}
+
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.check-version.outputs.version }}
-          release_name: Release v${{ needs.check-version.outputs.version }}
+          name: Release v${{ needs.check-version.outputs.version }}
           body: |
             ## Changes in v${{ needs.check-version.outputs.version }}
 
