@@ -44,10 +44,12 @@ export interface OAuthConfig {
  * MCP Integration Interface
  * 
  * Integrations enable specific tools and configure OAuth providers
+ * 
+ * @template TId - The literal type of the integration ID (e.g., "github", "gmail")
  */
-export interface MCPIntegration {
+export interface MCPIntegration<TId extends string = string> {
   /** Unique integration identifier */
-  id: string;
+  id: TId;
 
   /** List of tool names this integration enables */
   tools: string[];

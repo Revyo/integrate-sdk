@@ -101,7 +101,7 @@ const GITHUB_TOOLS = [
  * });
  * ```
  */
-export function githubIntegration(config: GitHubIntegrationConfig = {}): MCPIntegration {
+export function githubIntegration(config: GitHubIntegrationConfig = {}): MCPIntegration<"github"> {
   const oauth: OAuthConfig = {
     provider: "github",
     clientId: config.clientId ?? getEnv('GITHUB_CLIENT_ID'),

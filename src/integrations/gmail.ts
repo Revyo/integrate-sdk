@@ -85,7 +85,7 @@ const GMAIL_TOOLS = [
  * });
  * ```
  */
-export function gmailIntegration(config: GmailIntegrationConfig = {}): MCPIntegration {
+export function gmailIntegration(config: GmailIntegrationConfig = {}): MCPIntegration<"gmail"> {
   const oauth: OAuthConfig = {
     provider: "gmail",
     clientId: config.clientId ?? getEnv('GMAIL_CLIENT_ID'),
