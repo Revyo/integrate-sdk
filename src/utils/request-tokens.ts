@@ -70,7 +70,8 @@ export async function getProviderTokens(manualTokens?: Record<string, string>): 
             // @ts-ignore, we don't have this bundled
             const nextHeaders = await import('next/headers').catch(() => null);
             if (nextHeaders && typeof nextHeaders.headers === 'function') {
-                const headersList = nextHeaders.headers();
+                // Next.js 15+ returns a Promise, earlier versions return the headers directly
+                const headersList = await Promise.resolve(nextHeaders.headers());
                 tokensString = headersList.get('x-integrate-tokens');
             }
         } catch {
