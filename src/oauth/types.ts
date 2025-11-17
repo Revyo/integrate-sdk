@@ -42,6 +42,8 @@ export interface AuthStatus {
 /**
  * Pending OAuth authorization
  * Tracks in-progress OAuth flows
+ * 
+ * Note: Scopes are NOT stored client-side - they're defined server-side in integration config
  */
 export interface PendingAuth {
   /** OAuth provider (github, gmail, etc.) */
@@ -52,8 +54,6 @@ export interface PendingAuth {
   codeVerifier: string;
   /** PKCE code challenge */
   codeChallenge: string;
-  /** OAuth scopes being requested */
-  scopes: string[];
   /** Redirect URI */
   redirectUri?: string;
   /** Return URL - where to redirect after OAuth completion */

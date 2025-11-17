@@ -114,17 +114,19 @@ type ExtractIntegrationId<T> = T extends { id: infer Id } ? Id : never;
 type IntegrationIds<TIntegrations extends readonly MCPIntegration[]> = ExtractIntegrationId<TIntegrations[number]>;
 
 /**
- * Check if a specific integration ID exists in the integration array
+ * Map of all possible integration namespaces
  */
-type HasIntegrationId<TIntegrations extends readonly MCPIntegration[], Id extends string> =
-  Id extends IntegrationIds<TIntegrations> ? true : false;
+interface AllIntegrationNamespaces {
+  github: GitHubIntegrationClient;
+  gmail: GmailIntegrationClient;
+}
 
 /**
  * Integration namespace type mapping - only includes properties for configured integrations
+ * Uses Pick to select only the integration IDs that are actually configured
  */
-type IntegrationNamespaces<TIntegrations extends readonly MCPIntegration[]> =
-  (HasIntegrationId<TIntegrations, "github"> extends true ? { github: GitHubIntegrationClient } : {}) &
-  (HasIntegrationId<TIntegrations, "gmail"> extends true ? { gmail: GmailIntegrationClient } : {});
+type IntegrationNamespaces<TIntegrations extends readonly MCPIntegration[]> = 
+  Pick<AllIntegrationNamespaces, Extract<IntegrationIds<TIntegrations>, keyof AllIntegrationNamespaces>>;
 
 /**
  * MCP Client Class

@@ -48,19 +48,19 @@ export class OAuthManager {
   /**
    * Initiate OAuth authorization flow
    * 
+   * Note: Scopes are defined server-side in integration configuration, not passed from client.
+   * 
    * @param provider - OAuth provider (github, gmail, etc.)
-   * @param config - OAuth configuration
+   * @param config - OAuth configuration (clientId/clientSecret not needed client-side)
    * @param returnUrl - Optional URL to redirect to after OAuth completion
    * @returns Promise that resolves when authorization is complete
    * 
    * @example
    * ```typescript
-   * // Basic flow
+   * // Basic flow - scopes are defined server-side
    * await oauthManager.initiateFlow('github', {
    *   provider: 'github',
-   *   clientId: 'abc123',
-   *   clientSecret: 'secret',
-   *   scopes: ['repo', 'user']
+   *   scopes: [], // Ignored client-side - defined in server integration config
    * });
    * 
    * // With return URL
@@ -74,12 +74,12 @@ export class OAuthManager {
     const state = generateStateWithReturnUrl(returnUrl);
 
     // 2. Store pending auth
+    // Note: Scopes are NOT stored client-side - they're defined server-side
     const pendingAuth: PendingAuth = {
       provider,
       state,
       codeVerifier,
       codeChallenge,
-      scopes: config.scopes,
       redirectUri: config.redirectUri,
       returnUrl,
       initiatedAt: Date.now(),
@@ -91,7 +91,8 @@ export class OAuthManager {
     this.savePendingAuthToStorage(state, pendingAuth);
 
     // 4. Request authorization URL from user's API route
-    const authUrl = await this.getAuthorizationUrl(provider, config.scopes, state, codeChallenge, config.redirectUri);
+    // Note: Scopes are NOT sent from client - they're defined server-side in integration config
+    const authUrl = await this.getAuthorizationUrl(provider, state, codeChallenge, config.redirectUri);
 
     // 5. Open authorization URL (popup or redirect)
     if (this.flowConfig.mode === 'popup') {
@@ -479,11 +480,10 @@ export class OAuthManager {
 
   /**
    * Request authorization URL from user's API route
-   * The API route will add OAuth secrets and forward to MCP server
+   * The API route will add OAuth secrets and scopes from server config and forward to MCP server
    */
   private async getAuthorizationUrl(
     provider: string,
-    scopes: string[],
     state: string,
     codeChallenge: string,
     redirectUri?: string
@@ -501,7 +501,7 @@ export class OAuthManager {
       },
       body: JSON.stringify({
         provider,
-        scopes,
+        // Scopes are NOT sent - they're defined server-side in integration configuration
         state,
         codeChallenge,
         codeChallengeMethod: 'S256',
