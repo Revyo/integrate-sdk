@@ -6,6 +6,9 @@
  * - No need to manually call disconnect()
  * - Singleton pattern automatically reuses connections
  * - Auto-cleanup on process exit
+ * 
+ * NOTE: For the absolute simplest usage, see default-client-usage.ts
+ * which uses the pre-configured default client export.
  */
 
 import { createMCPClient, githubIntegration, gmailIntegration } from "../src/index.js";

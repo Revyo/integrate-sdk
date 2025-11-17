@@ -3,6 +3,15 @@
  *
  * This example demonstrates how to create an MCP client with integrations
  * and interact with the server.
+ * 
+ * NOTE: For the simplest usage, you can import the default client instead:
+ * 
+ * ```typescript
+ * import { client } from 'integrate-sdk';
+ * await client.github.listOwnRepos({});
+ * ```
+ * 
+ * See default-client-usage.ts for a full example.
  */
 
 import {

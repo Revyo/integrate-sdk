@@ -25,12 +25,15 @@ export class OAuthManager {
   private windowManager: OAuthWindowManager;
   private flowConfig: OAuthFlowConfig;
   private oauthApiBase: string;
+  private apiBaseUrl?: string;
 
   constructor(
     oauthApiBase: string,
-    flowConfig?: Partial<OAuthFlowConfig>
+    flowConfig?: Partial<OAuthFlowConfig>,
+    apiBaseUrl?: string
   ) {
     this.oauthApiBase = oauthApiBase;
+    this.apiBaseUrl = apiBaseUrl;
     this.windowManager = new OAuthWindowManager();
     this.flowConfig = {
       mode: flowConfig?.mode || 'redirect',
@@ -485,7 +488,11 @@ export class OAuthManager {
     codeChallenge: string,
     redirectUri?: string
   ): Promise<string> {
-    const url = `${this.oauthApiBase}/authorize`;
+    // Construct URL: {apiBaseUrl}{oauthApiBase}/authorize
+    // If apiBaseUrl is not set, use relative URL (same origin)
+    const url = this.apiBaseUrl 
+      ? `${this.apiBaseUrl}${this.oauthApiBase}/authorize`
+      : `${this.oauthApiBase}/authorize`;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -521,7 +528,11 @@ export class OAuthManager {
     codeVerifier: string,
     state: string
   ): Promise<OAuthCallbackResponse> {
-    const url = `${this.oauthApiBase}/callback`;
+    // Construct URL: {apiBaseUrl}{oauthApiBase}/callback
+    // If apiBaseUrl is not set, use relative URL (same origin)
+    const url = this.apiBaseUrl 
+      ? `${this.apiBaseUrl}${this.oauthApiBase}/callback`
+      : `${this.oauthApiBase}/callback`;
 
     const response = await fetch(url, {
       method: 'POST',

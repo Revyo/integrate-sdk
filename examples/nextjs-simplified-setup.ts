@@ -81,17 +81,28 @@ export async function GET() {
 // =============================================================================
 // Create a shared client instance for use across your app
 
-import { createMCPClient, githubIntegration } from 'integrate-sdk';
+// OPTION 1: Use the default client with all integrations (simplest!)
+import { client } from 'integrate-sdk';
+export { client };
 
-export const client = createMCPClient({
-  integrations: [
-    githubIntegration({
-      scopes: ['repo', 'user'],
-      // No clientId or clientSecret needed on client!
-    }),
-  ],
-  oauthFlow: { mode: 'popup' },
-});
+// OPTION 2: Or create a custom client with different API configuration
+// import { createMCPClient, githubIntegration } from 'integrate-sdk';
+// 
+// // Example A: Different API path (same origin)
+// export const client = createMCPClient({
+//   apiRouteBase: '/custom/api/path', // Calls /custom/api/path/mcp
+//   integrations: [githubIntegration()],
+//   oauthFlow: { mode: 'popup' },
+// });
+// 
+// // Example B: Different API domain (cross-origin)
+// // Useful when frontend and backend are on different domains
+// export const client = createMCPClient({
+//   apiBaseUrl: 'https://api.example.com', // API server URL
+//   apiRouteBase: '/api/integrate', // Calls https://api.example.com/api/integrate/mcp
+//   integrations: [githubIntegration()],
+//   oauthFlow: { mode: 'popup' },
+// });
 
 // =============================================================================
 // FILE 4: app/components/GitHubConnect.tsx (Example client component)

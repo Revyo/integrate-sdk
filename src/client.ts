@@ -144,6 +144,7 @@ export class MCPClient<TIntegrations extends readonly MCPIntegration[] = readonl
   private oauthManager: OAuthManager;
   private eventEmitter: SimpleEventEmitter = new SimpleEventEmitter();
   private apiRouteBase: string;
+  private apiBaseUrl?: string;
 
   // Integration namespaces - dynamically typed based on configured integrations
   public readonly github!: IntegrationNamespaces<TIntegrations> extends { github: GitHubIntegrationClient }
@@ -172,6 +173,9 @@ export class MCPClient<TIntegrations extends readonly MCPIntegration[] = readonl
 
     // Determine API route base for tool calls
     this.apiRouteBase = config.apiRouteBase || '/api/integrate';
+    
+    // Store apiBaseUrl for cross-origin API calls (optional)
+    this.apiBaseUrl = config.apiBaseUrl;
 
     // Clone integrations and inject default redirectUri if not set
     this.integrations = config.integrations.map(integration => {
@@ -197,7 +201,8 @@ export class MCPClient<TIntegrations extends readonly MCPIntegration[] = readonl
     // Initialize OAuth manager
     this.oauthManager = new OAuthManager(
       oauthApiBase,
-      config.oauthFlow
+      config.oauthFlow,
+      this.apiBaseUrl
     );
 
     // Load provider tokens from localStorage
@@ -253,8 +258,16 @@ export class MCPClient<TIntegrations extends readonly MCPIntegration[] = readonl
   /**
    * Create a proxy for a integration namespace that intercepts method calls
    * and routes them to the appropriate tool
+   * Returns undefined if the integration is not configured
    */
   private createIntegrationProxy(integrationId: string): any {
+    // Check if this integration exists in the configured integrations
+    const hasIntegration = this.integrations.some(integration => integration.id === integrationId);
+    
+    if (!hasIntegration) {
+      return undefined;
+    }
+    
     return new Proxy({}, {
       get: (_target, methodName: string) => {
         // Return a function that calls the tool
@@ -480,7 +493,11 @@ export class MCPClient<TIntegrations extends readonly MCPIntegration[] = readonl
     }
 
     // Browser clients (no API key) - route through API handler
-    const url = `${this.apiRouteBase}/mcp`;
+    // Construct URL: {apiBaseUrl}{apiRouteBase}/mcp
+    // If apiBaseUrl is not set, use relative URL (same origin)
+    const url = this.apiBaseUrl 
+      ? `${this.apiBaseUrl}${this.apiRouteBase}/mcp`
+      : `${this.apiRouteBase}/mcp`;
 
     // Prepare headers
     const headers: Record<string, string> = {

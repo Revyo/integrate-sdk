@@ -65,20 +65,56 @@ export interface MCPClientConfig<TIntegrations extends readonly MCPIntegration[]
   integrations: TIntegrations;
 
   /**
-   * MCP Server URL
+   * MCP Server URL (SERVER-SIDE ONLY - for createMCPServer)
+   * 
+   * ⚠️ DO NOT configure this in client-side code (createMCPClient)!
+   * The client calls YOUR API routes at apiRouteBase/mcp, which then call the MCP server.
+   * 
+   * This is only used server-side to specify which MCP backend to connect to.
    * 
    * @default 'https://mcp.integrate.dev/api/v1/mcp'
    * 
    * @example
    * ```typescript
-   * // For local development
-   * createMCPClient({
+   * // Server-side only - point to a different MCP backend
+   * createMCPServer({
    *   serverUrl: 'http://localhost:8080/api/v1/mcp',
    *   integrations: [githubIntegration({ ... })]
    * })
    * ```
+   * 
+   * @internal This is primarily for server configuration
    */
   serverUrl?: string;
+
+  /**
+   * Base origin URL for your API routes (client-side configuration)
+   * Use this when your API routes are hosted on a different domain than your frontend
+   * 
+   * The client will make requests to:
+   * - {apiBaseUrl}{apiRouteBase}/mcp (for tool calls)
+   * - {apiBaseUrl}{oauthApiBase}/authorize (for OAuth)
+   * 
+   * @default window.location.origin (browser) or undefined (server)
+   * 
+   * @example
+   * ```typescript
+   * // Frontend on localhost:3000, API on localhost:4000
+   * createMCPClient({
+   *   apiBaseUrl: 'http://localhost:4000',
+   *   integrations: [githubIntegration({ ... })]
+   * })
+   * // Will call: http://localhost:4000/api/integrate/mcp
+   * 
+   * // Frontend on app.example.com, API on api.example.com
+   * createMCPClient({
+   *   apiBaseUrl: 'https://api.example.com',
+   *   integrations: [githubIntegration({ ... })]
+   * })
+   * // Will call: https://api.example.com/api/integrate/mcp
+   * ```
+   */
+  apiBaseUrl?: string;
 
   /** Optional HTTP headers to include in requests */
   headers?: Record<string, string>;
