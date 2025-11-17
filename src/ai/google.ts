@@ -9,8 +9,21 @@ import type { MCPTool } from "../protocol/messages.js";
 import { executeToolWithToken, ensureClientConnected, getProviderTokens, type AIToolsOptions } from "./utils.js";
 
 /**
+ * Schema type from @google/genai
+ */
+export interface Schema {
+  type?: string;
+  description?: string;
+  enum?: string[];
+  items?: Schema;
+  properties?: Record<string, Schema>;
+  required?: string[];
+  [key: string]: unknown;
+}
+
+/**
  * Google GenAI function declaration
- * Compatible with @google/genai SDK
+ * Compatible with @google/genai SDK FunctionDeclaration type
  */
 export interface GoogleTool {
   name: string;
@@ -18,7 +31,7 @@ export interface GoogleTool {
   parameters: {
     type: 'object';
     description?: string;
-    properties?: Record<string, unknown>;
+    properties?: Record<string, Schema>;
     required?: string[];
     [key: string]: unknown;
   };
@@ -28,14 +41,54 @@ export interface GoogleTool {
  * Google GenAI function call
  */
 export interface GoogleFunctionCall {
-  name: string;
-  args: Record<string, unknown>;
+  name?: string;
+  args?: Record<string, unknown>;
 }
 
 /**
  * Options for converting MCP tools to Google GenAI format
  */
 export interface GoogleToolsOptions extends AIToolsOptions { }
+
+/**
+ * Convert properties to Schema format recursively
+ */
+function convertPropertiesToSchema(properties: Record<string, any>): Record<string, Schema> {
+  const result: Record<string, Schema> = {};
+  
+  for (const [key, value] of Object.entries(properties)) {
+    if (!value || typeof value !== 'object') {
+      result[key] = value as Schema;
+      continue;
+    }
+    
+    const schema: Schema = {
+      type: value.type,
+      description: value.description,
+      enum: value.enum,
+      required: value.required,
+    };
+    
+    if (value.items) {
+      schema.items = convertPropertiesToSchema({ items: value.items }).items;
+    }
+    
+    if (value.properties) {
+      schema.properties = convertPropertiesToSchema(value.properties);
+    }
+    
+    // Copy other properties
+    for (const [k, v] of Object.entries(value)) {
+      if (!['type', 'description', 'enum', 'required', 'items', 'properties'].includes(k)) {
+        schema[k] = v;
+      }
+    }
+    
+    result[key] = schema;
+  }
+  
+  return result;
+}
 
 /**
  * Convert a single MCP tool to Google GenAI format
@@ -55,13 +108,15 @@ export function convertMCPToolToGoogle(
   _client: MCPClient<any>,
   _options?: GoogleToolsOptions
 ): GoogleTool {
+  const properties = mcpTool.inputSchema?.properties || {};
+  
   return {
     name: mcpTool.name,
     description: mcpTool.description || `Execute ${mcpTool.name}`,
     parameters: {
       type: 'object',
       description: mcpTool.description || '',
-      properties: mcpTool.inputSchema?.properties || {},
+      properties: convertPropertiesToSchema(properties),
       required: mcpTool.inputSchema?.required || [],
     },
   };
@@ -114,8 +169,65 @@ export async function executeGoogleFunctionCall(
   functionCall: GoogleFunctionCall,
   options?: GoogleToolsOptions
 ): Promise<string> {
-  const result = await executeToolWithToken(client, functionCall.name, functionCall.args, options);
+  if (!functionCall.name) {
+    throw new Error('Function call must have a name');
+  }
+  
+  const result = await executeToolWithToken(
+    client, 
+    functionCall.name, 
+    functionCall.args || {}, 
+    options
+  );
   return JSON.stringify(result);
+}
+
+/**
+ * Execute multiple function calls from Google GenAI response
+ * 
+ * This function handles the transformation from Google's function call format
+ * to the format expected by the SDK, then executes each call.
+ * 
+ * @param client - The MCP client instance
+ * @param functionCalls - Array of function calls from Google GenAI response
+ * @param options - Optional configuration including provider tokens
+ * @returns Array of execution results
+ * 
+ * @example
+ * ```typescript
+ * // In your API route
+ * const response = await ai.models.generateContent({
+ *   model: 'gemini-2.0-flash-001',
+ *   contents: messages,
+ *   config: {
+ *     tools: [{ functionDeclarations: await getGoogleTools(serverClient) }],
+ *   },
+ * });
+ * 
+ * if (response.functionCalls && response.functionCalls.length > 0) {
+ *   const results = await executeGoogleFunctionCalls(
+ *     serverClient, 
+ *     response.functionCalls,
+ *     { providerTokens }
+ *   );
+ *   return Response.json(results);
+ * }
+ * ```
+ */
+export async function executeGoogleFunctionCalls(
+  client: MCPClient<any>,
+  functionCalls: GoogleFunctionCall[] | undefined | null,
+  options?: GoogleToolsOptions
+): Promise<string[]> {
+  if (!functionCalls || functionCalls.length === 0) {
+    return [];
+  }
+  
+  const results = await Promise.all(
+    functionCalls.map(call => executeGoogleFunctionCall(client, call, options))
+  );
+  
+  return results;
 }
 
 /**
@@ -132,21 +244,21 @@ export async function executeGoogleFunctionCall(
  * // Client-side usage
  * import { createMCPClient, githubIntegration } from 'integrate-sdk';
  * import { getGoogleTools } from 'integrate-sdk/ai/google';
- * import { GoogleGenerativeAI } from '@google/generative-ai';
+ * import { genai } from '@google/genai';
  * 
  * const client = createMCPClient({
  *   integrations: [githubIntegration({ clientId: '...' })],
  * });
  * 
  * const tools = await getGoogleTools(client);
- * const genAI = new GoogleGenerativeAI('YOUR_API_KEY');
- * const model = genAI.getGenerativeModel({ 
- *   model: 'gemini-pro',
- *   tools: [{ functionDeclarations: tools }]
- * });
+ * const ai = genai({ apiKey: 'YOUR_API_KEY' });
  * 
- * const result = await model.generateContent({
- *   contents: [{ role: 'user', parts: [{ text: 'Create a GitHub issue' }] }]
+ * const response = await ai.models.generateContent({
+ *   model: 'gemini-2.0-flash-001',
+ *   contents: messages,
+ *   config: {
+ *     tools: [{ functionDeclarations: tools }]
+ *   }
  * });
  * ```
  * 
@@ -154,7 +266,8 @@ export async function executeGoogleFunctionCall(
  * ```typescript
  * // Server-side usage with tokens from client
  * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
- * import { getGoogleTools, executeGoogleFunctionCall } from 'integrate-sdk/ai/google';
+ * import { getGoogleTools, executeGoogleFunctionCalls } from 'integrate-sdk/ai/google';
+ * import { genai } from '@google/genai';
  * 
  * const { client: serverClient } = createMCPServer({
  *   integrations: [githubIntegration({ 
@@ -168,25 +281,26 @@ export async function executeGoogleFunctionCall(
  *   const providerTokens = JSON.parse(req.headers.get('x-integrate-tokens') || '{}');
  *   const tools = await getGoogleTools(serverClient, { providerTokens });
  *   
- *   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
- *   const model = genAI.getGenerativeModel({ 
- *     model: 'gemini-pro',
- *     tools: [{ functionDeclarations: tools }]
- *   });
- *   
- *   const result = await model.generateContent({
- *     contents: [{ role: 'user', parts: [{ text: 'Create a GitHub issue' }] }]
+ *   const ai = genai({ apiKey: process.env.GOOGLE_API_KEY });
+ *   const response = await ai.models.generateContent({
+ *     model: 'gemini-2.0-flash-001',
+ *     contents: messages,
+ *     config: {
+ *       tools: [{ functionDeclarations: tools }]
+ *     }
  *   });
  *   
  *   // Handle function calls if any
- *   const functionCalls = result.response.functionCalls();
- *   if (functionCalls) {
- *     for (const call of functionCalls) {
- *       await executeGoogleFunctionCall(serverClient, call, { providerTokens });
- *     }
+ *   if (response.functionCalls && response.functionCalls.length > 0) {
+ *     const results = await executeGoogleFunctionCalls(
+ *       serverClient, 
+ *       response.functionCalls,
+ *       { providerTokens }
+ *     );
+ *     return Response.json(results);
  *   }
  *   
- *   return Response.json(result.response);
+ *   return Response.json(response);
  * }
  * ```
  */

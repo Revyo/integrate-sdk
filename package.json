@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.7.40",
+  "version": "0.7.41",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
@@ -86,7 +86,7 @@
     "openai": ">=4.0.0",
     "@openai/agents": ">=0.1.0",
     "@anthropic-ai/sdk": ">=0.20.0",
-    "@google/generative-ai": ">=0.1.0",
+    "@google/genai": ">=0.1.0",
     "@cloudflare/workers-types": ">=4.0.0",
     "@langchain/core": ">=0.1.0",
     "llamaindex": ">=0.1.0",
@@ -108,7 +108,7 @@
     "@anthropic-ai/sdk": {
       "optional": true
     },
-    "@google/generative-ai": {
+    "@google/genai": {
       "optional": true
     },
     "@cloudflare/workers-types": {
