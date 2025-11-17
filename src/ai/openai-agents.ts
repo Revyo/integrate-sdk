@@ -11,6 +11,7 @@ import {
   jsonSchemaToZod,
   executeToolWithToken,
   ensureClientConnected,
+  getProviderTokens,
   type AIToolsOptions
 } from "./utils.js";
 
@@ -89,48 +90,22 @@ export function convertMCPToolsToOpenAIAgents(
  * 
  * Automatically connects the client if not already connected.
  * 
+ * **Auto-extraction**: Provider tokens are automatically extracted from request headers
+ * or environment variables if not provided in options.
+ * 
  * @param client - The MCP client instance
  * @param options - Optional configuration including provider tokens for server-side usage
  * @returns Array of tools ready to use with @openai/agents
  * 
  * @example
  * ```typescript
- * // Client-side usage
- * import { createMCPClient, githubIntegration } from 'integrate-sdk';
- * import { getOpenAIAgentsTools } from 'integrate-sdk/ai/openai-agents';
+ * // Auto-extraction (recommended)
+ * import { serverClient } from '@/lib/integrate-server';
+ * import { getOpenAIAgentsTools } from 'integrate-sdk';
  * import { Agent } from '@openai/agents';
  * 
- * const client = createMCPClient({
- *   integrations: [githubIntegration({ clientId: '...' })],
- * });
- * 
- * const tools = await getOpenAIAgentsTools(client);
- * 
- * const agent = new Agent({
- *   model: 'gpt-4o',
- *   tools,
- * });
- * 
- * const result = await agent.run('Create a GitHub issue');
- * ```
- * 
- * @example
- * ```typescript
- * // Server-side usage with tokens from client
- * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
- * import { getOpenAIAgentsTools } from 'integrate-sdk/ai/openai-agents';
- * 
- * const { client: serverClient } = createMCPServer({
- *   integrations: [githubIntegration({ 
- *     clientId: '...', 
- *     clientSecret: '...' 
- *   })],
- * });
- * 
- * // In your API route
  * export async function POST(req: Request) {
- *   const providerTokens = JSON.parse(req.headers.get('x-integrate-tokens') || '{}');
- *   const tools = await getOpenAIAgentsTools(serverClient, { providerTokens });
+ *   const tools = await getOpenAIAgentsTools(serverClient); // Tokens auto-extracted
  *   
  *   const agent = new Agent({
  *     model: 'gpt-4o',
@@ -141,12 +116,32 @@ export function convertMCPToolsToOpenAIAgents(
  *   return Response.json({ result });
  * }
  * ```
+ * 
+ * @example
+ * ```typescript
+ * // Manual override
+ * const tools = await getOpenAIAgentsTools(serverClient, {
+ *   providerTokens: { github: 'ghp_...', gmail: 'ya29...' }
+ * });
+ * ```
  */
 export async function getOpenAIAgentsTools(
   client: MCPClient<any>,
   options?: OpenAIAgentsToolsOptions
 ): Promise<OpenAIAgentsTool[]> {
   await ensureClientConnected(client);
-  return convertMCPToolsToOpenAIAgents(client, options);
+
+  // Auto-extract tokens if not provided
+  let providerTokens = options?.providerTokens;
+  if (!providerTokens) {
+    try {
+      providerTokens = await getProviderTokens();
+    } catch {
+      // Token extraction failed - that's okay
+    }
+  }
+
+  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
+  return convertMCPToolsToOpenAIAgents(client, finalOptions);
 }
 

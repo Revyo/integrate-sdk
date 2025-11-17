@@ -6,7 +6,7 @@
 
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
-import { executeToolWithToken, ensureClientConnected, type AIToolsOptions } from "./utils.js";
+import { executeToolWithToken, ensureClientConnected, getProviderTokens, type AIToolsOptions } from "./utils.js";
 
 /**
  * OpenAI function tool definition
@@ -131,47 +131,21 @@ export async function executeOpenAIToolCall(
  * 
  * Automatically connects the client if not already connected.
  * 
+ * **Auto-extraction**: Provider tokens are automatically extracted from request headers
+ * or environment variables if not provided in options.
+ * 
  * @param client - The MCP client instance
  * @param options - Optional configuration including provider tokens for server-side usage
  * @returns Array of tools ready to pass to OpenAI's Responses API
  * 
  * @example
  * ```typescript
- * // Client-side usage
- * import { createMCPClient, githubIntegration } from 'integrate-sdk';
- * import { getOpenAITools } from 'integrate-sdk/ai/openai';
+ * // Auto-extraction (recommended)
+ * import { serverClient } from '@/lib/integrate-server';
+ * import { getOpenAITools, executeOpenAIToolCall } from 'integrate-sdk';
  * 
- * const client = createMCPClient({
- *   integrations: [githubIntegration({ clientId: '...' })],
- * });
- * 
- * const tools = await getOpenAITools(client);
- * 
- * // Use with OpenAI SDK
- * const response = await openai.responses.create({
- *   model: 'gpt-4o-2024-11-20',
- *   input: 'Create a GitHub issue',
- *   tools,
- * });
- * ```
- * 
- * @example
- * ```typescript
- * // Server-side usage with tokens from client
- * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
- * import { getOpenAITools, executeOpenAIToolCall } from 'integrate-sdk/ai/openai';
- * 
- * const { client: serverClient } = createMCPServer({
- *   integrations: [githubIntegration({ 
- *     clientId: '...', 
- *     clientSecret: '...' 
- *   })],
- * });
- * 
- * // In your API route
  * export async function POST(req: Request) {
- *   const providerTokens = JSON.parse(req.headers.get('x-integrate-tokens') || '{}');
- *   const tools = await getOpenAITools(serverClient, { providerTokens });
+ *   const tools = await getOpenAITools(serverClient); // Tokens auto-extracted
  *   
  *   const response = await openai.responses.create({
  *     model: 'gpt-4o-2024-11-20',
@@ -179,18 +153,16 @@ export async function executeOpenAIToolCall(
  *     tools,
  *   });
  *   
- *   // Handle tool calls
- *   const toolCalls = response.output.filter(o => o.type === 'function_call');
- *   for (const toolCall of toolCalls) {
- *     const result = await executeOpenAIToolCall(serverClient, {
- *       id: toolCall.id,
- *       name: toolCall.name,
- *       arguments: toolCall.arguments,
- *     }, { providerTokens });
- *   }
- *   
  *   return Response.json(response);
  * }
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * // Manual override
+ * const tools = await getOpenAITools(serverClient, {
+ *   providerTokens: { github: 'ghp_...', gmail: 'ya29...' }
+ * });
  * ```
  */
 export async function getOpenAITools(
@@ -198,6 +170,18 @@ export async function getOpenAITools(
   options?: OpenAIToolsOptions
 ): Promise<OpenAITool[]> {
   await ensureClientConnected(client);
-  return convertMCPToolsToOpenAI(client, options);
+
+  // Auto-extract tokens if not provided
+  let providerTokens = options?.providerTokens;
+  if (!providerTokens) {
+    try {
+      providerTokens = await getProviderTokens();
+    } catch {
+      // Token extraction failed - that's okay
+    }
+  }
+
+  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
+  return convertMCPToolsToOpenAI(client, finalOptions);
 }
 

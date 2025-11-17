@@ -11,6 +11,7 @@ import {
   jsonSchemaToZod,
   executeToolWithToken,
   ensureClientConnected,
+  getProviderTokens,
   type AIToolsOptions
 } from "./utils.js";
 
@@ -156,6 +157,18 @@ export async function getLlamaIndexTools(
   options?: LlamaIndexToolsOptions
 ): Promise<LlamaIndexTool[]> {
   await ensureClientConnected(client);
-  return convertMCPToolsToLlamaIndex(client, options);
+
+  // Auto-extract tokens if not provided
+  let providerTokens = options?.providerTokens;
+  if (!providerTokens) {
+    try {
+      providerTokens = await getProviderTokens();
+    } catch {
+      // Token extraction failed - that's okay
+    }
+  }
+
+  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
+  return convertMCPToolsToLlamaIndex(client, finalOptions);
 }
 

@@ -6,7 +6,7 @@
 
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
-import { executeToolWithToken, ensureClientConnected, type AIToolsOptions } from "./utils.js";
+import { executeToolWithToken, ensureClientConnected, getProviderTokens, type AIToolsOptions } from "./utils.js";
 
 /**
  * Anthropic tool definition
@@ -212,49 +212,22 @@ export async function handleAnthropicToolCalls(
  * 
  * Automatically connects the client if not already connected.
  * 
+ * **Auto-extraction**: Provider tokens are automatically extracted from request headers
+ * or environment variables if not provided in options.
+ * 
  * @param client - The MCP client instance
  * @param options - Optional configuration including provider tokens for server-side usage
  * @returns Array of tools ready to pass to Claude API
  * 
  * @example
  * ```typescript
- * // Client-side usage
- * import { createMCPClient, githubIntegration } from 'integrate-sdk';
- * import { getAnthropicTools } from 'integrate-sdk/ai/anthropic';
+ * // Auto-extraction (recommended)
+ * import { serverClient } from '@/lib/integrate-server';
+ * import { getAnthropicTools, handleAnthropicToolCalls } from 'integrate-sdk';
  * import Anthropic from '@anthropic-ai/sdk';
  * 
- * const client = createMCPClient({
- *   integrations: [githubIntegration({ clientId: '...' })],
- * });
- * 
- * const tools = await getAnthropicTools(client);
- * const anthropic = new Anthropic({ apiKey: '...' });
- * 
- * const message = await anthropic.messages.create({
- *   model: 'claude-3-5-sonnet-20241022',
- *   max_tokens: 1024,
- *   tools,
- *   messages: [{ role: 'user', content: 'Create a GitHub issue' }]
- * });
- * ```
- * 
- * @example
- * ```typescript
- * // Server-side usage with tokens from client
- * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
- * import { getAnthropicTools, handleAnthropicToolCalls } from 'integrate-sdk/ai/anthropic';
- * 
- * const { client: serverClient } = createMCPServer({
- *   integrations: [githubIntegration({ 
- *     clientId: '...', 
- *     clientSecret: '...' 
- *   })],
- * });
- * 
- * // In your API route
  * export async function POST(req: Request) {
- *   const providerTokens = JSON.parse(req.headers.get('x-integrate-tokens') || '{}');
- *   const tools = await getAnthropicTools(serverClient, { providerTokens });
+ *   const tools = await getAnthropicTools(serverClient); // Tokens auto-extracted
  *   
  *   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
  *   const message = await anthropic.messages.create({
@@ -264,15 +237,16 @@ export async function handleAnthropicToolCalls(
  *     messages: [{ role: 'user', content: 'Create a GitHub issue' }]
  *   });
  *   
- *   // Handle any tool calls
- *   const toolResults = await handleAnthropicToolCalls(
- *     serverClient,
- *     message.content,
- *     { providerTokens }
- *   );
- *   
- *   return Response.json({ message, toolResults });
+ *   return Response.json(message);
  * }
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * // Manual override
+ * const tools = await getAnthropicTools(serverClient, {
+ *   providerTokens: { github: 'ghp_...', gmail: 'ya29...' }
+ * });
  * ```
  */
 export async function getAnthropicTools(
@@ -280,6 +254,18 @@ export async function getAnthropicTools(
   options?: AnthropicToolsOptions
 ): Promise<AnthropicTool[]> {
   await ensureClientConnected(client);
-  return convertMCPToolsToAnthropic(client, options);
+
+  // Auto-extract tokens if not provided
+  let providerTokens = options?.providerTokens;
+  if (!providerTokens) {
+    try {
+      providerTokens = await getProviderTokens();
+    } catch {
+      // Token extraction failed - that's okay
+    }
+  }
+
+  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
+  return convertMCPToolsToAnthropic(client, finalOptions);
 }
 

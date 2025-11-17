@@ -11,6 +11,7 @@ import {
   jsonSchemaToZod,
   executeToolWithToken,
   ensureClientConnected,
+  getProviderTokens,
   type AIToolsOptions
 } from "./utils.js";
 
@@ -172,6 +173,18 @@ export async function getLangChainTools(
   options?: LangChainToolsOptions
 ): Promise<LangChainTool[]> {
   await ensureClientConnected(client);
-  return convertMCPToolsToLangChain(client, options);
+
+  // Auto-extract tokens if not provided
+  let providerTokens = options?.providerTokens;
+  if (!providerTokens) {
+    try {
+      providerTokens = await getProviderTokens();
+    } catch {
+      // Token extraction failed - that's okay
+    }
+  }
+
+  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
+  return convertMCPToolsToLangChain(client, finalOptions);
 }
 

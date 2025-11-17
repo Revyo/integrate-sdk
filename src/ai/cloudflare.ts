@@ -6,7 +6,7 @@
 
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
-import { executeToolWithToken, ensureClientConnected, type AIToolsOptions } from "./utils.js";
+import { executeToolWithToken, ensureClientConnected, getProviderTokens, type AIToolsOptions } from "./utils.js";
 
 /**
  * Cloudflare AI tool definition
@@ -205,6 +205,18 @@ export async function getCloudflareTools(
   options?: CloudflareToolsOptions
 ): Promise<Record<string, CloudflareTool>> {
   await ensureClientConnected(client);
-  return convertMCPToolsToCloudflare(client, options);
+
+  // Auto-extract tokens if not provided
+  let providerTokens = options?.providerTokens;
+  if (!providerTokens) {
+    try {
+      providerTokens = await getProviderTokens();
+    } catch {
+      // Token extraction failed - that's okay
+    }
+  }
+
+  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
+  return convertMCPToolsToCloudflare(client, finalOptions);
 }
 

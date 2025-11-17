@@ -11,6 +11,7 @@ import {
   jsonSchemaToZod,
   executeToolWithToken,
   ensureClientConnected,
+  getProviderTokens,
   type AIToolsOptions
 } from "./utils.js";
 
@@ -173,6 +174,18 @@ export async function getMastraTools(
   options?: MastraToolsOptions
 ): Promise<Record<string, MastraTool>> {
   await ensureClientConnected(client);
-  return convertMCPToolsToMastra(client, options);
+
+  // Auto-extract tokens if not provided
+  let providerTokens = options?.providerTokens;
+  if (!providerTokens) {
+    try {
+      providerTokens = await getProviderTokens();
+    } catch {
+      // Token extraction failed - that's okay
+    }
+  }
+
+  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
+  return convertMCPToolsToMastra(client, finalOptions);
 }
 

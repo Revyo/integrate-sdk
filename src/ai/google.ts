@@ -6,7 +6,7 @@
 
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
-import { executeToolWithToken, ensureClientConnected, type AIToolsOptions } from "./utils.js";
+import { executeToolWithToken, ensureClientConnected, getProviderTokens, type AIToolsOptions } from "./utils.js";
 
 /**
  * Google GenAI function declaration
@@ -195,6 +195,18 @@ export async function getGoogleTools(
   options?: GoogleToolsOptions
 ): Promise<GoogleTool[]> {
   await ensureClientConnected(client);
-  return convertMCPToolsToGoogle(client, options);
+
+  // Auto-extract tokens if not provided
+  let providerTokens = options?.providerTokens;
+  if (!providerTokens) {
+    try {
+      providerTokens = await getProviderTokens();
+    } catch {
+      // Token extraction failed - that's okay
+    }
+  }
+
+  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
+  return convertMCPToolsToGoogle(client, finalOptions);
 }
 

@@ -43,38 +43,12 @@ import { getVercelAITools } from "../src/ai/vercel-ai.js";
 /**
  * POST handler for AI chat with tool execution
  * Supports both streaming and non-streaming responses
+ * 
+ * NEW: Tokens are automatically extracted - no manual parsing needed!
  */
 export async function POST(req: Request) {
   try {
-    // 1. Extract provider tokens from request headers
-    const tokensHeader = req.headers.get('x-integrate-tokens');
-
-    if (!tokensHeader) {
-      return Response.json(
-        {
-          error: 'Authentication required',
-          message: 'Please connect your integrations first',
-          code: 'MISSING_TOKENS'
-        },
-        { status: 401 }
-      );
-    }
-
-    // 2. Parse tokens
-    let providerTokens: Record<string, string>;
-    try {
-      providerTokens = JSON.parse(tokensHeader);
-    } catch (error) {
-      return Response.json(
-        {
-          error: 'Invalid token format',
-          code: 'INVALID_TOKENS'
-        },
-        { status: 400 }
-      );
-    }
-
-    // 3. Parse request body
+    // 1. Parse request body
     const body = await req.json();
     const {
       messages,
@@ -90,13 +64,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4. Get tools with user's provider tokens (auto-connects if needed)
-    const tools = await getVercelAITools(serverClient, { providerTokens });
+    // 2. Get tools - tokens automatically extracted from x-integrate-tokens header!
+    const tools = await getVercelAITools(serverClient);
 
     console.log(`[AI Route] Processing request with ${Object.keys(tools).length} tools`);
-    console.log(`[AI Route] Authenticated providers: ${Object.keys(providerTokens).join(', ')}`);
 
-    // 6. Use with Vercel AI SDK
+    // 3. Use with Vercel AI SDK
     if (stream) {
       // Streaming response
       /*
@@ -145,7 +118,7 @@ export async function POST(req: Request) {
       return Response.json({
         message: 'AI generation example - install ai package to enable',
         availableTools: Object.keys(tools),
-        providersAuthenticated: Object.keys(providerTokens),
+        note: 'Tokens were auto-extracted from x-integrate-tokens header!',
         config: {
           model,
           maxToolRoundtrips,
@@ -186,19 +159,8 @@ export async function POST(req: Request) {
  */
 export async function GET(req: Request) {
   try {
-    const tokensHeader = req.headers.get('x-integrate-tokens');
-
-    if (!tokensHeader) {
-      return Response.json({
-        authenticated: false,
-        message: 'No tokens provided',
-      });
-    }
-
-    const providerTokens = JSON.parse(tokensHeader);
-
-    // Get tools (auto-connects if needed)
-    const tools = await getVercelAITools(serverClient, { providerTokens });
+    // Get tools - tokens auto-extracted!
+    const tools = await getVercelAITools(serverClient);
 
     // Group tools by provider
     const toolsByProvider: Record<string, string[]> = {};
@@ -212,10 +174,10 @@ export async function GET(req: Request) {
 
     return Response.json({
       authenticated: true,
-      providers: Object.keys(providerTokens),
       toolCount: Object.keys(tools).length,
       toolsByProvider,
       tools: Object.keys(tools),
+      note: 'Tokens auto-extracted from x-integrate-tokens header!'
     });
   } catch (error) {
     return Response.json(
@@ -449,8 +411,8 @@ KEY FEATURES:
 
 FLOW:
 1. Client authenticates via OAuth (stores tokens in localStorage)
-2. Client calls /api/ai/chat with tokens in header
-3. Server extracts tokens and creates tools with user's auth
+2. Client calls /api/ai/chat with tokens in x-integrate-tokens header
+3. Server calls getVercelAITools() - tokens auto-extracted!
 4. AI model uses tools with user's permissions
 5. Response returned to client
 

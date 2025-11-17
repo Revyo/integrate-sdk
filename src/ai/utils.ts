@@ -15,9 +15,23 @@ export interface AIToolsOptions {
    * Provider tokens for server-side usage
    * Maps provider names (e.g., 'github', 'gmail') to their access tokens
    * 
+   * **Auto-extraction**: If not provided, tokens will be automatically extracted
+   * from the request headers (`x-integrate-tokens`) or environment variables.
+   * This works in supported frameworks like Next.js and Nuxt.
+   * 
+   * **Manual override**: Pass this option to explicitly provide tokens when
+   * auto-extraction is not available or you need custom control.
+   * 
    * @example
    * ```typescript
-   * const tools = await getAITools(client, 'openai', {
+   * // Auto-extraction (tokens extracted automatically from request)
+   * const tools = await getVercelAITools(serverClient);
+   * ```
+   * 
+   * @example
+   * ```typescript
+   * // Manual override
+   * const tools = await getVercelAITools(serverClient, {
    *   providerTokens: {
    *     github: 'ghp_...',
    *     gmail: 'ya29...'
@@ -245,4 +259,10 @@ export async function ensureClientConnected(client: MCPClient<any>): Promise<voi
     await client.connect();
   }
 }
+
+/**
+ * Re-export token extraction utilities
+ * These help extract provider tokens from request headers automatically
+ */
+export { getProviderTokens, tryGetProviderTokens } from "../utils/request-tokens.js";
 

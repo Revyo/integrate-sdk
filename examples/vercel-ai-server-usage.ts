@@ -4,10 +4,13 @@
  * This example demonstrates how to use the Integrate SDK with Vercel's AI SDK
  * on the server side (e.g., in Next.js API routes or serverless functions).
  * 
+ * **NEW: Auto-Token Extraction** - Provider tokens are now automatically extracted
+ * from request headers, eliminating manual parsing in most cases!
+ * 
  * Flow:
  * 1. Client authenticates with OAuth and gets tokens (stored in localStorage)
- * 2. Client sends tokens to server in request headers
- * 3. Server creates MCP client and passes tokens to getVercelAITools()
+ * 2. Client sends tokens to server in x-integrate-tokens header
+ * 3. Server calls getVercelAITools() - tokens auto-extracted!
  * 4. AI model uses tools with user's authentication
  */
 
@@ -15,31 +18,20 @@ import { createMCPServer, githubIntegration, gmailIntegration } from "../src/ser
 import { getVercelAITools } from "../src/ai/vercel-ai.js";
 
 /**
- * Example 1: Next.js API Route for AI Text Generation
+ * Example 1: Next.js API Route for AI Text Generation (Auto-Extraction)
  * File: app/api/ai/generate/route.ts
+ * 
+ * NEW: Tokens are automatically extracted from the x-integrate-tokens header!
  */
 export async function exampleNextJSAPIRoute() {
   // This would be your Next.js API route handler
   async function POST(req: Request) {
     try {
-      // 1. Extract provider tokens from request headers
-      // Client sends these after authenticating via OAuth
-      const tokensHeader = req.headers.get('x-integrate-tokens');
-      if (!tokensHeader) {
-        return new Response(
-          JSON.stringify({ error: 'Missing integration tokens' }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const providerTokens = JSON.parse(tokensHeader);
-      // providerTokens = { github: 'ghp_...', gmail: 'ya29...' }
-
-      // 2. Parse request body
+      // 1. Parse request body
       const body = await req.json();
       const { prompt } = body;
 
-      // 3. Create server-side MCP client
+      // 2. Create server-side MCP client
       // Note: OAuth secrets come from environment variables on the server
       const { client: serverClient } = createMCPServer({
         apiKey: process.env.INTEGRATE_API_KEY,
@@ -57,13 +49,14 @@ export async function exampleNextJSAPIRoute() {
         ],
       });
 
-      // 4. Connect the client
+      // 3. Connect the client
       await serverClient.connect();
 
-      // 5. Get tools with user's provider tokens
-      const tools = getVercelAITools(serverClient, { providerTokens });
+      // 4. Get tools - tokens automatically extracted from x-integrate-tokens header!
+      // No need to manually parse headers anymore
+      const tools = await getVercelAITools(serverClient);
 
-      // 6. Use with Vercel AI SDK
+      // 5. Use with Vercel AI SDK
       // Note: You need to install these packages:
       // bun add ai @ai-sdk/openai
       /*
@@ -77,10 +70,10 @@ export async function exampleNextJSAPIRoute() {
         maxToolRoundtrips: 5,
       });
 
-      // 7. Cleanup
+      // 6. Cleanup
       await serverClient.disconnect();
 
-      // 8. Return response
+      // 7. Return response
       return Response.json({
         text: result.text,
         toolCalls: result.toolCalls,
@@ -92,8 +85,9 @@ export async function exampleNextJSAPIRoute() {
       await serverClient.disconnect();
       return new Response(
         JSON.stringify({
-          message: 'Success',
-          availableTools: Object.keys(tools)
+          message: 'Success - Tokens auto-extracted!',
+          availableTools: Object.keys(tools),
+          note: 'No manual token parsing needed!'
         }),
         { headers: { 'Content-Type': 'application/json' } }
       );
@@ -111,25 +105,17 @@ export async function exampleNextJSAPIRoute() {
 }
 
 /**
- * Example 2: Next.js API Route with Streaming
+ * Example 2: Next.js API Route with Streaming (Auto-Extraction)
  * File: app/api/ai/stream/route.ts
  */
 export async function exampleNextJSStreamingRoute() {
   async function POST(req: Request) {
     try {
-      // 1. Extract provider tokens
-      const tokensHeader = req.headers.get('x-integrate-tokens');
-      if (!tokensHeader) {
-        return new Response('Missing integration tokens', { status: 401 });
-      }
-
-      const providerTokens = JSON.parse(tokensHeader);
-
-      // 2. Parse request
+      // 1. Parse request
       const body = await req.json();
       const { prompt } = body;
 
-      // 3. Create and connect MCP client
+      // 2. Create and connect MCP client
       const { client: serverClient } = createMCPServer({
         apiKey: process.env.INTEGRATE_API_KEY,
         integrations: [
@@ -142,10 +128,10 @@ export async function exampleNextJSStreamingRoute() {
 
       await serverClient.connect();
 
-      // 4. Get tools with tokens
-      const tools = getVercelAITools(serverClient, { providerTokens });
+      // 3. Get tools - tokens auto-extracted!
+      const tools = await getVercelAITools(serverClient);
 
-      // 5. Stream response with Vercel AI SDK
+      // 4. Stream response with Vercel AI SDK
       /*
       import { streamText } from 'ai';
       import { openai } from '@ai-sdk/openai';
@@ -243,12 +229,11 @@ Full-Stack Integration Flow:
 2. CLIENT REQUEST (browser):
    - User enters AI prompt
    - Client gets tokens: client.getAllProviderTokens()
-   - Client sends request to server with tokens in header
+   - Client sends request to server with tokens in x-integrate-tokens header
 
 3. SERVER HANDLING (Next.js API route):
-   - Server receives tokens from header
+   - Server calls getVercelAITools() - tokens auto-extracted!
    - Creates MCP server client with secrets from env
-   - Passes tokens to getVercelAITools()
    - AI model uses tools with user's authentication
    - Returns response to client
 
@@ -261,49 +246,32 @@ Full-Stack Integration Flow:
 }
 
 /**
- * Example 5: Error Handling
+ * Example 5: Manual Token Override (When Needed)
+ * 
+ * While auto-extraction works in most cases, you can still manually pass tokens
+ * when needed (e.g., for custom validation or testing).
  */
-export async function exampleErrorHandling() {
-  console.log('\n=== Example 5: Error Handling ===\n');
+export async function exampleManualOverride() {
+  console.log('\n=== Example 5: Manual Token Override ===\n');
 
   async function POST(req: Request) {
     try {
+      // Extract and validate tokens manually for custom logic
       const tokensHeader = req.headers.get('x-integrate-tokens');
-
-      // Validate tokens present
+      
       if (!tokensHeader) {
         return new Response(
-          JSON.stringify({
-            error: 'Authentication required',
-            code: 'MISSING_TOKENS',
-            message: 'Please connect your integrations first'
-          }),
+          JSON.stringify({ error: 'Authentication required' }),
           { status: 401, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
-      let providerTokens: Record<string, string>;
-      try {
-        providerTokens = JSON.parse(tokensHeader);
-      } catch {
+      const providerTokens = JSON.parse(tokensHeader);
+      
+      // Custom validation logic
+      if (!providerTokens.github) {
         return new Response(
-          JSON.stringify({
-            error: 'Invalid token format',
-            code: 'INVALID_TOKENS'
-          }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Validate required providers
-      const body = await req.json();
-      if (body.requireGithub && !providerTokens.github) {
-        return new Response(
-          JSON.stringify({
-            error: 'GitHub integration required',
-            code: 'MISSING_GITHUB_TOKEN',
-            message: 'Please connect your GitHub account'
-          }),
+          JSON.stringify({ error: 'GitHub required for this operation' }),
           { status: 403, headers: { 'Content-Type': 'application/json' } }
         );
       }
@@ -320,7 +288,9 @@ export async function exampleErrorHandling() {
 
       try {
         await serverClient.connect();
-        const tools = getVercelAITools(serverClient, { providerTokens });
+        
+        // Manually pass tokens (overrides auto-extraction)
+        const tools = await getVercelAITools(serverClient, { providerTokens });
 
         // Use tools with AI...
         /*
@@ -365,7 +335,7 @@ export async function exampleErrorHandling() {
     }
   }
 
-  console.log('Error handling example shown in POST function above');
+  console.log('Manual override example shown in POST function above');
 }
 
 /**
@@ -380,7 +350,7 @@ async function main() {
   await exampleNextJSStreamingRoute();
   await exampleClientSideCode();
   await exampleFullStackFlow();
-  await exampleErrorHandling();
+  await exampleManualOverride();
 
   console.log('\n' + '='.repeat(60));
   console.log('IMPORTANT NOTES:');

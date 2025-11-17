@@ -11,6 +11,7 @@ import {
   jsonSchemaToZod,
   executeToolWithToken,
   ensureClientConnected,
+  getProviderTokens,
   type AIToolsOptions
 } from "./utils.js";
 
@@ -126,21 +127,49 @@ export function convertMCPToolsToVercelAI(
  * This returns the tools in the exact format expected by ai.generateText() and ai.streamText()
  * Automatically connects the client if not already connected.
  * 
+ * **Auto-extraction**: Provider tokens are automatically extracted from request headers
+ * or environment variables if not provided in options. This works in supported frameworks
+ * like Next.js and Nuxt.
+ * 
  * @param client - The MCP client instance
  * @param options - Optional configuration including provider tokens for server-side usage
  * @returns Tools object ready to pass to generateText({ tools: ... }) or streamText({ tools: ... })
  * 
  * @example
  * ```typescript
- * // Client-side usage
- * const tools = await getVercelAITools(mcpClient);
+ * // Auto-extraction (recommended) - tokens extracted automatically
+ * import { serverClient } from '@/lib/integrate-server';
+ * import { getVercelAITools } from 'integrate-sdk';
+ * import { streamText } from 'ai';
+ * 
+ * export async function POST(req: Request) {
+ *   const { messages } = await req.json();
+ *   
+ *   const result = streamText({
+ *     model: "openai/gpt-4",
+ *     messages,
+ *     tools: await getVercelAITools(serverClient), // Tokens auto-extracted
+ *   });
+ *   
+ *   return result.toUIMessageStreamResponse();
+ * }
  * ```
  * 
  * @example
  * ```typescript
- * // Server-side usage with tokens from client
- * const providerTokens = JSON.parse(req.headers.get('x-integrate-tokens') || '{}');
- * const tools = await getVercelAITools(serverClient, { providerTokens });
+ * // Manual override when auto-extraction isn't available
+ * const tools = await getVercelAITools(serverClient, {
+ *   providerTokens: {
+ *     github: 'ghp_...',
+ *     gmail: 'ya29...'
+ *   }
+ * });
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * // Client-side usage (no tokens needed)
+ * const tools = await getVercelAITools(mcpClient);
  * ```
  */
 export async function getVercelAITools(
@@ -150,6 +179,18 @@ export async function getVercelAITools(
   // Auto-connect if not connected (lazy connection)
   await ensureClientConnected(client);
 
-  return convertMCPToolsToVercelAI(client, options);
+  // Auto-extract tokens if not provided
+  let providerTokens = options?.providerTokens;
+  if (!providerTokens) {
+    try {
+      providerTokens = await getProviderTokens();
+    } catch {
+      // Token extraction failed - that's okay, tools may work without tokens
+      // or this may be client-side usage where tokens aren't needed
+    }
+  }
+
+  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
+  return convertMCPToolsToVercelAI(client, finalOptions);
 }
 
