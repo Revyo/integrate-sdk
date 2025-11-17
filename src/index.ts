@@ -4,7 +4,8 @@
  */
 
 // Core client
-export { MCPClient, createMCPClient, clearClientCache } from "./client.js";
+export type { MCPClient } from "./client.js";
+export { MCPClientBase, createMCPClient, clearClientCache } from "./client.js";
 export type { ToolInvocationOptions } from "./client.js";
 
 // OAuth utilities

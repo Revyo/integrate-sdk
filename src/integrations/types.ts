@@ -3,7 +3,7 @@
  * Inspired by BetterAuth's provider pattern
  */
 
-import type { MCPClient } from "../client.js";
+import type { MCPClientBase } from "../client.js";
 
 /**
  * OAuth Configuration for a integration
@@ -56,16 +56,16 @@ export interface MCPIntegration {
   oauth?: OAuthConfig;
 
   /** Called when the integration is initialized with the client */
-  onInit?: (client: MCPClient<any>) => Promise<void> | void;
+  onInit?: (client: MCPClientBase<any>) => Promise<void> | void;
 
   /** Called before the client connects to the server */
-  onBeforeConnect?: (client: MCPClient<any>) => Promise<void> | void;
+  onBeforeConnect?: (client: MCPClientBase<any>) => Promise<void> | void;
 
   /** Called after the client successfully connects */
-  onAfterConnect?: (client: MCPClient<any>) => Promise<void> | void;
+  onAfterConnect?: (client: MCPClientBase<any>) => Promise<void> | void;
 
   /** Called when the client disconnects */
-  onDisconnect?: (client: MCPClient<any>) => Promise<void> | void;
+  onDisconnect?: (client: MCPClientBase<any>) => Promise<void> | void;
 }
 
 /**

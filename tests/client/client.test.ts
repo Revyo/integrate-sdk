@@ -3,7 +3,7 @@
  */
 
 import { describe, test, expect, mock, beforeEach } from "bun:test";
-import { MCPClient, createMCPClient } from "../../src/client.js";
+import { MCPClientBase, createMCPClient } from "../../src/client.js";
 import { createSimpleIntegration } from "../../src/integrations/generic.js";
 import { githubIntegration } from "../../src/integrations/github.js";
 
@@ -20,7 +20,7 @@ describe("MCP Client", () => {
         integrations: [integration],
       });
 
-      expect(client).toBeInstanceOf(MCPClient);
+      expect(client).toBeInstanceOf(MCPClientBase);
       expect(client.isConnected()).toBe(false);
       expect(client.isInitialized()).toBe(false);
     });
@@ -35,7 +35,7 @@ describe("MCP Client", () => {
         },
       });
 
-      expect(client).toBeInstanceOf(MCPClient);
+      expect(client).toBeInstanceOf(MCPClientBase);
     });
 
     test("accepts custom client info", () => {
@@ -48,7 +48,7 @@ describe("MCP Client", () => {
         },
       });
 
-      expect(client).toBeInstanceOf(MCPClient);
+      expect(client).toBeInstanceOf(MCPClientBase);
     });
   });
 

@@ -85,12 +85,12 @@ const MCP_SERVER_URL = "https://mcp.integrate.dev/api/v1/mcp";
 /**
  * Client instance cache for singleton pattern
  */
-const clientCache = new Map<string, MCPClient<any>>();
+const clientCache = new Map<string, MCPClientBase<any>>();
 
 /**
  * Set of clients to cleanup on exit
  */
-const cleanupClients = new Set<MCPClient<any>>();
+const cleanupClients = new Set<MCPClientBase<any>>();
 
 /**
  * Whether cleanup handlers have been registered
@@ -1312,7 +1312,7 @@ export function createMCPClient<TIntegrations extends readonly MCPIntegration[]>
  * Process OAuth callback from URL hash fragment
  * Automatically detects and processes #oauth_callback={...} in the URL
  */
-function processOAuthCallbackFromHash(client: MCPClient<any>): void {
+function processOAuthCallbackFromHash(client: MCPClientBase<any>): void {
   // Only run in browser environment with proper window.location
   if (typeof window === 'undefined' || !window.location) {
     return;

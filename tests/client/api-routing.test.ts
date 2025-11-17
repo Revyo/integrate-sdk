@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, mock, afterEach } from "bun:test";
-import { MCPClient, createMCPClient } from "../../src/client.js";
+import { MCPClientBase, createMCPClient } from "../../src/client.js";
 import { githubIntegration } from "../../src/integrations/github.js";
 import { createSimpleIntegration } from "../../src/integrations/generic.js";
 
@@ -97,7 +97,7 @@ describe("MCP Client - API Routing", () => {
       clientId: "test-id",
     });
 
-    const client = new MCPClient({
+    const client = new MCPClientBase({
       integrations: [integration],
       apiRouteBase,
       connectionMode: "manual",
@@ -171,7 +171,7 @@ describe("MCP Client - API Routing", () => {
       tools: ["test_tool"],
     });
 
-    const client = new MCPClient({
+    const client = new MCPClientBase({
       integrations: [integration],
       connectionMode: "manual",
     });
@@ -245,7 +245,7 @@ describe("MCP Client - API Routing", () => {
       clientId: "test-id",
     });
 
-    const client = new MCPClient({
+    const client = new MCPClientBase({
       integrations: [integration],
       apiRouteBase: "/api/integrate",
       connectionMode: "manual",
@@ -312,7 +312,7 @@ describe("MCP Client - API Routing", () => {
       tools: ["test_tool"],
     });
 
-    const client = new MCPClient({
+    const client = new MCPClientBase({
       integrations: [integration],
       apiRouteBase: "/api/integrate",
       connectionMode: "manual",
@@ -379,7 +379,7 @@ describe("MCP Client - API Routing", () => {
       tools: ["test_tool"],
     });
 
-    const client = new MCPClient({
+    const client = new MCPClientBase({
       integrations: [integration],
       apiRouteBase: "/api/integrate",
       connectionMode: "manual",
@@ -445,7 +445,7 @@ describe("MCP Client - API Routing", () => {
       tools: ["test_tool"],
     });
 
-    const client = new MCPClient({
+    const client = new MCPClientBase({
       integrations: [integration],
       apiRouteBase: customApiRouteBase,
       connectionMode: "manual",
