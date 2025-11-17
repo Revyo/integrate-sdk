@@ -10,7 +10,6 @@ import type { AIToolsOptions } from "./utils.js";
 // Re-export all provider integrations
 export * from "./vercel-ai.js";
 export * from "./openai.js";
-export * from "./openai-agents.js";
 export * from "./anthropic.js";
 export * from "./google.js";
 export * from "./cloudflare.js";
@@ -22,7 +21,6 @@ export * from "./utils.js";
 // Import provider-specific functions
 import { getVercelAITools } from "./vercel-ai.js";
 import { getOpenAITools } from "./openai.js";
-import { getOpenAIAgentsTools } from "./openai-agents.js";
 import { getAnthropicTools } from "./anthropic.js";
 import { getGoogleTools } from "./google.js";
 import { getCloudflareTools } from "./cloudflare.js";
@@ -36,7 +34,6 @@ import { getMastraTools } from "./mastra.js";
 export type AIProviderName =
   | "vercel-ai"
   | "openai"
-  | "openai-agents"
   | "anthropic"
   | "google"
   | "cloudflare"
@@ -106,12 +103,6 @@ export async function getAITools(
 
 export async function getAITools(
   client: MCPClient<any>,
-  provider: "openai-agents",
-  options?: AIToolsOptions
-): Promise<Array<any>>;
-
-export async function getAITools(
-  client: MCPClient<any>,
   provider: "anthropic",
   options?: AIToolsOptions
 ): Promise<Array<any>>;
@@ -156,8 +147,6 @@ export async function getAITools(
       return await getVercelAITools(client, options);
     case "openai":
       return await getOpenAITools(client, options);
-    case "openai-agents":
-      return await getOpenAIAgentsTools(client, options);
     case "anthropic":
       return await getAnthropicTools(client, options);
     case "google":
