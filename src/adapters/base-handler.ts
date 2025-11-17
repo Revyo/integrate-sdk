@@ -21,6 +21,8 @@ export interface OAuthHandlerConfig {
     clientSecret: string;
     /** Optional redirect URI override */
     redirectUri?: string;
+    /** Optional scopes for OAuth authorization */
+    scopes?: string[];
   }>;
   /**
    * MCP Server URL
@@ -39,7 +41,7 @@ export interface OAuthHandlerConfig {
  */
 export interface AuthorizeRequest {
   provider: string;
-  scopes: string[];
+  scopes?: string[];
   state: string;
   codeChallenge: string;
   codeChallengeMethod: string;
@@ -187,7 +189,13 @@ export class OAuthHandler {
     url.searchParams.set('provider', request.provider);
     url.searchParams.set('client_id', providerConfig.clientId);
     url.searchParams.set('client_secret', providerConfig.clientSecret);
-    url.searchParams.set('scope', request.scopes.join(','));
+    
+    // Use scopes from request if provided, otherwise use provider config scopes
+    const scopes = request.scopes || providerConfig.scopes || [];
+    if (scopes.length > 0) {
+      url.searchParams.set('scope', scopes.join(','));
+    }
+    
     url.searchParams.set('state', request.state);
     url.searchParams.set('code_challenge', request.codeChallenge);
     url.searchParams.set('code_challenge_method', request.codeChallengeMethod);
