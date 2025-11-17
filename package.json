@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.7.25",
+  "version": "0.7.26",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
@@ -30,14 +30,6 @@
     "./integrations": {
       "types": "./dist/integrations.d.ts",
       "import": "./dist/integrations.js"
-    },
-    "./ai": {
-      "types": "./dist/ai/index.d.ts",
-      "import": "./dist/ai/index.js"
-    },
-    "./adapters": {
-      "types": "./dist/adapters/index.d.ts",
-      "import": "./dist/adapters/index.js"
     }
   },
   "files": [

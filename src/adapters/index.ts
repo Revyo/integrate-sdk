@@ -11,5 +11,7 @@ export * from "./solid-start.js";
 export * from "./svelte-kit.js";
 export * from "./tanstack-start.js";
 export * from "./base-handler.js";
-export * from "./auto-routes.js";
+
+// Don't export auto-routes to avoid conflicts with server.ts GET/POST
+// Users should import those directly if needed
 

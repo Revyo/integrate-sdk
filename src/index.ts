@@ -93,13 +93,8 @@ export {
 } from "./integrations/generic.js";
 export type { GenericOAuthIntegrationConfig } from "./integrations/generic.js";
 
-// Integrations
-export {
-  convertMCPToolToVercelAI,
-  convertMCPToolsToVercelAI,
-  getVercelAITools,
-} from "./ai/vercel-ai.js";
-export type { VercelAITool } from "./ai/vercel-ai.js";
+// Note: AI tools (getVercelAITools, etc.) are only available from 'integrate-sdk/server'
+// They are server-side only and should not be imported in client code
 
 // Protocol types
 export type {
