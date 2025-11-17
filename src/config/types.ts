@@ -27,6 +27,42 @@ export interface ReauthContext {
 export type ReauthHandler = (context: ReauthContext) => Promise<boolean> | boolean;
 
 /**
+ * Context passed through tool calls for multi-tenant token storage
+ * Contains user-specific identifiers and metadata
+ * 
+ * @example
+ * ```typescript
+ * const context: MCPContext = {
+ *   userId: 'user123',
+ *   organizationId: 'org456',
+ * };
+ * 
+ * await client.github.listOwnRepos({ per_page: 5 }, { context });
+ * ```
+ */
+export interface MCPContext {
+  /** Primary user identifier */
+  userId?: string;
+  /** Organization identifier for multi-org apps */
+  organizationId?: string;
+  /** Session identifier for session-based tracking */
+  sessionId?: string;
+  /** Tenant identifier (alternative to organizationId) */
+  tenantId?: string;
+  /** Allow custom context fields */
+  [key: string]: any;
+}
+
+/**
+ * Options passed to tool calls
+ * Contains context and other metadata for request processing
+ */
+export interface ToolCallOptions {
+  /** User context for multi-tenant token storage */
+  context?: MCPContext;
+}
+
+/**
  * Server-side configuration (extends client config with API key)
  * 
  * API key is only available server-side for security reasons.
@@ -62,9 +98,10 @@ export interface MCPServerConfig<TIntegrations extends readonly MCPIntegration[]
    * Allows storing OAuth provider tokens in your database instead of localStorage
    * 
    * When provided, this callback is used exclusively for token retrieval (no localStorage fallback).
-   * The callback receives the provider name and should return the stored token data or undefined.
+   * The callback receives the provider name and optional context with user identifiers.
    * 
    * @param provider - Provider name (e.g., 'github', 'gmail')
+   * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    * @returns Provider token data from your database, or undefined if not found
    * 
    * @example
@@ -74,9 +111,12 @@ export interface MCPServerConfig<TIntegrations extends readonly MCPIntegration[]
    * 
    * createMCPServer({
    *   integrations: [...],
-   *   getProviderToken: async (provider) => {
+   *   getProviderToken: async (provider, context) => {
+   *     const userId = context?.userId;
+   *     if (!userId) return undefined;
+   *     
    *     const token = await db.tokens.findFirst({
-   *       where: { provider, userId: currentUser.id }
+   *       where: { provider, userId }
    *     });
    *     return token ? {
    *       accessToken: token.accessToken,
@@ -90,7 +130,7 @@ export interface MCPServerConfig<TIntegrations extends readonly MCPIntegration[]
    * });
    * ```
    */
-  getProviderToken?: (provider: string) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
+  getProviderToken?: (provider: string, context?: MCPContext) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
 
   /**
    * Custom token storage callback (SERVER-SIDE ONLY)
@@ -101,6 +141,7 @@ export interface MCPServerConfig<TIntegrations extends readonly MCPIntegration[]
    * 
    * @param provider - Provider name (e.g., 'github', 'gmail')
    * @param tokenData - Token data to store in your database
+   * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    * 
    * @example
    * ```typescript
@@ -109,17 +150,20 @@ export interface MCPServerConfig<TIntegrations extends readonly MCPIntegration[]
    * 
    * createMCPServer({
    *   integrations: [...],
-   *   setProviderToken: async (provider, tokenData) => {
+   *   setProviderToken: async (provider, tokenData, context) => {
+   *     const userId = context?.userId;
+   *     if (!userId) return;
+   *     
    *     await db.tokens.upsert({
-   *       where: { provider_userId: { provider, userId: currentUser.id } },
-   *       create: { provider, userId: currentUser.id, ...tokenData },
+   *       where: { provider_userId: { provider, userId } },
+   *       create: { provider, userId, ...tokenData },
    *       update: tokenData,
    *     });
    *   }
    * });
    * ```
    */
-  setProviderToken?: (provider: string, tokenData: ProviderTokenData) => Promise<void> | void;
+  setProviderToken?: (provider: string, tokenData: ProviderTokenData, context?: MCPContext) => Promise<void> | void;
 }
 
 /**

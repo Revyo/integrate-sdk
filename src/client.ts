@@ -13,7 +13,7 @@ import type {
 } from "./protocol/messages.js";
 import { MCPMethod } from "./protocol/messages.js";
 import type { MCPIntegration, OAuthConfig } from "./integrations/types.js";
-import type { MCPClientConfig, ReauthHandler } from "./config/types.js";
+import type { MCPClientConfig, ReauthHandler, ToolCallOptions, MCPContext } from "./config/types.js";
 import {
   parseServerError,
   isAuthError,
@@ -299,11 +299,11 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
     return new Proxy({}, {
       get: (_target, methodName: string) => {
         // Return a function that calls the tool
-        return async (args?: Record<string, unknown>) => {
+        return async (args?: Record<string, unknown>, options?: ToolCallOptions) => {
           // When routing through API handlers, skip ensureConnected
           // The tool will be validated by the server-side handler
           const toolName = methodToToolName(methodName, integrationId);
-          return await this.callToolWithRetry(toolName, args, 0);
+          return await this.callToolWithRetry(toolName, args, 0, options);
         };
       },
     });
@@ -316,12 +316,12 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
     return new Proxy({}, {
       get: (_target, methodName: string) => {
         // Return a function that calls the server tool directly
-        return async (args?: Record<string, unknown>) => {
+        return async (args?: Record<string, unknown>, options?: ToolCallOptions) => {
           // When routing through API handlers, skip ensureConnected
           const toolName = methodToToolName(methodName, "");
           // Remove leading underscore if present
           const finalToolName = toolName.startsWith("_") ? toolName.substring(1) : toolName;
-          return await this.callServerToolInternal(finalToolName, args);
+          return await this.callServerToolInternal(finalToolName, args, options);
         };
       },
     });
@@ -332,12 +332,13 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    */
   private async callServerToolInternal(
     name: string,
-    args?: Record<string, unknown>
+    args?: Record<string, unknown>,
+    options?: ToolCallOptions
   ): Promise<MCPToolCallResponse> {
     // When routing through API handlers, server-side validates tools
     try {
       // Route through API handler (server tools don't have providers)
-      const response = await this.callToolThroughHandler(name, args);
+      const response = await this.callToolThroughHandler(name, args, undefined, options);
       return response;
     } catch (error) {
       // For server tools, we don't have provider info, so just parse the error
@@ -436,9 +437,10 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    */
   async _callToolByName(
     name: string,
-    args?: Record<string, unknown>
+    args?: Record<string, unknown>,
+    options?: ToolCallOptions
   ): Promise<MCPToolCallResponse> {
-    return await this.callToolWithRetry(name, args, 0);
+    return await this.callToolWithRetry(name, args, 0, options);
   }
 
   /**
@@ -477,7 +479,8 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
   private async callToolThroughHandler(
     name: string,
     args?: Record<string, unknown>,
-    provider?: string
+    provider?: string,
+    options?: ToolCallOptions
   ): Promise<MCPToolCallResponse> {
     // Check if this is a server-side client (has API key in transport headers)
     const transportHeaders = (this.transport as any).headers || {};
@@ -487,7 +490,7 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
     if (hasApiKey) {
       // Add provider token to transport if available
       if (provider) {
-        const tokenData = await this.oauthManager.getProviderToken(provider);
+        const tokenData = await this.oauthManager.getProviderToken(provider, options?.context);
         if (tokenData && this.transport.setHeader) {
           const previousAuthHeader = transportHeaders['Authorization'];
           
@@ -534,7 +537,7 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
 
     // Add provider token if available
     if (provider) {
-      const tokenData = await this.oauthManager.getProviderToken(provider);
+      const tokenData = await this.oauthManager.getProviderToken(provider, options?.context);
       if (tokenData) {
         headers['Authorization'] = `Bearer ${tokenData.accessToken}`;
       }
@@ -589,7 +592,8 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
   private async callToolWithRetry(
     name: string,
     args?: Record<string, unknown>,
-    retryCount = 0
+    retryCount = 0,
+    options?: ToolCallOptions
   ): Promise<MCPToolCallResponse> {
     // When routing through API handlers, we don't need to check initialization
     // The server-side handler will validate tools and permissions
@@ -604,7 +608,7 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
 
     try {
       // Route through API handler instead of direct MCP server call
-      const response = await this.callToolThroughHandler(name, args, provider);
+      const response = await this.callToolThroughHandler(name, args, provider, options);
 
       // Mark provider as authenticated on success
       if (provider) {
@@ -1069,10 +1073,11 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * Useful for making direct API calls or storing tokens
    * 
    * @param provider - Provider name (e.g., 'github', 'gmail')
+   * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    * @returns Provider token data or undefined if not authorized
    */
-  async getProviderToken(provider: string): Promise<import('./oauth/types.js').ProviderTokenData | undefined> {
-    return await this.oauthManager.getProviderToken(provider);
+  async getProviderToken(provider: string, context?: MCPContext): Promise<import('./oauth/types.js').ProviderTokenData | undefined> {
+    return await this.oauthManager.getProviderToken(provider, context);
   }
 
   /**
@@ -1081,9 +1086,10 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * 
    * @param provider - Provider name
    * @param tokenData - Provider token data
+   * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    */
-  async setProviderToken(provider: string, tokenData: import('./oauth/types.js').ProviderTokenData): Promise<void> {
-    await this.oauthManager.setProviderToken(provider, tokenData);
+  async setProviderToken(provider: string, tokenData: import('./oauth/types.js').ProviderTokenData, context?: MCPContext): Promise<void> {
+    await this.oauthManager.setProviderToken(provider, tokenData, context);
     this.authState.set(provider, { authenticated: true });
   }
 

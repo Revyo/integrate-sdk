@@ -12,6 +12,7 @@ import type {
   OAuthCallbackResponse,
   ProviderTokenData,
 } from "./types.js";
+import type { MCPContext } from "../config/types.js";
 import { generateCodeVerifier, generateCodeChallenge, generateStateWithReturnUrl } from "./pkce.js";
 import { OAuthWindowManager } from "./window-manager.js";
 
@@ -26,16 +27,16 @@ export class OAuthManager {
   private flowConfig: OAuthFlowConfig;
   private oauthApiBase: string;
   private apiBaseUrl?: string;
-  private getTokenCallback?: (provider: string) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
-  private setTokenCallback?: (provider: string, tokenData: ProviderTokenData) => Promise<void> | void;
+  private getTokenCallback?: (provider: string, context?: MCPContext) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
+  private setTokenCallback?: (provider: string, tokenData: ProviderTokenData, context?: MCPContext) => Promise<void> | void;
 
   constructor(
     oauthApiBase: string,
     flowConfig?: Partial<OAuthFlowConfig>,
     apiBaseUrl?: string,
     tokenCallbacks?: {
-      getProviderToken?: (provider: string) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
-      setProviderToken?: (provider: string, tokenData: ProviderTokenData) => Promise<void> | void;
+      getProviderToken?: (provider: string, context?: MCPContext) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
+      setProviderToken?: (provider: string, tokenData: ProviderTokenData, context?: MCPContext) => Promise<void> | void;
     }
   ) {
     this.oauthApiBase = oauthApiBase;
@@ -272,12 +273,14 @@ export class OAuthManager {
   /**
    * Get provider token data
    * Uses callback if provided, otherwise checks in-memory cache
+   * @param provider - Provider name (e.g., 'github', 'gmail')
+   * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    */
-  async getProviderToken(provider: string): Promise<ProviderTokenData | undefined> {
+  async getProviderToken(provider: string, context?: MCPContext): Promise<ProviderTokenData | undefined> {
     // If callback is provided, use it exclusively
     if (this.getTokenCallback) {
       try {
-        const tokenData = await this.getTokenCallback(provider);
+        const tokenData = await this.getTokenCallback(provider, context);
         // Update in-memory cache for performance
         if (tokenData) {
           this.providerTokens.set(provider, tokenData);
@@ -303,10 +306,13 @@ export class OAuthManager {
   /**
    * Set provider token (for manual token management)
    * Uses callback if provided, otherwise uses localStorage
+   * @param provider - Provider name (e.g., 'github', 'gmail')
+   * @param tokenData - Token data to store
+   * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    */
-  async setProviderToken(provider: string, tokenData: ProviderTokenData): Promise<void> {
+  async setProviderToken(provider: string, tokenData: ProviderTokenData, context?: MCPContext): Promise<void> {
     this.providerTokens.set(provider, tokenData);
-    await this.saveProviderToken(provider, tokenData);
+    await this.saveProviderToken(provider, tokenData, context);
   }
 
   /**
@@ -378,12 +384,15 @@ export class OAuthManager {
 
   /**
    * Save provider token to database (via callback) or localStorage
+   * @param provider - Provider name (e.g., 'github', 'gmail')
+   * @param tokenData - Token data to store
+   * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    */
-  private async saveProviderToken(provider: string, tokenData: ProviderTokenData): Promise<void> {
+  private async saveProviderToken(provider: string, tokenData: ProviderTokenData, context?: MCPContext): Promise<void> {
     // If callback is provided, use it exclusively
     if (this.setTokenCallback) {
       try {
-        await this.setTokenCallback(provider, tokenData);
+        await this.setTokenCallback(provider, tokenData, context);
       } catch (error) {
         console.error(`Failed to save token for ${provider} via callback:`, error);
         throw error;

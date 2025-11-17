@@ -38,7 +38,7 @@ describe("Database Token Callbacks", () => {
 
       const token = await manager.getProviderToken("github");
       
-      expect(getTokenMock).toHaveBeenCalledWith("github");
+      expect(getTokenMock).toHaveBeenCalledWith("github", undefined);
       expect(token).toEqual(mockTokenData);
     });
 
@@ -65,7 +65,7 @@ describe("Database Token Callbacks", () => {
 
       await manager.setProviderToken("github", mockTokenData);
       
-      expect(setTokenMock).toHaveBeenCalledWith("github", mockTokenData);
+      expect(setTokenMock).toHaveBeenCalledWith("github", mockTokenData, undefined);
     });
 
     test("loads all provider tokens using callback", async () => {
@@ -98,6 +98,7 @@ describe("Database Token Callbacks", () => {
       await manager.loadAllProviderTokens(["github", "gmail"]);
       
       expect(getTokenMock).toHaveBeenCalledTimes(2);
+      // loadAllProviderTokens doesn't pass context, so both should be called without it
       expect(getTokenMock).toHaveBeenCalledWith("github");
       expect(getTokenMock).toHaveBeenCalledWith("gmail");
 
@@ -163,7 +164,7 @@ describe("Database Token Callbacks", () => {
 
       await manager.disconnectProvider("github");
       
-      expect(getTokenMock).toHaveBeenCalledWith("github");
+      expect(getTokenMock).toHaveBeenCalledWith("github", undefined);
     });
 
     test("handles callback errors gracefully in getProviderToken", async () => {
@@ -233,8 +234,8 @@ describe("Database Token Callbacks", () => {
       // Set a token
       await manager.setProviderToken("github", mockTokenData);
 
-      // Verify callback was used
-      expect(setTokenMock).toHaveBeenCalledWith("github", mockTokenData);
+      // Verify callback was used (setProviderToken now includes context parameter)
+      expect(setTokenMock).toHaveBeenCalledWith("github", mockTokenData, undefined);
 
       // Clear the token
       manager.clearProviderToken("github");
@@ -278,7 +279,7 @@ describe("Database Token Callbacks", () => {
       expect(token).toEqual(mockTokenData);
 
       await manager.setProviderToken("github", mockTokenData);
-      expect(setTokenMock).toHaveBeenCalledWith("github", mockTokenData);
+      expect(setTokenMock).toHaveBeenCalledWith("github", mockTokenData, undefined);
     });
 
     test("falls back to localStorage when callbacks are not provided", async () => {

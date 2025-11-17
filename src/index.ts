@@ -54,7 +54,7 @@ export { toSvelteKitHandler, svelteKitHandler } from "./adapters/svelte-kit.js";
 export { toTanStackStartHandler, createTanStackOAuthHandler } from "./adapters/tanstack-start.js";
 
 // Configuration
-export type { MCPClientConfig, ReauthContext, ReauthHandler } from "./config/types.js";
+export type { MCPClientConfig, ReauthContext, ReauthHandler, MCPContext, ToolCallOptions } from "./config/types.js";
 
 // Errors
 export {

@@ -7,11 +7,12 @@
 import { z } from "zod";
 import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
+import type { MCPContext } from "../config/types.js";
 import {
   jsonSchemaToZod,
-  executeToolWithToken,
   ensureClientConnected,
   getProviderTokens,
+  executeToolWithToken,
   type AIToolsOptions
 } from "./utils.js";
 
@@ -28,14 +29,17 @@ export interface VercelAITool {
 /**
  * Options for converting MCP tools to Vercel AI SDK format
  */
-export interface VercelAIToolsOptions extends AIToolsOptions { }
+export interface VercelAIToolsOptions extends AIToolsOptions {
+  /** User context for multi-tenant token storage */
+  context?: MCPContext;
+}
 
 /**
  * Convert a single MCP tool to Vercel AI SDK format
  * 
  * @param mcpTool - The MCP tool definition
  * @param client - The MCP client instance (used for executing the tool)
- * @param options - Optional configuration including provider tokens
+ * @param options - Optional configuration including provider tokens and context
  * @returns Vercel AI SDK compatible tool definition
  */
 export function convertMCPToolToVercelAI(
@@ -47,7 +51,13 @@ export function convertMCPToolToVercelAI(
     description: mcpTool.description || `Execute ${mcpTool.name}`,
     inputSchema: jsonSchemaToZod(mcpTool.inputSchema), // Convert JSON Schema to Zod
     execute: async (args: Record<string, unknown>) => {
-      return await executeToolWithToken(client, mcpTool.name, args, options);
+      // If providerTokens is provided, use executeToolWithToken (handles token injection)
+      if (options?.providerTokens) {
+        return await executeToolWithToken(client, mcpTool.name, args, options);
+      }
+      
+      // Otherwise, pass context through to _callToolByName for token callbacks
+      return await client._callToolByName(mcpTool.name, args, options?.context ? { context: options.context } : undefined);
     },
   };
 }
@@ -144,11 +154,12 @@ export function convertMCPToolsToVercelAI(
  * 
  * export async function POST(req: Request) {
  *   const { messages } = await req.json();
+ *   const userId = await getUserIdFromSession(req);
  *   
  *   const result = streamText({
  *     model: "openai/gpt-4",
  *     messages,
- *     tools: await getVercelAITools(serverClient), // Tokens auto-extracted
+ *     tools: await getVercelAITools(serverClient, { context: { userId } }), // Pass user context
  *   });
  *   
  *   return result.toUIMessageStreamResponse();

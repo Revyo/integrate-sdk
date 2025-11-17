@@ -435,7 +435,7 @@ function createOAuthRouteHandlers(config: { providers: Record<string, any>; serv
 
 // Re-export integration types for convenience
 export type { MCPIntegration } from './integrations/types.js';
-export type { MCPClientConfig } from './config/types.js';
+export type { MCPClientConfig, MCPContext, ToolCallOptions } from './config/types.js';
 export type { ProviderTokenData } from './oauth/types.js';
 
 // Re-export integrations
