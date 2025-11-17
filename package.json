@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.7.37",
+  "version": "0.7.38",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
@@ -73,6 +73,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/react": "^18.3.0",
+    "openai": "^4.77.3",
     "react": "^19.2.0",
     "simple-git-hooks": "^2.13.1",
     "typescript": "^5.3.3"
