@@ -4,6 +4,7 @@
  */
 
 import { MCPClient } from './client.js';
+import { MCPClientBase } from './client.js';
 import type { MCPServerConfig } from './config/types.js';
 import type { MCPIntegration } from './integrations/types.js';
 import { createNextOAuthHandler } from './adapters/nextjs.js';
@@ -189,7 +190,7 @@ export function createMCPServer<TIntegrations extends readonly MCPIntegration[]>
     connectionMode: config.connectionMode || 'lazy',
     singleton: config.singleton ?? true,
   };
-  const client = new MCPClient(clientConfig);
+  const client = new MCPClientBase(clientConfig) as MCPClient<TIntegrations>;
 
   // Set API key header for authentication and usage tracking (server-side only)
   if (config.apiKey) {

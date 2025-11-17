@@ -129,9 +129,18 @@ type IntegrationNamespaces<TIntegrations extends readonly MCPIntegration[]> =
 /**
  * MCP Client Class
  * 
- * Provides type-safe access to MCP server tools with integration-based configuration
+ * Provides type-safe access to MCP server tools with integration-based configuration.
+ * Integration namespaces (github, gmail, etc.) are only available when configured.
  */
-export class MCPClient<TIntegrations extends readonly MCPIntegration[] = readonly MCPIntegration[]> {
+export type MCPClient<TIntegrations extends readonly MCPIntegration[] = readonly MCPIntegration[]> = 
+  MCPClientBase<TIntegrations> & IntegrationNamespaces<TIntegrations>;
+
+/**
+ * Base MCP Client Class (without integration namespaces)
+ * Integration namespaces are added dynamically at runtime and via type intersection
+ * @internal
+ */
+export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = readonly MCPIntegration[]> {
   private transport: HttpSessionTransport;
   private integrations: TIntegrations;
   private availableTools: Map<string, MCPTool> = new Map();
@@ -145,14 +154,6 @@ export class MCPClient<TIntegrations extends readonly MCPIntegration[] = readonl
   private eventEmitter: SimpleEventEmitter = new SimpleEventEmitter();
   private apiRouteBase: string;
   private apiBaseUrl?: string;
-
-  // Integration namespaces - dynamically typed based on configured integrations
-  public readonly github!: IntegrationNamespaces<TIntegrations> extends { github: GitHubIntegrationClient }
-    ? GitHubIntegrationClient
-    : never;
-  public readonly gmail!: IntegrationNamespaces<TIntegrations> extends { gmail: GmailIntegrationClient }
-    ? GmailIntegrationClient
-    : never;
 
   // Server namespace - always available for server-level tools
   public readonly server!: ServerIntegrationClient;
@@ -225,9 +226,16 @@ export class MCPClient<TIntegrations extends readonly MCPIntegration[] = readonl
       }
     }
 
-    // Initialize integration namespaces with proxies
-    this.github = this.createIntegrationProxy("github") as any;
-    this.gmail = this.createIntegrationProxy("gmail") as any;
+    // Initialize integration namespaces dynamically based on configuration
+    const integrationIds = this.integrations.map(i => i.id);
+    if (integrationIds.includes("github")) {
+      (this as any).github = this.createIntegrationProxy("github");
+    }
+    if (integrationIds.includes("gmail")) {
+      (this as any).gmail = this.createIntegrationProxy("gmail");
+    }
+    
+    // Server namespace is always available
     this.server = this.createServerProxy() as any;
 
     // Initialize integrations
@@ -1253,7 +1261,7 @@ export function createMCPClient<TIntegrations extends readonly MCPIntegration[]>
     }
 
     // Create new instance
-    const client = new MCPClient(config);
+    const client = new MCPClientBase(config) as MCPClient<TIntegrations>;
     clientCache.set(cacheKey, client);
 
     if (autoCleanup) {
@@ -1277,7 +1285,7 @@ export function createMCPClient<TIntegrations extends readonly MCPIntegration[]>
     return client;
   } else {
     // Non-singleton: create fresh instance
-    const client = new MCPClient(config);
+    const client = new MCPClientBase(config) as MCPClient<TIntegrations>;
 
     if (autoCleanup) {
       cleanupClients.add(client);
