@@ -4,7 +4,7 @@
     "": {
       "name": "integrate-sdk",
       "dependencies": {
-        "zod": "^3.23.8",
+        "zod": "^3.23.8"
       },
       "devDependencies": {
         "@anthropic-ai/sdk": "^0.32.1",
@@ -165,6 +165,8 @@
     "https-proxy-agent": ["https-proxy-agent@7.0.6", "", { "dependencies": { "agent-base": "^7.1.2", "debug": "4" } }, "sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw=="],
 
     "humanize-ms": ["humanize-ms@1.2.1", "", { "dependencies": { "ms": "^2.0.0" } }, "sha512-Fl70vYtsAFb/C06PTS9dZBo7ihau+Tu/DNCk/OyHhea07S+aeMWpFFkUaXRa8fI+ScZbEI8dfSxwY7gxZ9SAVQ=="],
+
+    "integrate-sdk": ["integrate-sdk@0.7.46", "", { "dependencies": { "zod": "^3.23.8" }, "peerDependencies": { "@anthropic-ai/sdk": ">=0.20.0", "@cloudflare/workers-types": ">=4.0.0", "@google/genai": "", "@langchain/core": ">=0.1.0", "@mastra/core": ">=0.1.0", "@openai/agents": ">=0.1.0", "ai": ">=4.0.0", "llamaindex": ">=0.1.0", "openai": ">=4.0.0", "react": ">=19.0.0", "typescript": ">=5.0.0" }, "optionalPeers": ["@anthropic-ai/sdk", "@cloudflare/workers-types", "@google/genai", "@langchain/core", "@mastra/core", "@openai/agents", "ai", "llamaindex", "openai", "react"] }, "sha512-GCj/1ETDPoJ84Y0pHtvges+oKqwZAhB2ng0hb3H3o6zjuWvS3N4Do2uDfKP/+RObujFCGkqiwMBaUoUy8ajulw=="],
 
     "is-fullwidth-code-point": ["is-fullwidth-code-point@3.0.0", "", {}, "sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg=="],
 
