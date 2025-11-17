@@ -15,14 +15,11 @@ import { executeToolWithToken, ensureClientConnected, getProviderTokens, type AI
 export interface OpenAITool {
   type: 'function';
   name: string;
-  description?: string;
   parameters: {
-    type: 'object';
-    properties?: Record<string, unknown>;
-    required?: string[];
     [key: string]: unknown;
-  };
-  strict?: boolean;
+  } | null;
+  strict: boolean | null;
+  description?: string | null;
 }
 
 /**
@@ -59,13 +56,9 @@ export function convertMCPToolToOpenAI(
   return {
     type: 'function',
     name: mcpTool.name,
-    description: mcpTool.description || `Execute ${mcpTool.name}`,
-    parameters: inputParams || {
-      type: 'object',
-      properties: {},
-      required: [],
-    },
-    strict: options?.strict ?? false,
+    parameters: inputParams as { [key: string]: unknown } || null,
+    strict: options?.strict ?? null,
+    description: mcpTool.description || null,
   };
 }
 
