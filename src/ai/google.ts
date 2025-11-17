@@ -8,19 +8,28 @@ import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
 import { executeToolWithToken, ensureClientConnected, getProviderTokens, type AIToolsOptions } from "./utils.js";
 
-// Import and re-export types from @google/genai
+// Type-only imports from @google/genai
 // These will match exactly what the @google/genai SDK expects
-import { Type } from "@google/genai";
 import type {
   Schema,
   FunctionDeclaration,
-  FunctionCall
+  FunctionCall,
+  Type
 } from "@google/genai";
 
 // Export with aliases for convenience
 export type GoogleTool = FunctionDeclaration;
 export type GoogleFunctionCall = FunctionCall;
 export type { Schema, Type };
+
+/**
+ * Lazily import the Type enum from @google/genai
+ * This prevents bundlers from trying to resolve the package when it's not installed
+ */
+async function getGoogleType(): Promise<typeof Type> {
+  const { Type } = await import("@google/genai");
+  return Type;
+}
 
 /**
  * Options for converting MCP tools to Google GenAI format
@@ -30,22 +39,22 @@ export interface GoogleToolsOptions extends AIToolsOptions { }
 /**
  * Convert JSON Schema type string to Google GenAI Type enum
  */
-function convertJsonSchemaTypeToGoogleType(type: string): Type {
+function convertJsonSchemaTypeToGoogleType(type: string, TypeEnum: typeof Type): Type {
   const typeMap: Record<string, Type> = {
-    'string': Type.STRING,
-    'number': Type.NUMBER,
-    'integer': Type.INTEGER,
-    'boolean': Type.BOOLEAN,
-    'array': Type.ARRAY,
-    'object': Type.OBJECT,
+    'string': TypeEnum.STRING,
+    'number': TypeEnum.NUMBER,
+    'integer': TypeEnum.INTEGER,
+    'boolean': TypeEnum.BOOLEAN,
+    'array': TypeEnum.ARRAY,
+    'object': TypeEnum.OBJECT,
   };
-  return typeMap[type.toLowerCase()] || Type.STRING;
+  return typeMap[type.toLowerCase()] || TypeEnum.STRING;
 }
 
 /**
  * Convert properties to Schema format recursively
  */
-function convertPropertiesToSchema(properties: Record<string, any>): Record<string, Schema> {
+function convertPropertiesToSchema(properties: Record<string, any>, TypeEnum: typeof Type): Record<string, Schema> {
   const result: Record<string, Schema> = {};
   
   for (const [key, value] of Object.entries(properties)) {
@@ -61,15 +70,15 @@ function convertPropertiesToSchema(properties: Record<string, any>): Record<stri
     
     // Convert type string to Type enum
     if (value.type) {
-      schema.type = convertJsonSchemaTypeToGoogleType(value.type);
+      schema.type = convertJsonSchemaTypeToGoogleType(value.type, TypeEnum);
     }
     
     if (value.items) {
-      schema.items = convertPropertiesToSchema({ items: value.items }).items;
+      schema.items = convertPropertiesToSchema({ items: value.items }, TypeEnum).items;
     }
     
     if (value.properties) {
-      schema.properties = convertPropertiesToSchema(value.properties);
+      schema.properties = convertPropertiesToSchema(value.properties, TypeEnum);
     }
     
     // Copy other properties
@@ -95,19 +104,20 @@ function convertPropertiesToSchema(properties: Record<string, any>): Record<stri
  * 
  * @example
  * ```typescript
- * const googleTool = convertMCPToolToGoogle(mcpTool, client);
+ * const googleTool = await convertMCPToolToGoogle(mcpTool, client);
  * ```
  */
-export function convertMCPToolToGoogle(
+export async function convertMCPToolToGoogle(
   mcpTool: MCPTool,
   _client: MCPClient<any>,
   _options?: GoogleToolsOptions
-): GoogleTool {
+): Promise<GoogleTool> {
+  const TypeEnum = await getGoogleType();
   const properties = mcpTool.inputSchema?.properties || {};
-  const convertedProperties = convertPropertiesToSchema(properties);
+  const convertedProperties = convertPropertiesToSchema(properties, TypeEnum);
   
   const parameters: Schema = {
-    type: Type.OBJECT,
+    type: TypeEnum.OBJECT,
     description: mcpTool.description || '',
     properties: convertedProperties,
   };
@@ -134,20 +144,22 @@ export function convertMCPToolToGoogle(
  * @example
  * ```typescript
  * // Client-side usage
- * const tools = convertMCPToolsToGoogle(mcpClient);
+ * const tools = await convertMCPToolsToGoogle(mcpClient);
  * 
  * // Server-side with provider tokens
- * const tools = convertMCPToolsToGoogle(serverClient, {
+ * const tools = await convertMCPToolsToGoogle(serverClient, {
  *   providerTokens: { github: 'ghp_...', gmail: 'ya29...' }
  * });
  * ```
  */
-export function convertMCPToolsToGoogle(
+export async function convertMCPToolsToGoogle(
   client: MCPClient<any>,
   options?: GoogleToolsOptions
-): GoogleTool[] {
+): Promise<GoogleTool[]> {
   const mcpTools = client.getEnabledTools();
-  return mcpTools.map(mcpTool => convertMCPToolToGoogle(mcpTool, client, options));
+  return await Promise.all(
+    mcpTools.map(mcpTool => convertMCPToolToGoogle(mcpTool, client, options))
+  );
 }
 
 /**
