@@ -8,47 +8,39 @@ import type { MCPClient } from "../client.js";
 import type { MCPTool } from "../protocol/messages.js";
 import { executeToolWithToken, ensureClientConnected, getProviderTokens, type AIToolsOptions } from "./utils.js";
 
-/**
- * Schema type from @google/genai
- */
-export interface Schema {
-  type?: string;
-  description?: string;
-  enum?: string[];
-  items?: Schema;
-  properties?: Record<string, Schema>;
-  required?: string[];
-  [key: string]: unknown;
-}
+// Import and re-export types from @google/genai
+// These will match exactly what the @google/genai SDK expects
+import { Type } from "@google/genai";
+import type {
+  Schema,
+  FunctionDeclaration,
+  FunctionCall
+} from "@google/genai";
 
-/**
- * Google GenAI function declaration
- * Compatible with @google/genai SDK FunctionDeclaration type
- */
-export interface GoogleTool {
-  name: string;
-  description: string;
-  parameters: {
-    type: 'object';
-    description?: string;
-    properties?: Record<string, Schema>;
-    required?: string[];
-    [key: string]: unknown;
-  };
-}
-
-/**
- * Google GenAI function call
- */
-export interface GoogleFunctionCall {
-  name?: string;
-  args?: Record<string, unknown>;
-}
+// Export with aliases for convenience
+export type GoogleTool = FunctionDeclaration;
+export type GoogleFunctionCall = FunctionCall;
+export type { Schema, Type };
 
 /**
  * Options for converting MCP tools to Google GenAI format
  */
 export interface GoogleToolsOptions extends AIToolsOptions { }
+
+/**
+ * Convert JSON Schema type string to Google GenAI Type enum
+ */
+function convertJsonSchemaTypeToGoogleType(type: string): Type {
+  const typeMap: Record<string, Type> = {
+    'string': Type.STRING,
+    'number': Type.NUMBER,
+    'integer': Type.INTEGER,
+    'boolean': Type.BOOLEAN,
+    'array': Type.ARRAY,
+    'object': Type.OBJECT,
+  };
+  return typeMap[type.toLowerCase()] || Type.STRING;
+}
 
 /**
  * Convert properties to Schema format recursively
@@ -63,11 +55,14 @@ function convertPropertiesToSchema(properties: Record<string, any>): Record<stri
     }
     
     const schema: Schema = {
-      type: value.type,
       description: value.description,
       enum: value.enum,
-      required: value.required,
     };
+    
+    // Convert type string to Type enum
+    if (value.type) {
+      schema.type = convertJsonSchemaTypeToGoogleType(value.type);
+    }
     
     if (value.items) {
       schema.items = convertPropertiesToSchema({ items: value.items }).items;
@@ -79,8 +74,8 @@ function convertPropertiesToSchema(properties: Record<string, any>): Record<stri
     
     // Copy other properties
     for (const [k, v] of Object.entries(value)) {
-      if (!['type', 'description', 'enum', 'required', 'items', 'properties'].includes(k)) {
-        schema[k] = v;
+      if (!['type', 'description', 'enum', 'items', 'properties'].includes(k)) {
+        (schema as any)[k] = v;
       }
     }
     
@@ -109,16 +104,23 @@ export function convertMCPToolToGoogle(
   _options?: GoogleToolsOptions
 ): GoogleTool {
   const properties = mcpTool.inputSchema?.properties || {};
+  const convertedProperties = convertPropertiesToSchema(properties);
+  
+  const parameters: Schema = {
+    type: Type.OBJECT,
+    description: mcpTool.description || '',
+    properties: convertedProperties,
+  };
+  
+  // Add required fields if present
+  if (mcpTool.inputSchema?.required && mcpTool.inputSchema.required.length > 0) {
+    (parameters as any).required = mcpTool.inputSchema.required;
+  }
   
   return {
     name: mcpTool.name,
     description: mcpTool.description || `Execute ${mcpTool.name}`,
-    parameters: {
-      type: 'object',
-      description: mcpTool.description || '',
-      properties: convertPropertiesToSchema(properties),
-      required: mcpTool.inputSchema?.required || [],
-    },
+    parameters,
   };
 }
 
@@ -169,14 +171,17 @@ export async function executeGoogleFunctionCall(
   functionCall: GoogleFunctionCall,
   options?: GoogleToolsOptions
 ): Promise<string> {
-  if (!functionCall.name) {
+  if (!functionCall?.name) {
     throw new Error('Function call must have a name');
   }
+  
+  // Extract args - the actual GoogleFunctionCall type has args as a property
+  const args = (functionCall as any).args || {};
   
   const result = await executeToolWithToken(
     client, 
     functionCall.name, 
-    functionCall.args || {}, 
+    args, 
     options
   );
   return JSON.stringify(result);
