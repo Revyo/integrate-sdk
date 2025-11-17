@@ -153,6 +153,8 @@ export function convertMCPToolsToGoogle(
 /**
  * Execute a function call from Google GenAI
  * 
+ * Automatically extracts provider tokens from the request if not provided.
+ * 
  * @param client - The MCP client instance
  * @param functionCall - The function call from Google GenAI response
  * @param options - Optional configuration including provider tokens
@@ -160,6 +162,16 @@ export function convertMCPToolsToGoogle(
  * 
  * @example
  * ```typescript
+ * // Tokens are automatically extracted
+ * const result = await executeGoogleFunctionCall(client, {
+ *   name: 'github_create_issue',
+ *   args: { owner: 'user', repo: 'repo', title: 'Bug' }
+ * });
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * // Or explicitly pass provider tokens
  * const result = await executeGoogleFunctionCall(client, {
  *   name: 'github_create_issue',
  *   args: { owner: 'user', repo: 'repo', title: 'Bug' }
@@ -175,6 +187,18 @@ export async function executeGoogleFunctionCall(
     throw new Error('Function call must have a name');
   }
   
+  // Auto-extract tokens if not provided
+  let providerTokens = options?.providerTokens;
+  if (!providerTokens) {
+    try {
+      providerTokens = await getProviderTokens();
+    } catch {
+      // Token extraction failed - that's okay
+    }
+  }
+
+  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
+  
   // Extract args - the actual GoogleFunctionCall type has args as a property
   const args = (functionCall as any).args || {};
   
@@ -182,7 +206,7 @@ export async function executeGoogleFunctionCall(
     client, 
     functionCall.name, 
     args, 
-    options
+    finalOptions
   );
   return JSON.stringify(result);
 }
@@ -193,6 +217,8 @@ export async function executeGoogleFunctionCall(
  * This function handles the transformation from Google's function call format
  * to the format expected by the SDK, then executes each call.
  * 
+ * Automatically extracts provider tokens from the request if not provided.
+ * 
  * @param client - The MCP client instance
  * @param functionCalls - Array of function calls from Google GenAI response
  * @param options - Optional configuration including provider tokens
@@ -200,7 +226,7 @@ export async function executeGoogleFunctionCall(
  * 
  * @example
  * ```typescript
- * // In your API route
+ * // In your API route - tokens are automatically extracted
  * const response = await ai.models.generateContent({
  *   model: 'gemini-2.0-flash-001',
  *   contents: messages,
@@ -212,11 +238,20 @@ export async function executeGoogleFunctionCall(
  * if (response.functionCalls && response.functionCalls.length > 0) {
  *   const results = await executeGoogleFunctionCalls(
  *     serverClient, 
- *     response.functionCalls,
- *     { providerTokens }
+ *     response.functionCalls
  *   );
  *   return Response.json(results);
  * }
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * // Or explicitly pass provider tokens
+ * const results = await executeGoogleFunctionCalls(
+ *   serverClient, 
+ *   response.functionCalls,
+ *   { providerTokens }
+ * );
  * ```
  */
 export async function executeGoogleFunctionCalls(
@@ -228,8 +263,20 @@ export async function executeGoogleFunctionCalls(
     return [];
   }
   
+  // Auto-extract tokens if not provided
+  let providerTokens = options?.providerTokens;
+  if (!providerTokens) {
+    try {
+      providerTokens = await getProviderTokens();
+    } catch {
+      // Token extraction failed - that's okay
+    }
+  }
+
+  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
+  
   const results = await Promise.all(
-    functionCalls.map(call => executeGoogleFunctionCall(client, call, options))
+    functionCalls.map(call => executeGoogleFunctionCall(client, call, finalOptions))
   );
   
   return results;
