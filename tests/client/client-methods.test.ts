@@ -142,7 +142,7 @@ describe("Client Methods", () => {
       });
 
       // Set initial authenticated state with a token
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'test-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
@@ -209,7 +209,7 @@ describe("Client Methods", () => {
       expect(client.isProviderAuthenticated("nonexistent")).toBe(false);
     });
 
-    test("tracks auth state for multiple providers", () => {
+    test("tracks auth state for multiple providers", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -229,12 +229,12 @@ describe("Client Methods", () => {
       expect(client.isProviderAuthenticated("gmail")).toBe(false);
 
       // Set tokens for providers
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'test-github-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
       });
-      client.setProviderToken('gmail', {
+      await client.setProviderToken('gmail', {
         accessToken: 'test-google-token',
         tokenType: 'Bearer',
         expiresIn: 3600,

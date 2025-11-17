@@ -45,35 +45,35 @@ describe("OAuth Manager", () => {
   });
 
   describe("Provider Token Management", () => {
-    test("getProviderToken returns undefined initially", () => {
-      expect(manager.getProviderToken("github")).toBeUndefined();
+    test("getProviderToken returns undefined initially", async () => {
+      expect(await manager.getProviderToken("github")).toBeUndefined();
     });
 
-    test("setProviderToken stores token", () => {
+    test("setProviderToken stores token", async () => {
       const tokenData = {
         accessToken: "test-access-token-123",
         tokenType: "Bearer",
         expiresIn: 3600,
       };
-      manager.setProviderToken("github", tokenData);
+      await manager.setProviderToken("github", tokenData);
 
-      expect(manager.getProviderToken("github")).toEqual(tokenData);
+      expect(await manager.getProviderToken("github")).toEqual(tokenData);
     });
 
-    test("clearProviderToken removes token", () => {
+    test("clearProviderToken removes token", async () => {
       const tokenData = {
         accessToken: "test-token",
         tokenType: "Bearer",
         expiresIn: 3600,
       };
-      manager.setProviderToken("github", tokenData);
-      expect(manager.getProviderToken("github")).toEqual(tokenData);
+      await manager.setProviderToken("github", tokenData);
+      expect(await manager.getProviderToken("github")).toEqual(tokenData);
 
       manager.clearProviderToken("github");
-      expect(manager.getProviderToken("github")).toBeUndefined();
+      expect(await manager.getProviderToken("github")).toBeUndefined();
     });
 
-    test("setProviderToken overwrites previous token", () => {
+    test("setProviderToken overwrites previous token", async () => {
       const tokenData1 = {
         accessToken: "token-1",
         tokenType: "Bearer",
@@ -84,11 +84,11 @@ describe("OAuth Manager", () => {
         tokenType: "Bearer",
         expiresIn: 7200,
       };
-      manager.setProviderToken("github", tokenData1);
-      expect(manager.getProviderToken("github")).toEqual(tokenData1);
+      await manager.setProviderToken("github", tokenData1);
+      expect(await manager.getProviderToken("github")).toEqual(tokenData1);
 
-      manager.setProviderToken("github", tokenData2);
-      expect(manager.getProviderToken("github")).toEqual(tokenData2);
+      await manager.setProviderToken("github", tokenData2);
+      expect(await manager.getProviderToken("github")).toEqual(tokenData2);
     });
   });
 
@@ -101,7 +101,7 @@ describe("OAuth Manager", () => {
     });
 
     test("returns authorized when token exists locally", async () => {
-      manager.setProviderToken("github", {
+      await manager.setProviderToken("github", {
         accessToken: "valid-token",
         tokenType: "Bearer",
         expiresIn: 3600,
@@ -117,7 +117,7 @@ describe("OAuth Manager", () => {
 
     test("includes token metadata when available", async () => {
       const expiresAt = "2024-12-31T23:59:59Z";
-      manager.setProviderToken("github", {
+      await manager.setProviderToken("github", {
         accessToken: "token",
         tokenType: "Bearer",
         expiresIn: 3600,
@@ -134,7 +134,7 @@ describe("OAuth Manager", () => {
 
     test("performs local check without server call", async () => {
       // Set up a token
-      manager.setProviderToken("github", {
+      await manager.setProviderToken("github", {
         accessToken: "token",
         tokenType: "Bearer",
         expiresIn: 3600,

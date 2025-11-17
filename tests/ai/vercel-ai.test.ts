@@ -534,7 +534,7 @@ describe("Vercel AI SDK Integration", () => {
       client._callToolByName = async (name: string, args?: Record<string, unknown>) => {
         // Capture the provider token from OAuthManager during execution
         const oauthManager = (client as any).oauthManager;
-        const tokenData = oauthManager?.getProviderToken('github');
+        const tokenData = await oauthManager?.getProviderToken('github');
         tokenDuringExecution = tokenData ? `Bearer ${tokenData.accessToken}` : undefined;
         
         return {
@@ -680,7 +680,7 @@ describe("Vercel AI SDK Integration", () => {
         // Capture provider token from OAuthManager during execution
         const oauthManager = (client as any).oauthManager;
         const provider = (client as any).getProviderForTool(name);
-        const tokenData = provider ? oauthManager?.getProviderToken(provider) : undefined;
+        const tokenData = provider ? await oauthManager?.getProviderToken(provider) : undefined;
         executionTokens[name] = tokenData ? `Bearer ${tokenData.accessToken}` : '';
         
         return {

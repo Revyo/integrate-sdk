@@ -26,11 +26,17 @@ export class OAuthManager {
   private flowConfig: OAuthFlowConfig;
   private oauthApiBase: string;
   private apiBaseUrl?: string;
+  private getTokenCallback?: (provider: string) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
+  private setTokenCallback?: (provider: string, tokenData: ProviderTokenData) => Promise<void> | void;
 
   constructor(
     oauthApiBase: string,
     flowConfig?: Partial<OAuthFlowConfig>,
-    apiBaseUrl?: string
+    apiBaseUrl?: string,
+    tokenCallbacks?: {
+      getProviderToken?: (provider: string) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
+      setProviderToken?: (provider: string, tokenData: ProviderTokenData) => Promise<void> | void;
+    }
   ) {
     this.oauthApiBase = oauthApiBase;
     this.apiBaseUrl = apiBaseUrl;
@@ -40,6 +46,8 @@ export class OAuthManager {
       popupOptions: flowConfig?.popupOptions,
       onAuthCallback: flowConfig?.onAuthCallback,
     };
+    this.getTokenCallback = tokenCallbacks?.getProviderToken;
+    this.setTokenCallback = tokenCallbacks?.setProviderToken;
 
     // Clean up any expired pending auth entries from localStorage
     this.cleanupExpiredPendingAuths();
@@ -179,8 +187,8 @@ export class OAuthManager {
 
       this.providerTokens.set(pendingAuth.provider, tokenData);
 
-      // 4. Save to localStorage
-      this.saveProviderToken(pendingAuth.provider, tokenData);
+      // 4. Save to database (via callback) or localStorage
+      await this.saveProviderToken(pendingAuth.provider, tokenData);
 
       // 5. Clean up pending auth from both memory and storage
       this.pendingAuths.delete(state);
@@ -196,9 +204,9 @@ export class OAuthManager {
 
   /**
    * Check authorization status for a provider
-   * Returns whether a token exists locally (stateless check)
+   * Returns whether a token exists locally or in database (stateless check)
    * 
-   * Note: This only checks if a token exists locally, not if it's valid.
+   * Note: This only checks if a token exists, not if it's valid.
    * Token validation happens when making actual API calls.
    * 
    * @param provider - OAuth provider to check
@@ -208,12 +216,12 @@ export class OAuthManager {
    * ```typescript
    * const status = await oauthManager.checkAuthStatus('github');
    * if (status.authorized) {
-   *   console.log('GitHub token exists locally');
+   *   console.log('GitHub token exists');
    * }
    * ```
    */
   async checkAuthStatus(provider: string): Promise<AuthStatus> {
-    const tokenData = this.providerTokens.get(provider);
+    const tokenData = await this.getProviderToken(provider);
 
     if (!tokenData) {
       return {
@@ -222,7 +230,7 @@ export class OAuthManager {
       };
     }
 
-    // Return local token status without server validation
+    // Return token status without server validation
     // Token validity will be checked when making actual API calls
     return {
       authorized: true,
@@ -236,7 +244,7 @@ export class OAuthManager {
    * Disconnect a specific provider
    * Clears the local token for the provider (stateless operation)
    * 
-   * Note: This only clears the local token. It does not revoke the token
+   * Note: This only clears the local/in-memory token. It does not revoke the token
    * on the provider's side. For full revocation, handle that separately
    * in your application if needed.
    * 
@@ -246,25 +254,42 @@ export class OAuthManager {
    * @example
    * ```typescript
    * await oauthManager.disconnectProvider('github');
-   * // GitHub token is now cleared locally
+   * // GitHub token is now cleared from cache
    * ```
    */
   async disconnectProvider(provider: string): Promise<void> {
-    const tokenData = this.providerTokens.get(provider);
+    const tokenData = await this.getProviderToken(provider);
 
     if (!tokenData) {
       throw new Error(`No access token available for provider "${provider}". Cannot disconnect provider.`);
     }
 
-    // Clear provider token locally (stateless)
+    // Clear provider token from in-memory cache
     this.providerTokens.delete(provider);
     this.clearProviderToken(provider);
   }
 
   /**
    * Get provider token data
+   * Uses callback if provided, otherwise checks in-memory cache
    */
-  getProviderToken(provider: string): ProviderTokenData | undefined {
+  async getProviderToken(provider: string): Promise<ProviderTokenData | undefined> {
+    // If callback is provided, use it exclusively
+    if (this.getTokenCallback) {
+      try {
+        const tokenData = await this.getTokenCallback(provider);
+        // Update in-memory cache for performance
+        if (tokenData) {
+          this.providerTokens.set(provider, tokenData);
+        }
+        return tokenData;
+      } catch (error) {
+        console.error(`Failed to get token for ${provider} via callback:`, error);
+        return undefined;
+      }
+    }
+    
+    // Otherwise use in-memory cache (loaded from localStorage)
     return this.providerTokens.get(provider);
   }
 
@@ -277,18 +302,23 @@ export class OAuthManager {
 
   /**
    * Set provider token (for manual token management)
+   * Uses callback if provided, otherwise uses localStorage
    */
-  setProviderToken(provider: string, tokenData: ProviderTokenData): void {
+  async setProviderToken(provider: string, tokenData: ProviderTokenData): Promise<void> {
     this.providerTokens.set(provider, tokenData);
-    this.saveProviderToken(provider, tokenData);
+    await this.saveProviderToken(provider, tokenData);
   }
 
   /**
    * Clear specific provider token
+   * Note: When using database callbacks, this only clears the in-memory cache.
+   * Token deletion from database should be handled by the host application.
    */
   clearProviderToken(provider: string): void {
     this.providerTokens.delete(provider);
-    if (typeof window !== 'undefined' && window.localStorage) {
+    
+    // Only clear from localStorage if not using callbacks
+    if (!this.getTokenCallback && typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.removeItem(`integrate_token_${provider}`);
       } catch (error) {
@@ -299,12 +329,15 @@ export class OAuthManager {
 
   /**
    * Clear all provider tokens
+   * Note: When using database callbacks, this only clears the in-memory cache.
+   * Token deletion from database should be handled by the host application.
    */
   clearAllProviderTokens(): void {
     const providers = Array.from(this.providerTokens.keys());
     this.providerTokens.clear();
 
-    if (typeof window !== 'undefined' && window.localStorage) {
+    // Only clear from localStorage if not using callbacks
+    if (!this.getTokenCallback && typeof window !== 'undefined' && window.localStorage) {
       for (const provider of providers) {
         try {
           window.localStorage.removeItem(`integrate_token_${provider}`);
@@ -344,9 +377,21 @@ export class OAuthManager {
   }
 
   /**
-   * Save provider token to localStorage
+   * Save provider token to database (via callback) or localStorage
    */
-  private saveProviderToken(provider: string, tokenData: ProviderTokenData): void {
+  private async saveProviderToken(provider: string, tokenData: ProviderTokenData): Promise<void> {
+    // If callback is provided, use it exclusively
+    if (this.setTokenCallback) {
+      try {
+        await this.setTokenCallback(provider, tokenData);
+      } catch (error) {
+        console.error(`Failed to save token for ${provider} via callback:`, error);
+        throw error;
+      }
+      return;
+    }
+
+    // Otherwise use localStorage
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const key = `integrate_token_${provider}`;
@@ -358,10 +403,21 @@ export class OAuthManager {
   }
 
   /**
-   * Load provider token from localStorage
+   * Load provider token from database (via callback) or localStorage
    * Returns undefined if not found or invalid
    */
-  private loadProviderToken(provider: string): ProviderTokenData | undefined {
+  private async loadProviderToken(provider: string): Promise<ProviderTokenData | undefined> {
+    // If callback is provided, use it exclusively
+    if (this.getTokenCallback) {
+      try {
+        return await this.getTokenCallback(provider);
+      } catch (error) {
+        console.error(`Failed to load token for ${provider} via callback:`, error);
+        return undefined;
+      }
+    }
+
+    // Otherwise use localStorage
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const key = `integrate_token_${provider}`;
@@ -377,11 +433,11 @@ export class OAuthManager {
   }
 
   /**
-   * Load all provider tokens from localStorage on initialization
+   * Load all provider tokens from database (via callback) or localStorage on initialization
    */
-  loadAllProviderTokens(providers: string[]): void {
+  async loadAllProviderTokens(providers: string[]): Promise<void> {
     for (const provider of providers) {
-      const tokenData = this.loadProviderToken(provider);
+      const tokenData = await this.loadProviderToken(provider);
       if (tokenData) {
         this.providerTokens.set(provider, tokenData);
       }

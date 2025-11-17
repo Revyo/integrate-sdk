@@ -151,7 +151,7 @@ describe("Edge Cases", () => {
         singleton: false,
       });
 
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'test-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
@@ -243,7 +243,7 @@ describe("Edge Cases", () => {
   });
 
   describe("Session token edge cases", () => {
-    test("handles undefined session token gracefully", () => {
+    test("handles undefined session token gracefully", async () => {
       // Clear any session storage from previous tests
       if (typeof window !== 'undefined' && window.sessionStorage) {
         try {
@@ -263,18 +263,18 @@ describe("Edge Cases", () => {
         singleton: false,
       });
 
-      expect(client.getProviderToken('github')).toBeUndefined();
+      expect(await client.getProviderToken('github')).toBeUndefined();
 
       // Setting and clearing provider tokens
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'test',
         tokenType: 'Bearer',
         expiresIn: 3600,
       });
-      expect(client.getProviderToken('github')).toBeDefined();
+      expect(await client.getProviderToken('github')).toBeDefined();
 
       client.clearSessionToken(); // Clears all provider tokens
-      expect(client.getProviderToken('github')).toBeUndefined();
+      expect(await client.getProviderToken('github')).toBeUndefined();
     });
   });
 
@@ -325,7 +325,7 @@ describe("Edge Cases", () => {
   });
 
   describe("Provider authentication state", () => {
-    test("isProviderAuthenticated handles unknown providers", () => {
+    test("isProviderAuthenticated handles unknown providers", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -336,7 +336,7 @@ describe("Edge Cases", () => {
         singleton: false,
       });
 
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'test-token',
         tokenType: 'Bearer',
         expiresIn: 3600,

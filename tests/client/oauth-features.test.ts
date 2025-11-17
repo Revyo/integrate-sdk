@@ -98,7 +98,7 @@ describe("OAuth Features", () => {
   });
 
   describe("Provider Token Management", () => {
-    test("getProviderToken returns undefined initially", () => {
+    test("getProviderToken returns undefined initially", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -109,10 +109,10 @@ describe("OAuth Features", () => {
         singleton: false,
       });
 
-      expect(client.getProviderToken("github")).toBeUndefined();
+      expect(await client.getProviderToken("github")).toBeUndefined();
     });
 
-    test("setProviderToken sets the token", () => {
+    test("setProviderToken sets the token", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -129,11 +129,11 @@ describe("OAuth Features", () => {
         expiresIn: 3600,
       };
 
-      client.setProviderToken("github", tokenData);
-      expect(client.getProviderToken("github")).toEqual(tokenData);
+      await client.setProviderToken("github", tokenData);
+      expect(await client.getProviderToken("github")).toEqual(tokenData);
     });
 
-    test("clearSessionToken clears all provider tokens", () => {
+    test("clearSessionToken clears all provider tokens", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -150,14 +150,14 @@ describe("OAuth Features", () => {
         expiresIn: 3600,
       };
 
-      client.setProviderToken("github", tokenData);
-      expect(client.getProviderToken("github")).toEqual(tokenData);
+      await client.setProviderToken("github", tokenData);
+      expect(await client.getProviderToken("github")).toEqual(tokenData);
 
       client.clearSessionToken();
-      expect(client.getProviderToken("github")).toBeUndefined();
+      expect(await client.getProviderToken("github")).toBeUndefined();
     });
 
-    test("manages tokens per provider independently", () => {
+    test("manages tokens per provider independently", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -184,11 +184,11 @@ describe("OAuth Features", () => {
         expiresIn: 7200,
       };
 
-      client.setProviderToken("github", githubToken);
-      client.setProviderToken("google", gmailToken);
+      await client.setProviderToken("github", githubToken);
+      await client.setProviderToken("google", gmailToken);
 
-      expect(client.getProviderToken("github")).toEqual(githubToken);
-      expect(client.getProviderToken("google")).toEqual(gmailToken);
+      expect(await client.getProviderToken("github")).toEqual(githubToken);
+      expect(await client.getProviderToken("google")).toEqual(gmailToken);
     });
   });
 
@@ -230,7 +230,7 @@ describe("OAuth Features", () => {
       });
 
       // Verify no token is set
-      expect(client.getProviderToken('github')).toBeUndefined();
+      expect(await client.getProviderToken('github')).toBeUndefined();
 
       // Should throw because no access token for provider
       await expect(client.disconnectProvider("github")).rejects.toThrow(
@@ -250,7 +250,7 @@ describe("OAuth Features", () => {
       });
 
       // Set provider token
-      client.setProviderToken("github", {
+      await client.setProviderToken("github", {
         accessToken: "test-token",
         tokenType: "Bearer",
         expiresIn: 3600,
@@ -276,7 +276,7 @@ describe("OAuth Features", () => {
       });
 
       // Set provider token
-      client.setProviderToken("github", {
+      await client.setProviderToken("github", {
         accessToken: "test-token",
         tokenType: "Bearer",
         expiresIn: 3600,
@@ -309,12 +309,12 @@ describe("OAuth Features", () => {
       });
 
       // Set provider tokens
-      client.setProviderToken("github", {
+      await client.setProviderToken("github", {
         accessToken: "github-token",
         tokenType: "Bearer",
         expiresIn: 3600,
       });
-      client.setProviderToken("google", {
+      await client.setProviderToken("google", {
         accessToken: "gmail-token",
         tokenType: "Bearer",
         expiresIn: 3600,
@@ -345,12 +345,12 @@ describe("OAuth Features", () => {
       });
 
       // Set provider tokens
-      client.setProviderToken("github", {
+      await client.setProviderToken("github", {
         accessToken: "github-token",
         tokenType: "Bearer",
         expiresIn: 3600,
       });
-      client.setProviderToken("google", {
+      await client.setProviderToken("google", {
         accessToken: "gmail-token",
         tokenType: "Bearer",
         expiresIn: 3600,
@@ -358,8 +358,8 @@ describe("OAuth Features", () => {
 
       await client.disconnectProvider("github");
 
-      expect(client.getProviderToken("github")).toBeUndefined();
-      expect(client.getProviderToken("google")).toBeDefined();
+      expect(await client.getProviderToken("github")).toBeUndefined();
+      expect(await client.getProviderToken("google")).toBeDefined();
     });
 
     test("performs local disconnect without server call", async () => {
@@ -374,7 +374,7 @@ describe("OAuth Features", () => {
       });
 
       // Set provider token
-      client.setProviderToken("github", {
+      await client.setProviderToken("github", {
         accessToken: "test-token",
         tokenType: "Bearer",
         expiresIn: 3600,
@@ -387,7 +387,7 @@ describe("OAuth Features", () => {
 
       await client.disconnectProvider("github");
 
-      expect(client.getProviderToken("github")).toBeUndefined();
+      expect(await client.getProviderToken("github")).toBeUndefined();
       expect(global.fetch).not.toHaveBeenCalled();
     });
   });
@@ -404,17 +404,17 @@ describe("OAuth Features", () => {
         singleton: false,
       });
 
-      client.setProviderToken("github", {
+      await client.setProviderToken("github", {
         accessToken: "test-token",
         tokenType: "Bearer",
         expiresIn: 3600,
       });
 
-      expect(client.getProviderToken("github")).toBeDefined();
+      expect(await client.getProviderToken("github")).toBeDefined();
 
       await client.logout();
 
-      expect(client.getProviderToken("github")).toBeUndefined();
+      expect(await client.getProviderToken("github")).toBeUndefined();
     });
 
     test("resets authentication state for all providers", async () => {
@@ -432,12 +432,12 @@ describe("OAuth Features", () => {
         singleton: false,
       });
 
-      client.setProviderToken("github", {
+      await client.setProviderToken("github", {
         accessToken: "github-token",
         tokenType: "Bearer",
         expiresIn: 3600,
       });
-      client.setProviderToken("google", {
+      await client.setProviderToken("google", {
         accessToken: "gmail-token",
         tokenType: "Bearer",
         expiresIn: 3600,
@@ -740,7 +740,7 @@ describe("OAuth Features", () => {
   });
 
   describe("Multiple Integrations", () => {
-    test("tracks auth state for multiple OAuth providers", () => {
+    test("tracks auth state for multiple OAuth providers", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -756,12 +756,12 @@ describe("OAuth Features", () => {
       });
 
       // Set provider tokens
-      client.setProviderToken("github", {
+      await client.setProviderToken("github", {
         accessToken: "github-token",
         tokenType: "Bearer",
         expiresIn: 3600,
       });
-      client.setProviderToken("google", {
+      await client.setProviderToken("google", {
         accessToken: "gmail-token",
         tokenType: "Bearer",
         expiresIn: 3600,

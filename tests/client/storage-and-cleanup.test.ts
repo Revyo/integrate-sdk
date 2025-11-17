@@ -61,7 +61,7 @@ describe("Storage and Cleanup", () => {
   });
 
   describe("Provider Token Storage", () => {
-    test("loads provider token from localStorage on creation", () => {
+    test("loads provider token from localStorage on creation", async () => {
       // Pre-populate localStorage with provider token
       const tokenData = {
         accessToken: 'stored-token',
@@ -80,12 +80,15 @@ describe("Storage and Cleanup", () => {
         singleton: false,
       });
 
+      // Give a moment for async token loading to complete
+      await new Promise(resolve => setTimeout(resolve, 10));
+
       // Should load the token from storage
-      const loadedToken = client.getProviderToken('github');
+      const loadedToken = await client.getProviderToken('github');
       expect(loadedToken).toEqual(tokenData);
     });
 
-    test("loads tokens for multiple providers", () => {
+    test("loads tokens for multiple providers", async () => {
       // Pre-populate localStorage with multiple provider tokens
       const githubToken = {
         accessToken: 'github-token',
@@ -115,12 +118,15 @@ describe("Storage and Cleanup", () => {
         singleton: false,
       });
 
+      // Give a moment for async token loading to complete
+      await new Promise(resolve => setTimeout(resolve, 10));
+
       // Should load both tokens from storage
-      expect(client.getProviderToken('github')).toEqual(githubToken);
-      expect(client.getProviderToken('gmail')).toEqual(gmailToken);
+      expect(await client.getProviderToken('github')).toEqual(githubToken);
+      expect(await client.getProviderToken('gmail')).toEqual(gmailToken);
     });
 
-    test("handles missing localStorage gracefully", () => {
+    test("handles missing localStorage gracefully", async () => {
       // Temporarily remove localStorage
       const originalWindow = (globalThis as any).window;
       (globalThis as any).window = undefined;
@@ -136,7 +142,7 @@ describe("Storage and Cleanup", () => {
       });
 
       // Should still work without localStorage
-      expect(client.getProviderToken('github')).toBeUndefined();
+      expect(await client.getProviderToken('github')).toBeUndefined();
 
       // Restore window
       (globalThis as any).window = originalWindow;
@@ -201,12 +207,12 @@ describe("Storage and Cleanup", () => {
       });
 
       // Set provider tokens
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'github-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
       });
-      client.setProviderToken('gmail', {
+      await client.setProviderToken('gmail', {
         accessToken: 'gmail-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
@@ -215,8 +221,8 @@ describe("Storage and Cleanup", () => {
       await client.disconnectProvider('github');
 
       // Gmail token should still exist
-      expect(client.getProviderToken('github')).toBeUndefined();
-      expect(client.getProviderToken('gmail')).toBeDefined();
+      expect(await client.getProviderToken('github')).toBeUndefined();
+      expect(await client.getProviderToken('gmail')).toBeDefined();
     });
 
     test("all tokens clear after logout", async () => {
@@ -230,7 +236,7 @@ describe("Storage and Cleanup", () => {
         singleton: false,
       });
 
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'test-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
@@ -238,10 +244,10 @@ describe("Storage and Cleanup", () => {
 
       await client.logout();
 
-      expect(client.getProviderToken('github')).toBeUndefined();
+      expect(await client.getProviderToken('github')).toBeUndefined();
     });
 
-    test("setProviderToken persists to localStorage", () => {
+    test("setProviderToken persists to localStorage", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -258,14 +264,14 @@ describe("Storage and Cleanup", () => {
         expiresIn: 3600,
       };
 
-      client.setProviderToken('github', tokenData);
+      await client.setProviderToken('github', tokenData);
 
       // Check both client and storage
-      expect(client.getProviderToken('github')).toEqual(tokenData);
+      expect(await client.getProviderToken('github')).toEqual(tokenData);
       expect(mockLocalStorage.get('integrate_token_github')).toBe(JSON.stringify(tokenData));
     });
 
-    test("clearSessionToken removes all tokens from localStorage", () => {
+    test("clearSessionToken removes all tokens from localStorage", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -282,13 +288,13 @@ describe("Storage and Cleanup", () => {
         expiresIn: 3600,
       };
 
-      client.setProviderToken('github', tokenData);
+      await client.setProviderToken('github', tokenData);
 
       expect(mockLocalStorage.has('integrate_token_github')).toBe(true);
 
       client.clearSessionToken();
 
-      expect(client.getProviderToken('github')).toBeUndefined();
+      expect(await client.getProviderToken('github')).toBeUndefined();
       expect(mockLocalStorage.has('integrate_token_github')).toBe(false);
     });
   });
@@ -349,7 +355,7 @@ describe("Storage and Cleanup", () => {
   });
 
   describe("Multiple Client Instances", () => {
-    test("each non-singleton instance manages its own state", () => {
+    test("each non-singleton instance manages its own state", async () => {
       const client1 = createMCPClient({
         integrations: [
           githubIntegration({
@@ -382,11 +388,11 @@ describe("Storage and Cleanup", () => {
         expiresIn: 3600,
       };
 
-      client1.setProviderToken('github', token1);
-      client2.setProviderToken('github', token2);
+      await client1.setProviderToken('github', token1);
+      await client2.setProviderToken('github', token2);
 
-      expect(client1.getProviderToken('github')).toEqual(token1);
-      expect(client2.getProviderToken('github')).toEqual(token2);
+      expect(await client1.getProviderToken('github')).toEqual(token1);
+      expect(await client2.getProviderToken('github')).toEqual(token2);
     });
 
     test("disconnecting provider in one instance does not affect others", async () => {
@@ -522,12 +528,12 @@ describe("Storage and Cleanup", () => {
       });
 
       // Set provider tokens
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'github-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
       });
-      client.setProviderToken('gmail', {
+      await client.setProviderToken('gmail', {
         accessToken: 'gmail-token',
         tokenType: 'Bearer',
         expiresIn: 3600,

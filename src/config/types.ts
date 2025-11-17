@@ -5,6 +5,7 @@
 
 import type { MCPIntegration } from "../integrations/types.js";
 import type { AuthenticationError } from "../errors.js";
+import type { ProviderTokenData } from "../oauth/types.js";
 
 /**
  * Re-authentication context provided to the callback
@@ -55,6 +56,70 @@ export interface MCPServerConfig<TIntegrations extends readonly MCPIntegration[]
    * ```
    */
   apiKey?: string;
+
+  /**
+   * Custom token retrieval callback (SERVER-SIDE ONLY)
+   * Allows storing OAuth provider tokens in your database instead of localStorage
+   * 
+   * When provided, this callback is used exclusively for token retrieval (no localStorage fallback).
+   * The callback receives the provider name and should return the stored token data or undefined.
+   * 
+   * @param provider - Provider name (e.g., 'github', 'gmail')
+   * @returns Provider token data from your database, or undefined if not found
+   * 
+   * @example
+   * ```typescript
+   * import { createMCPServer } from 'integrate-sdk/server';
+   * import type { ProviderTokenData } from 'integrate-sdk/server';
+   * 
+   * createMCPServer({
+   *   integrations: [...],
+   *   getProviderToken: async (provider) => {
+   *     const token = await db.tokens.findFirst({
+   *       where: { provider, userId: currentUser.id }
+   *     });
+   *     return token ? {
+   *       accessToken: token.accessToken,
+   *       refreshToken: token.refreshToken,
+   *       tokenType: token.tokenType,
+   *       expiresIn: token.expiresIn,
+   *       expiresAt: token.expiresAt,
+   *       scopes: token.scopes,
+   *     } : undefined;
+   *   }
+   * });
+   * ```
+   */
+  getProviderToken?: (provider: string) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
+
+  /**
+   * Custom token storage callback (SERVER-SIDE ONLY)
+   * Allows saving OAuth provider tokens to your database
+   * 
+   * When provided, this callback is used for storing tokens after OAuth completion.
+   * If not provided, tokens retrieved via getProviderToken are assumed to be read-only.
+   * 
+   * @param provider - Provider name (e.g., 'github', 'gmail')
+   * @param tokenData - Token data to store in your database
+   * 
+   * @example
+   * ```typescript
+   * import { createMCPServer } from 'integrate-sdk/server';
+   * import type { ProviderTokenData } from 'integrate-sdk/server';
+   * 
+   * createMCPServer({
+   *   integrations: [...],
+   *   setProviderToken: async (provider, tokenData) => {
+   *     await db.tokens.upsert({
+   *       where: { provider_userId: { provider, userId: currentUser.id } },
+   *       create: { provider, userId: currentUser.id, ...tokenData },
+   *       update: tokenData,
+   *     });
+   *   }
+   * });
+   * ```
+   */
+  setProviderToken?: (provider: string, tokenData: ProviderTokenData) => Promise<void> | void;
 }
 
 /**

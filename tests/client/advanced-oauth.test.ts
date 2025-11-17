@@ -306,12 +306,12 @@ describe("Advanced OAuth Features", () => {
       });
 
       // Set provider tokens
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'github-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
       });
-      client.setProviderToken('gmail', {
+      await client.setProviderToken('gmail', {
         accessToken: 'gmail-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
@@ -574,7 +574,7 @@ describe("Advanced OAuth Features", () => {
   });
 
   describe("Provider Authentication", () => {
-    test("isProviderAuthenticated returns true for configured OAuth providers with tokens", () => {
+    test("isProviderAuthenticated returns true for configured OAuth providers with tokens", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -585,7 +585,7 @@ describe("Advanced OAuth Features", () => {
         singleton: false,
       });
 
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'test-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
@@ -594,7 +594,7 @@ describe("Advanced OAuth Features", () => {
       expect(client.isProviderAuthenticated("github")).toBe(true);
     });
 
-    test("getAuthState returns state object with authenticated property", () => {
+    test("getAuthState returns state object with authenticated property", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -605,7 +605,7 @@ describe("Advanced OAuth Features", () => {
         singleton: false,
       });
 
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'test-token',
         tokenType: 'Bearer',
         expiresIn: 3600,

@@ -19,7 +19,7 @@ describe("Client OAuth Methods", () => {
   });
 
   describe("Provider Token Management", () => {
-    test("getProviderToken returns undefined initially", () => {
+    test("getProviderToken returns undefined initially", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -30,10 +30,10 @@ describe("Client OAuth Methods", () => {
         singleton: false,
       });
 
-      expect(client.getProviderToken('github')).toBeUndefined();
+      expect(await client.getProviderToken('github')).toBeUndefined();
     });
 
-    test("setProviderToken stores token", () => {
+    test("setProviderToken stores token", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -49,12 +49,12 @@ describe("Client OAuth Methods", () => {
         tokenType: "Bearer",
         expiresIn: 3600,
       };
-      client.setProviderToken('github', tokenData);
+      await client.setProviderToken('github', tokenData);
 
-      expect(client.getProviderToken('github')).toEqual(tokenData);
+      expect(await client.getProviderToken('github')).toEqual(tokenData);
     });
 
-    test("provider tokens are loaded from localStorage", () => {
+    test("provider tokens are loaded from localStorage", async () => {
       // This test verifies tokens are loaded on initialization
       // Pre-populate localStorage if we're in a browser-like environment
       const client = createMCPClient({
@@ -68,7 +68,7 @@ describe("Client OAuth Methods", () => {
       });
 
       // Initially undefined since no token is set
-      expect(client.getProviderToken('github')).toBeUndefined();
+      expect(await client.getProviderToken('github')).toBeUndefined();
     });
   });
 
@@ -92,7 +92,7 @@ describe("Client OAuth Methods", () => {
         singleton: false,
       });
 
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'test-access-token',
         tokenType: 'Bearer',
         expiresIn: 3600,

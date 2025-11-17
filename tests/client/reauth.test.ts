@@ -124,7 +124,7 @@ describe("Re-authentication Flow", () => {
   });
 
   describe("Authentication State Tracking", () => {
-    test("client tracks authentication state for providers", () => {
+    test("client tracks authentication state for providers", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -134,7 +134,7 @@ describe("Re-authentication Flow", () => {
         ],
       });
 
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'test-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
@@ -145,7 +145,7 @@ describe("Re-authentication Flow", () => {
       expect(state?.authenticated).toBe(true);
     });
 
-    test("isProviderAuthenticated returns correct state", () => {
+    test("isProviderAuthenticated returns correct state", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -155,7 +155,7 @@ describe("Re-authentication Flow", () => {
         ],
       });
 
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'test-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
@@ -251,7 +251,7 @@ describe("Re-authentication Flow", () => {
         singleton: false,  // Ensure fresh instance for testing
       });
 
-      client.setProviderToken('github', {
+      await client.setProviderToken('github', {
         accessToken: 'test-token',
         tokenType: 'Bearer',
         expiresIn: 3600,

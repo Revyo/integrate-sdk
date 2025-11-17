@@ -201,19 +201,27 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
     this.onReauthRequired = config.onReauthRequired;
     this.maxReauthRetries = config.maxReauthRetries ?? 1;
 
-    // Initialize OAuth manager
+    // Initialize OAuth manager with token callbacks (server-side only)
     this.oauthManager = new OAuthManager(
       oauthApiBase,
       config.oauthFlow,
-      this.apiBaseUrl
+      this.apiBaseUrl,
+      {
+        getProviderToken: (config as any).getProviderToken,
+        setProviderToken: (config as any).setProviderToken,
+      }
     );
 
-    // Load provider tokens from localStorage
+    // Load provider tokens from database (via callback) or localStorage
     const providers = this.integrations
       .filter(p => p.oauth)
       .map(p => p.oauth!.provider);
 
-    this.oauthManager.loadAllProviderTokens(providers);
+    // Note: loadAllProviderTokens is now async, but we don't await it here
+    // to avoid blocking client initialization. Tokens will be loaded in the background.
+    this.oauthManager.loadAllProviderTokens(providers).catch(error => {
+      console.error('Failed to load provider tokens:', error);
+    });
 
     // Collect all enabled tool names from integrations
     for (const integration of this.integrations) {
@@ -221,10 +229,20 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
         this.enabledToolNames.add(toolName);
       }
 
-      // Initialize auth state for integrations with OAuth based on whether we have a token
+      // Initialize auth state for integrations with OAuth
+      // Note: We'll check token availability asynchronously after initialization
       if (integration.oauth) {
-        const hasToken = this.oauthManager.getProviderToken(integration.oauth.provider) !== undefined;
-        this.authState.set(integration.oauth.provider, { authenticated: hasToken });
+        const provider = integration.oauth.provider;
+        this.authState.set(provider, { authenticated: false });
+        
+        // Check token availability asynchronously
+        this.oauthManager.getProviderToken(provider).then(tokenData => {
+          if (tokenData) {
+            this.authState.set(provider, { authenticated: true });
+          }
+        }).catch(error => {
+          console.error(`Failed to check token for ${provider}:`, error);
+        });
       }
     }
 
@@ -469,7 +487,7 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
     if (hasApiKey) {
       // Add provider token to transport if available
       if (provider) {
-        const tokenData = this.oauthManager.getProviderToken(provider);
+        const tokenData = await this.oauthManager.getProviderToken(provider);
         if (tokenData && this.transport.setHeader) {
           const previousAuthHeader = transportHeaders['Authorization'];
           
@@ -516,7 +534,7 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
 
     // Add provider token if available
     if (provider) {
-      const tokenData = this.oauthManager.getProviderToken(provider);
+      const tokenData = await this.oauthManager.getProviderToken(provider);
       if (tokenData) {
         headers['Authorization'] = `Bearer ${tokenData.accessToken}`;
       }
@@ -985,7 +1003,7 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
       await this.oauthManager.initiateFlow(provider, integration.oauth, options?.returnUrl);
 
       // Get the provider token after authorization
-      const tokenData = this.oauthManager.getProviderToken(provider);
+      const tokenData = await this.oauthManager.getProviderToken(provider);
 
       if (tokenData) {
         // Emit auth:complete event
@@ -1053,8 +1071,8 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * @param provider - Provider name (e.g., 'github', 'gmail')
    * @returns Provider token data or undefined if not authorized
    */
-  getProviderToken(provider: string): import('./oauth/types.js').ProviderTokenData | undefined {
-    return this.oauthManager.getProviderToken(provider);
+  async getProviderToken(provider: string): Promise<import('./oauth/types.js').ProviderTokenData | undefined> {
+    return await this.oauthManager.getProviderToken(provider);
   }
 
   /**
@@ -1064,8 +1082,8 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * @param provider - Provider name
    * @param tokenData - Provider token data
    */
-  setProviderToken(provider: string, tokenData: import('./oauth/types.js').ProviderTokenData): void {
-    this.oauthManager.setProviderToken(provider, tokenData);
+  async setProviderToken(provider: string, tokenData: import('./oauth/types.js').ProviderTokenData): Promise<void> {
+    await this.oauthManager.setProviderToken(provider, tokenData);
     this.authState.set(provider, { authenticated: true });
   }
 
@@ -1073,6 +1091,9 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * Get all provider tokens
    * Returns a map of provider names to access tokens
    * Useful for server-side usage where you need to pass tokens from client to server
+   * 
+   * Note: This returns tokens from the in-memory cache. For fresh data from database,
+   * ensure tokens are loaded first via loadAllProviderTokens or individual getProviderToken calls.
    * 
    * @returns Record of provider names to access tokens
    * 
