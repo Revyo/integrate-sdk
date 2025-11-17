@@ -312,9 +312,9 @@ export async function handleOpenAIToolCalls(
  */
 export async function handleOpenAIResponse(
   client: MCPClient<any>,
-  response: OpenAI.Responses.Response,
+  response: { output: Array<{ type: string;[key: string]: any }> },
   options?: OpenAIToolsOptions
-): Promise<OpenAI.Responses.ResponseInputItem.FunctionCallOutput[]> {
+): Promise<OpenAI.Responses.ResponseInputItem.FunctionCallOutput[] | { output: Array<{ type: string;[key: string]: any }> }> {
   // Auto-extract tokens if not provided
   let providerTokens = options?.providerTokens;
   if (!providerTokens) {
@@ -329,9 +329,14 @@ export async function handleOpenAIResponse(
 
   // Filter and execute function calls
   const functionCalls = response.output.filter(
-    (output: OpenAI.Responses.ResponseOutputItem): output is OpenAI.Responses.ResponseOutputItem & { type: 'function_call' } =>
+    (output: any): output is OpenAI.Responses.ResponseOutputItem & { type: 'function_call' } =>
       output.type === 'function_call'
   );
+
+  // If no function calls, return the original response
+  if (functionCalls.length === 0) {
+    return response;
+  }
 
   return handleOpenAIToolCalls(client, functionCalls, finalOptions);
 }
