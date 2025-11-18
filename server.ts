@@ -18,7 +18,63 @@
  * ```
  */
 
+// Core server exports
 export * from './src/server.js';
-export * from './src/ai/index.js';
+
+// Framework adapter exports  
 export * from './src/adapters/index.js';
+
+// AI provider exports - explicitly imported to prevent tree-shaking
+export {
+  // Vercel AI
+  getVercelAITools,
+  convertMCPToolsToVercelAI,
+  convertMCPToolToVercelAI,
+  // OpenAI
+  getOpenAITools,
+  convertMCPToolsToOpenAI,
+  convertMCPToolToOpenAI,
+  executeOpenAIToolCall,
+  // Anthropic
+  getAnthropicTools,
+  convertMCPToolsToAnthropic,
+  convertMCPToolToAnthropic,
+  executeAnthropicToolCall,
+  // Google
+  getGoogleTools,
+  convertMCPToolsToGoogle,
+  convertMCPToolToGoogle,
+  executeGoogleFunctionCall,
+  executeGoogleFunctionCalls,
+  // Cloudflare
+  getCloudflareTools,
+  convertMCPToolsToCloudflare,
+  convertMCPToolToCloudflare,
+  executeCloudflareToolCall,
+  // LangChain
+  getLangChainTools,
+  convertMCPToolsToLangChain,
+  convertMCPToolToLangChain,
+  // LlamaIndex
+  getLlamaIndexTools,
+  convertMCPToolsToLlamaIndex,
+  convertMCPToolToLlamaIndex,
+  // Mastra
+  getMastraTools,
+  convertMCPToolsToMastra,
+  convertMCPToolToMastra,
+  // Unified interface
+  getAITools,
+  // Utilities
+  getProviderForTool,
+  executeToolWithToken,
+  // Types
+  type AIProviderName,
+  type AIToolsOptions,
+  type VercelAITool,
+  type OpenAITool,
+  type AnthropicTool,
+  type GoogleTool,
+  type CloudflareTool,
+} from './src/ai/index.js';
 
