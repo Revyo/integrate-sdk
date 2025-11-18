@@ -283,7 +283,7 @@ export async function getAnthropicTools(
  * @param client - The MCP client instance
  * @param message - The complete Message object from Anthropic
  * @param options - Optional configuration including provider tokens
- * @returns Array with a single user message containing tool results, or empty array if no tool calls
+ * @returns Tool execution results as MessageParam[] if tools were called, otherwise returns the original message
  * 
  * @example
  * ```typescript
@@ -296,7 +296,6 @@ export async function getAnthropicTools(
  * export async function POST(req: Request) {
  *   const { messages } = await req.json();
  *   
- *   // Initial request with tools
  *   const message = await anthropic.messages.create({
  *     model: 'claude-3-5-sonnet-20241022',
  *     max_tokens: 1024,
@@ -304,26 +303,9 @@ export async function getAnthropicTools(
  *     messages,
  *   });
  *   
- *   // If there are tool calls, handle them automatically
- *   if (message.stop_reason === 'tool_use') {
- *     const toolMessages = await handleAnthropicMessage(serverClient, message);
- *     
- *     // Continue conversation with tool results
- *     const finalMessage = await anthropic.messages.create({
- *       model: 'claude-3-5-sonnet-20241022',
- *       max_tokens: 1024,
- *       tools: await getAnthropicTools(serverClient),
- *       messages: [
- *         ...messages,
- *         { role: 'assistant', content: message.content },
- *         ...toolMessages,
- *       ],
- *     });
- *     
- *     return Response.json(finalMessage);
- *   }
+ *   const result = await handleAnthropicMessage(serverClient, message);
  *   
- *   return Response.json(message);
+ *   return Response.json(result);
  * }
  * ```
  * 
@@ -337,9 +319,9 @@ export async function getAnthropicTools(
  */
 export async function handleAnthropicMessage(
   client: MCPClient<any>,
-  message: Anthropic.Messages.Message,
+  message: { content: Array<{ type: string;[key: string]: any }> },
   options?: AnthropicToolsOptions
-): Promise<Anthropic.Messages.MessageParam[]> {
+): Promise<Anthropic.Messages.MessageParam[] | { content: Array<{ type: string;[key: string]: any }> }> {
   // Auto-extract tokens if not provided
   let providerTokens = options?.providerTokens;
   if (!providerTokens) {
@@ -355,9 +337,9 @@ export async function handleAnthropicMessage(
   // Execute all tool calls and get results
   const toolResults = await handleAnthropicToolCalls(client, message.content, finalOptions);
   
-  // Return empty array if no tool results
+  // If no tool results, return the original message
   if (toolResults.length === 0) {
-    return [];
+    return message;
   }
   
   // Format as MessageParam with user role
