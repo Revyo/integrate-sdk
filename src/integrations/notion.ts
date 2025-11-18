@@ -97,8 +97,8 @@ export function notionIntegration(config: NotionIntegrationConfig = {}): MCPInte
     redirectUri: config.redirectUri,
     config: {
       owner: config.owner || 'user',
-      authorizationEndpoint: 'https://api.notion.com/v1/oauth/authorize',
-      tokenEndpoint: 'https://api.notion.com/v1/oauth/token',
+      authorization_endpoint: 'https://api.notion.com/v1/oauth/authorize',
+      token_endpoint: 'https://api.notion.com/v1/oauth/token',
       ...config,
     },
   };
