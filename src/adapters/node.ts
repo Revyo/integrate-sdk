@@ -122,18 +122,32 @@ export function toNodeHandler(config: OAuthHandlerConfig) {
       // Handle POST requests
       if (req.method === 'POST') {
         if (action === 'authorize') {
-          const body = await webReq.json();
-          const result = await oauthHandler.handleAuthorize(body);
+          // Pass full Web Request for context detection
+          const result = await oauthHandler.handleAuthorize(webReq);
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          
+          // Add Set-Cookie header if context cookie was created
+          if (result.setCookie) {
+            headers['Set-Cookie'] = result.setCookie;
+          }
+          
           webRes = new Response(JSON.stringify(result), {
             status: 200,
-            headers: { 'Content-Type': 'application/json' },
+            headers,
           });
         } else if (action === 'callback') {
-          const body = await webReq.json();
-          const result = await oauthHandler.handleCallback(body);
+          // Pass full Web Request for context restoration
+          const result = await oauthHandler.handleCallback(webReq);
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          
+          // Add Set-Cookie header to clear context cookie
+          if (result.clearCookie) {
+            headers['Set-Cookie'] = result.clearCookie;
+          }
+          
           webRes = new Response(JSON.stringify(result), {
             status: 200,
-            headers: { 'Content-Type': 'application/json' },
+            headers,
           });
         } else if (action === 'disconnect') {
           const authHeader = webReq.headers.get('authorization');

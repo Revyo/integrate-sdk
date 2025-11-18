@@ -3,6 +3,9 @@
  * Framework-agnostic OAuth route logic for secure server-side token management
  */
 
+import type { MCPContext } from '../config/types.js';
+import type { ProviderTokenData } from '../oauth/types.js';
+
 /**
  * MCP Server URL - managed by Integrate
  */
@@ -34,6 +37,42 @@ export interface OAuthHandlerConfig {
    * Sent as X-API-KEY header with all OAuth requests to the MCP server
    */
   apiKey?: string;
+  /**
+   * Optional callback to extract user context from request
+   * If not provided, SDK will attempt to auto-detect from common auth libraries
+   * 
+   * @param request - Web Request object
+   * @returns User context (userId, organizationId, etc.) or undefined
+   * 
+   * @example
+   * ```typescript
+   * getSessionContext: async (req) => {
+   *   const session = await getMyAuthSession(req);
+   *   return { userId: session.userId };
+   * }
+   * ```
+   */
+  getSessionContext?: (request: Request) => Promise<MCPContext | undefined> | MCPContext | undefined;
+  /**
+   * Optional callback to save provider tokens with user context
+   * Called automatically after successful OAuth callback
+   * 
+   * @param provider - Provider name (e.g., 'github')
+   * @param tokenData - OAuth tokens (accessToken, refreshToken, etc.)
+   * @param context - User context (userId, organizationId, etc.)
+   * 
+   * @example
+   * ```typescript
+   * setProviderToken: async (provider, tokens, context) => {
+   *   await db.tokens.upsert({
+   *     where: { provider_userId: { provider, userId: context.userId } },
+   *     create: { provider, userId: context.userId, ...tokens },
+   *     update: tokens,
+   *   });
+   * }
+   * ```
+   */
+  setProviderToken?: (provider: string, tokenData: ProviderTokenData, context?: MCPContext) => Promise<void> | void;
 }
 
 /**
@@ -53,6 +92,8 @@ export interface AuthorizeRequest {
  */
 export interface AuthorizeResponse {
   authorizationUrl: string;
+  /** Optional Set-Cookie header value for context cookie */
+  setCookie?: string;
 }
 
 /**
@@ -75,6 +116,8 @@ export interface CallbackResponse {
   expiresIn: number;
   expiresAt?: string;
   scopes?: string[];
+  /** Optional Set-Cookie header value to clear context cookie */
+  clearCookie?: string;
 }
 
 /**
@@ -165,43 +208,60 @@ export class OAuthHandler {
   /**
    * Handle authorization URL request
    * Gets authorization URL from MCP server with full OAuth credentials
+   * Also captures user context for later use in callback
    * 
-   * @param request - Authorization request from client
-   * @returns Authorization URL to redirect/open for user
+   * @param request - Authorization request from client OR full Web Request object
+   * @returns Authorization URL to redirect/open for user, plus optional context cookie
    * 
    * @throws Error if provider is not configured
    * @throws Error if MCP server request fails
    */
-  async handleAuthorize(request: AuthorizeRequest): Promise<AuthorizeResponse> {    
+  async handleAuthorize(request: AuthorizeRequest | Request): Promise<AuthorizeResponse> {
+    // Determine if request is a Web Request or parsed body
+    let webRequest: Request | undefined;
+    let authorizeRequest: AuthorizeRequest;
+    
+    if (request instanceof Request) {
+      // Full Web Request object - extract body
+      webRequest = request;
+      authorizeRequest = await request.json();
+    } else if (typeof request === 'object' && 'json' in request && typeof request.json === 'function') {
+      // Mock Request-like object with json() method (for testing)
+      authorizeRequest = await request.json();
+    } else {
+      // Already parsed AuthorizeRequest
+      authorizeRequest = request as AuthorizeRequest;
+    }
+    
     // Get OAuth config from environment (server-side)
-    const providerConfig = this.config.providers[request.provider];
+    const providerConfig = this.config.providers[authorizeRequest.provider];
     if (!providerConfig) {
-      throw new Error(`Provider ${request.provider} not configured. Add OAuth credentials to your API route configuration.`);
+      throw new Error(`Provider ${authorizeRequest.provider} not configured. Add OAuth credentials to your API route configuration.`);
     }
 
     // Validate required fields
     if (!providerConfig.clientId || !providerConfig.clientSecret) {
-      throw new Error(`Missing OAuth credentials for ${request.provider}. Check your environment variables.`);
+      throw new Error(`Missing OAuth credentials for ${authorizeRequest.provider}. Check your environment variables.`);
     }
 
     // Build URL to MCP server
     const url = new URL('/oauth/authorize', this.serverUrl);
-    url.searchParams.set('provider', request.provider);
+    url.searchParams.set('provider', authorizeRequest.provider);
     url.searchParams.set('client_id', providerConfig.clientId);
     url.searchParams.set('client_secret', providerConfig.clientSecret);
     
     // Use scopes from request if provided, otherwise use provider config scopes
-    const scopes = request.scopes || providerConfig.scopes || [];
+    const scopes = authorizeRequest.scopes || providerConfig.scopes || [];
     if (scopes.length > 0) {
       url.searchParams.set('scope', scopes.join(','));
     }
     
-    url.searchParams.set('state', request.state);
-    url.searchParams.set('code_challenge', request.codeChallenge);
-    url.searchParams.set('code_challenge_method', request.codeChallengeMethod);
+    url.searchParams.set('state', authorizeRequest.state);
+    url.searchParams.set('code_challenge', authorizeRequest.codeChallenge);
+    url.searchParams.set('code_challenge_method', authorizeRequest.codeChallengeMethod);
     
     // Use request redirect URI or fallback to provider config
-    const redirectUri = request.redirectUri || providerConfig.redirectUri;
+    const redirectUri = authorizeRequest.redirectUri || providerConfig.redirectUri;
     if (redirectUri) {
       url.searchParams.set('redirect_uri', redirectUri);
     }
@@ -218,32 +278,102 @@ export class OAuthHandler {
     }
 
     const data = await response.json();
-    return data as AuthorizeResponse;
+    const result: AuthorizeResponse = data as AuthorizeResponse;
+    
+    // Try to capture user context if Web Request is available
+    if (webRequest) {
+      try {
+        const { detectSessionContext } = await import('./session-detector.js');
+        const { createContextCookie, getSetCookieHeader } = await import('./context-cookie.js');
+        
+        // Try custom session context extractor first
+        let context: MCPContext | undefined;
+        if (this.config.getSessionContext) {
+          context = await this.config.getSessionContext(webRequest);
+        }
+        
+        // Fallback to automatic detection
+        if (!context || !context.userId) {
+          context = await detectSessionContext(webRequest);
+        }
+        
+        // If we have user context, create encrypted cookie
+        if (context && context.userId) {
+          // Use API key or provider secret as encryption key
+          const secret = this.apiKey || providerConfig.clientSecret;
+          const cookieValue = await createContextCookie(context, authorizeRequest.provider, secret);
+          result.setCookie = getSetCookieHeader(cookieValue);
+        }
+      } catch (error) {
+        // Context capture failed - continue without it
+        // This is not a fatal error since user can still complete OAuth manually
+        console.warn('[OAuth] Failed to capture user context:', error);
+      }
+    }
+    
+    return result;
   }
 
   /**
    * Handle OAuth callback
    * Exchanges authorization code for access token
+   * Also restores user context and saves tokens if callback is configured
    * 
-   * @param request - Callback request with authorization code
-   * @returns Access token and authorization details
+   * @param request - Callback request with authorization code OR full Web Request object
+   * @returns Access token and authorization details, plus cookie clear header
    * 
    * @throws Error if provider is not configured
    * @throws Error if MCP server request fails
    */
-  async handleCallback(request: CallbackRequest): Promise<CallbackResponse> {
-    // Debug: Log what we're trying to access
+  async handleCallback(request: CallbackRequest | Request): Promise<CallbackResponse> {
+    // Determine if request is a Web Request or parsed body
+    let webRequest: Request | undefined;
+    let callbackRequest: CallbackRequest;
+    
+    if (request instanceof Request) {
+      // Full Web Request object - extract body
+      webRequest = request;
+      callbackRequest = await request.json();
+    } else if (typeof request === 'object' && 'json' in request && typeof request.json === 'function') {
+      // Mock Request-like object with json() method (for testing)
+      callbackRequest = await request.json();
+    } else {
+      // Already parsed CallbackRequest
+      callbackRequest = request as CallbackRequest;
+    }
     
     // Get OAuth config from environment (server-side)
-    const providerConfig = this.config.providers[request.provider];
+    const providerConfig = this.config.providers[callbackRequest.provider];
 
     if (!providerConfig) {
-      throw new Error(`Provider ${request.provider} not configured. Add OAuth credentials to your API route configuration.`);
+      throw new Error(`Provider ${callbackRequest.provider} not configured. Add OAuth credentials to your API route configuration.`);
     }
 
     // Validate required fields
     if (!providerConfig.clientId || !providerConfig.clientSecret) {
-      throw new Error(`Missing OAuth credentials for ${request.provider}. Check your environment variables.`);
+      throw new Error(`Missing OAuth credentials for ${callbackRequest.provider}. Check your environment variables.`);
+    }
+
+    // Try to restore user context from cookie if Web Request is available
+    let context: MCPContext | undefined;
+    if (webRequest) {
+      try {
+        const { getContextCookieFromRequest, readContextCookie } = await import('./context-cookie.js');
+        const cookieValue = getContextCookieFromRequest(webRequest);
+        
+        if (cookieValue) {
+          // Use API key or provider secret as decryption key
+          const secret = this.apiKey || providerConfig.clientSecret;
+          const contextData = await readContextCookie(cookieValue, secret);
+          
+          if (contextData && contextData.provider === callbackRequest.provider) {
+            context = contextData.context;
+          }
+        }
+      } catch (error) {
+        // Context restoration failed - continue without it
+        console.warn('[OAuth] Failed to restore user context:', error);
+      }
     }
 
     // Forward to MCP server for token exchange with credentials
@@ -255,10 +385,10 @@ export class OAuthHandler {
         'Content-Type': 'application/json',
       }),
       body: JSON.stringify({
-        provider: request.provider,
-        code: request.code,
-        code_verifier: request.codeVerifier,
-        state: request.state,
+        provider: callbackRequest.provider,
+        code: callbackRequest.code,
+        code_verifier: callbackRequest.codeVerifier,
+        state: callbackRequest.state,
         client_id: providerConfig.clientId,
         client_secret: providerConfig.clientSecret,
         redirect_uri: providerConfig.redirectUri,
@@ -271,7 +401,33 @@ export class OAuthHandler {
     }
 
     const data = await response.json();
-    return data as CallbackResponse;
+    const result: CallbackResponse = data as CallbackResponse;
+    
+    // Call setProviderToken callback if configured
+    if (this.config.setProviderToken && context) {
+      try {
+        const tokenData: ProviderTokenData = {
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+          tokenType: result.tokenType,
+          expiresIn: result.expiresIn,
+          expiresAt: result.expiresAt,
+        };
+        
+        await this.config.setProviderToken(callbackRequest.provider, tokenData, context);
+      } catch (error) {
+        // Token storage failed - log but don't fail the OAuth flow
+        console.error('[OAuth] Failed to save provider token:', error);
+      }
+    }
+    
+    // Include cookie clear header if Web Request was provided
+    if (webRequest) {
+      const { getClearCookieHeader } = await import('./context-cookie.js');
+      result.clearCookie = getClearCookieHeader();
+    }
+    
+    return result;
   }
 
   /**

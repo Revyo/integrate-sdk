@@ -84,15 +84,29 @@ export async function POST(
 
   try {
     if (action === 'authorize') {
-      const body = await parseRequestBody(req);
-      const result = await handler.handleAuthorize(body);
-      return createSuccessResponse(result);
+      // Pass full Request object for context detection
+      const result = await handler.handleAuthorize(req);
+      const response = createSuccessResponse(result);
+      
+      // Add Set-Cookie header if context cookie was created
+      if (result.setCookie) {
+        response.headers?.set?.('Set-Cookie', result.setCookie);
+      }
+      
+      return response;
     }
 
     if (action === 'callback') {
-      const body = await parseRequestBody(req);
-      const result = await handler.handleCallback(body);
-      return createSuccessResponse(result);
+      // Pass full Request object for context restoration
+      const result = await handler.handleCallback(req);
+      const response = createSuccessResponse(result);
+      
+      // Add Set-Cookie header to clear context cookie
+      if (result.clearCookie) {
+        response.headers?.set?.('Set-Cookie', result.clearCookie);
+      }
+      
+      return response;
     }
 
     if (action === 'disconnect') {

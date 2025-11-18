@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.7.46",
+  "version": "0.7.47",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",

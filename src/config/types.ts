@@ -133,6 +133,31 @@ export interface MCPServerConfig<TIntegrations extends readonly MCPIntegration[]
   getProviderToken?: (provider: string, context?: MCPContext) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
 
   /**
+   * Custom session context extraction callback (SERVER-SIDE ONLY)
+   * Allows extracting user context from incoming requests during OAuth flows
+   * 
+   * When not provided, the SDK attempts to auto-detect context from common auth library cookies.
+   * Provide this callback if you use a custom auth solution or need specific context extraction.
+   * 
+   * @param request - Web Request object from OAuth authorize/callback
+   * @returns User context (userId, organizationId, etc.) or undefined
+   * 
+   * @example
+   * ```typescript
+   * import { createMCPServer } from 'integrate-sdk/server';
+   * 
+   * createMCPServer({
+   *   integrations: [...],
+   *   getSessionContext: async (req) => {
+   *     const session = await getMyAuthSession(req);
+   *     return session ? { userId: session.userId } : undefined;
+   *   }
+   * });
+   * ```
+   */
+  getSessionContext?: (request: Request) => Promise<MCPContext | undefined> | MCPContext | undefined;
+
+  /**
    * Custom token storage callback (SERVER-SIDE ONLY)
    * Allows saving OAuth provider tokens to your database
    * 

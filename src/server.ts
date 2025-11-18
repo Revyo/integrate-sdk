@@ -202,6 +202,8 @@ export function createMCPServer<TIntegrations extends readonly MCPIntegration[]>
     providers,
     serverUrl: config.serverUrl,
     apiKey: config.apiKey,
+    getSessionContext: config.getSessionContext,
+    setProviderToken: config.setProviderToken,
   };
 
   // Create route handlers with the provider configuration
@@ -209,6 +211,8 @@ export function createMCPServer<TIntegrations extends readonly MCPIntegration[]>
     providers,
     serverUrl: config.serverUrl,
     apiKey: config.apiKey,
+    getSessionContext: config.getSessionContext,
+    setProviderToken: config.setProviderToken,
   });
 
   /**
@@ -428,7 +432,13 @@ export function createMCPServer<TIntegrations extends readonly MCPIntegration[]>
  * Create OAuth route handlers for Next.js App Router
  * Internal function used by createMCPServer
  */
-function createOAuthRouteHandlers(config: { providers: Record<string, any>; serverUrl?: string; apiKey?: string }) {
+function createOAuthRouteHandlers(config: {
+  providers: Record<string, any>;
+  serverUrl?: string;
+  apiKey?: string;
+  getSessionContext?: (request: Request) => Promise<import('./config/types.js').MCPContext | undefined> | import('./config/types.js').MCPContext | undefined;
+  setProviderToken?: (provider: string, tokenData: import('./oauth/types.js').ProviderTokenData, context?: import('./config/types.js').MCPContext) => Promise<void> | void;
+}) {
   const handler = createNextOAuthHandler(config);
   return handler.createRoutes();
 }
@@ -606,6 +616,8 @@ export function toNextJsHandler<TIntegrations extends readonly MCPIntegration[] 
       providers: options.providers,
       serverUrl: options.serverUrl,
       apiKey: options.apiKey,
+      getSessionContext: options.getSessionContext,
+      setProviderToken: options.setProviderToken,
     };
     redirectUrl = options.redirectUrl;
     errorRedirectUrl = options.errorRedirectUrl;

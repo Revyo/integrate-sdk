@@ -104,9 +104,18 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
      */
     async authorize(req: NextRequest): Promise<NextResponse> {
       try {
-        const body = await req.json();
-        const result = await handler.handleAuthorize(body);
-        return Response.json(result);
+        // Pass full Request object to handler for context detection
+        const result = await handler.handleAuthorize(req);
+        
+        // Create response with result
+        const response = Response.json(result);
+        
+        // Add Set-Cookie header if context cookie was created
+        if (result.setCookie) {
+          response.headers.set('Set-Cookie', result.setCookie);
+        }
+        
+        return response;
       } catch (error: any) {
         console.error('[OAuth Authorize] Error:', error);
         return Response.json(
@@ -160,9 +169,18 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
      */
     async callback(req: NextRequest): Promise<NextResponse> {
       try {
-        const body = await req.json();
-        const result = await handler.handleCallback(body);
-        return Response.json(result);
+        // Pass full Request object to handler for context restoration
+        const result = await handler.handleCallback(req);
+        
+        // Create response with result
+        const response = Response.json(result);
+        
+        // Add Set-Cookie header to clear context cookie
+        if (result.clearCookie) {
+          response.headers.set('Set-Cookie', result.clearCookie);
+        }
+        
+        return response;
       } catch (error: any) {
         console.error('[OAuth Callback] Error:', error);
         return Response.json(
