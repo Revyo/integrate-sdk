@@ -24,21 +24,23 @@ export type { Schema, Type };
 
 /**
  * Lazily import the Type enum from @google/genai
- * Uses dynamic import with catch to gracefully handle missing package
- * Package name is constructed to avoid static analysis by bundlers
+ * Uses Function constructor to completely hide import from static analysis
+ * This prevents bundlers from trying to resolve the optional dependency
  */
 async function getGoogleType(): Promise<typeof Type> {
-  // Construct package name dynamically to prevent Turbopack from trying to resolve it
-  const packageName = ['@google', 'genai'].join('/');
-  const googleGenAI = await import(/* @vite-ignore */ packageName).catch(() => null);
-  
-  if (!googleGenAI) {
+  try {
+    // Use Function constructor to hide dynamic import from bundlers
+    // This is the same technique used by Vite and other tools for optional deps
+    // Package name is also constructed at runtime to avoid any static analysis
+    const dynamicImport = new Function('specifier', 'return import(specifier)');
+    const packageName = '@' + 'google' + '/' + 'genai';
+    const googleGenAI = await dynamicImport(packageName);
+    return googleGenAI.Type;
+  } catch (error) {
     throw new Error(
       'The @google/genai package is required to use Google AI integration. Install it with: npm install @google/genai'
     );
   }
-  
-  return googleGenAI.Type;
 }
 
 /**
