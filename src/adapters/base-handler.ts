@@ -26,6 +26,8 @@ export interface OAuthHandlerConfig {
     redirectUri?: string;
     /** Optional scopes for OAuth authorization */
     scopes?: string[];
+    /** Optional provider-specific configuration (e.g., Notion's 'owner' parameter) */
+    config?: Record<string, any>;
   }>;
   /**
    * MCP Server URL
@@ -264,6 +266,15 @@ export class OAuthHandler {
     const redirectUri = authorizeRequest.redirectUri || providerConfig.redirectUri;
     if (redirectUri) {
       url.searchParams.set('redirect_uri', redirectUri);
+    }
+    
+    // Add provider-specific config parameters (e.g., Notion's 'owner' parameter)
+    if (providerConfig.config) {
+      for (const [key, value] of Object.entries(providerConfig.config)) {
+        if (value !== undefined && value !== null) {
+          url.searchParams.set(key, String(value));
+        }
+      }
     }
 
     // Forward to MCP server

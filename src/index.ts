@@ -85,6 +85,9 @@ export type { GitHubIntegrationConfig, GitHubTools, GitHubIntegrationClient } fr
 export { gmailIntegration } from "./integrations/gmail.js";
 export type { GmailIntegrationConfig, GmailTools, GmailIntegrationClient } from "./integrations/gmail.js";
 
+export { notionIntegration } from "./integrations/notion.js";
+export type { NotionIntegrationConfig, NotionTools, NotionIntegrationClient } from "./integrations/notion.js";
+
 // Server client
 export type { ServerIntegrationClient } from "./integrations/server-client.js";
 

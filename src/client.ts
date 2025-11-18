@@ -22,6 +22,7 @@ import {
 import { methodToToolName } from "./utils/naming.js";
 import type { GitHubIntegrationClient } from "./integrations/github-client.js";
 import type { GmailIntegrationClient } from "./integrations/gmail-client.js";
+import type { NotionIntegrationClient } from "./integrations/notion-client.js";
 import type { ServerIntegrationClient } from "./integrations/server-client.js";
 import { OAuthManager } from "./oauth/manager.js";
 import type {
@@ -121,10 +122,13 @@ type IntegrationNamespaces<TIntegrations extends readonly MCPIntegration[]> = {
   [K in IntegrationIds<TIntegrations> as K extends "github" 
     ? "github" 
     : K extends "gmail" 
-    ? "gmail" 
+    ? "gmail"
+    : K extends "notion"
+    ? "notion"
     : never]: 
       K extends "github" ? GitHubIntegrationClient :
       K extends "gmail" ? GmailIntegrationClient :
+      K extends "notion" ? NotionIntegrationClient :
       never;
 };
 

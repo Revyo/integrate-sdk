@@ -31,6 +31,7 @@ let globalServerConfig: {
     clientId: string;
     clientSecret: string;
     redirectUri?: string;
+    config?: Record<string, any>;
   }>;
   serverUrl?: string;
   apiKey?: string;
@@ -140,12 +141,13 @@ export function createMCPServer<TIntegrations extends readonly MCPIntegration[]>
     clientId: string;
     clientSecret: string;
     redirectUri?: string;
+    config?: Record<string, any>;
   }> = {};
 
   // Update integrations with default redirectUri where needed
   const updatedIntegrations = config.integrations.map(integration => {
     if (integration.oauth) {
-      const { clientId, clientSecret, redirectUri: integrationRedirectUri } = integration.oauth;
+      const { clientId, clientSecret, redirectUri: integrationRedirectUri, config: oauthConfig } = integration.oauth;
 
       if (!clientId || !clientSecret) {
         console.warn(
@@ -162,6 +164,7 @@ export function createMCPServer<TIntegrations extends readonly MCPIntegration[]>
         clientId,
         clientSecret,
         redirectUri,
+        config: oauthConfig as Record<string, any> | undefined,
       };
 
       // Update integration with resolved redirectUri
@@ -451,6 +454,7 @@ export type { ProviderTokenData } from './oauth/types.js';
 // Re-export integrations
 export { githubIntegration } from './integrations/github.js';
 export { gmailIntegration } from './integrations/gmail.js';
+export { notionIntegration } from './integrations/notion.js';
 export { genericOAuthIntegration, createSimpleIntegration } from './integrations/generic.js';
 
 /**

@@ -5,6 +5,7 @@
 import { describe, test, expect } from "bun:test";
 import { githubIntegration } from "../../src/integrations/github.js";
 import { gmailIntegration } from "../../src/integrations/gmail.js";
+import { notionIntegration } from "../../src/integrations/notion.js";
 import { genericOAuthIntegration, createSimpleIntegration } from "../../src/integrations/generic.js";
 import { hasOAuthConfig } from "../../src/integrations/types.js";
 
@@ -127,6 +128,105 @@ describe("Integration System", () => {
 
     test("lifecycle hooks execute successfully", async () => {
       const integration = gmailIntegration({
+        clientId: "test-id",
+        clientSecret: "test-secret",
+      });
+
+      // Test onInit
+      await expect(integration.onInit?.(null as any)).resolves.toBeUndefined();
+
+      // Test onAfterConnect
+      await expect(integration.onAfterConnect?.(null as any)).resolves.toBeUndefined();
+    });
+  });
+
+  describe("Notion Integration", () => {
+    test("creates integration with correct structure", () => {
+      const integration = notionIntegration({
+        clientId: "test-client-id",
+        clientSecret: "test-client-secret",
+      });
+
+      expect(integration.id).toBe("notion");
+      expect(integration.tools).toBeArray();
+      expect(integration.tools.length).toBeGreaterThan(0);
+      expect(integration.oauth).toBeDefined();
+    });
+
+    test("includes OAuth configuration", () => {
+      const integration = notionIntegration({
+        clientId: "test-id",
+        clientSecret: "test-secret",
+      });
+
+      expect(integration.oauth?.provider).toBe("notion");
+      expect(integration.oauth?.clientId).toBe("test-id");
+      expect(integration.oauth?.clientSecret).toBe("test-secret");
+    });
+
+    test("includes expected tools", () => {
+      const integration = notionIntegration({
+        clientId: "test-id",
+        clientSecret: "test-secret",
+      });
+
+      expect(integration.tools).toContain("notion_search");
+      expect(integration.tools).toContain("notion_get_page");
+    });
+
+    test("uses default owner parameter", () => {
+      const integration = notionIntegration({
+        clientId: "test-id",
+        clientSecret: "test-secret",
+      });
+
+      expect(integration.oauth?.config).toBeDefined();
+      expect((integration.oauth?.config as any).owner).toBe("user");
+    });
+
+    test("allows custom owner parameter", () => {
+      const integration = notionIntegration({
+        clientId: "test-id",
+        clientSecret: "test-secret",
+        owner: "workspace",
+      });
+
+      expect(integration.oauth?.config).toBeDefined();
+      expect((integration.oauth?.config as any).owner).toBe("workspace");
+    });
+
+    test("includes custom authorization endpoint", () => {
+      const integration = notionIntegration({
+        clientId: "test-id",
+        clientSecret: "test-secret",
+      });
+
+      expect(integration.oauth?.config).toBeDefined();
+      expect((integration.oauth?.config as any).authorizationEndpoint).toBe("https://api.notion.com/v1/oauth/authorize");
+      expect((integration.oauth?.config as any).tokenEndpoint).toBe("https://api.notion.com/v1/oauth/token");
+    });
+
+    test("does not use traditional OAuth scopes", () => {
+      const integration = notionIntegration({
+        clientId: "test-id",
+        clientSecret: "test-secret",
+      });
+
+      expect(integration.oauth?.scopes).toEqual([]);
+    });
+
+    test("has lifecycle hooks defined", () => {
+      const integration = notionIntegration({
+        clientId: "test-id",
+        clientSecret: "test-secret",
+      });
+
+      expect(integration.onInit).toBeDefined();
+      expect(integration.onAfterConnect).toBeDefined();
+    });
+
+    test("lifecycle hooks execute successfully", async () => {
+      const integration = notionIntegration({
         clientId: "test-id",
         clientSecret: "test-secret",
       });
