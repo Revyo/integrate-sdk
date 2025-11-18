@@ -34,6 +34,7 @@ export * from './src/index.js';
 import { createMCPClient } from './src/client.js';
 import { githubIntegration } from './src/integrations/github.js';
 import { gmailIntegration } from './src/integrations/gmail.js';
+import { notionIntegration } from './src/integrations/notion.js';
 
 /**
  * Default MCP Client with all integrations pre-configured
@@ -63,6 +64,7 @@ export const client = createMCPClient({
   integrations: [
     githubIntegration(),
     gmailIntegration(),
+    notionIntegration(),
   ],
 });
 
