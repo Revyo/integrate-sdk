@@ -202,8 +202,8 @@ describe("Integration System", () => {
       });
 
       expect(integration.oauth?.config).toBeDefined();
-      expect((integration.oauth?.config as any).authorizationEndpoint).toBe("https://api.notion.com/v1/oauth/authorize");
-      expect((integration.oauth?.config as any).tokenEndpoint).toBe("https://api.notion.com/v1/oauth/token");
+      expect((integration.oauth?.config as any).authorization_endpoint).toBe("https://api.notion.com/v1/oauth/authorize");
+      expect((integration.oauth?.config as any).token_endpoint).toBe("https://api.notion.com/v1/oauth/token");
     });
 
     test("does not use traditional OAuth scopes", () => {
