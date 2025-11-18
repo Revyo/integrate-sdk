@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.7.47",
+  "version": "0.7.48",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
@@ -30,6 +30,38 @@
     "./integrations": {
       "types": "./dist/integrations.d.ts",
       "import": "./dist/integrations.js"
+    },
+    "./ai/vercel": {
+      "types": "./dist/ai/vercel-ai.d.ts",
+      "import": "./dist/ai/vercel-ai.js"
+    },
+    "./ai/openai": {
+      "types": "./dist/ai/openai.d.ts",
+      "import": "./dist/ai/openai.js"
+    },
+    "./ai/anthropic": {
+      "types": "./dist/ai/anthropic.d.ts",
+      "import": "./dist/ai/anthropic.js"
+    },
+    "./ai/google": {
+      "types": "./dist/ai/google.d.ts",
+      "import": "./dist/ai/google.js"
+    },
+    "./ai/cloudflare": {
+      "types": "./dist/ai/cloudflare.d.ts",
+      "import": "./dist/ai/cloudflare.js"
+    },
+    "./ai/langchain": {
+      "types": "./dist/ai/langchain.d.ts",
+      "import": "./dist/ai/langchain.js"
+    },
+    "./ai/llamaindex": {
+      "types": "./dist/ai/llamaindex.d.ts",
+      "import": "./dist/ai/llamaindex.js"
+    },
+    "./ai/mastra": {
+      "types": "./dist/ai/mastra.d.ts",
+      "import": "./dist/ai/mastra.js"
     }
   },
   "files": [
