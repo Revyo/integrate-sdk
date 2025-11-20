@@ -119,7 +119,7 @@ function convertPropertiesToSchema(properties: Record<string, any>, TypeEnum: ty
  * const googleTool = await convertMCPToolToGoogle(mcpTool, client);
  * ```
  */
-export async function convertMCPToolToGoogle(
+async function convertMCPToolToGoogle(
   mcpTool: MCPTool,
   _client: MCPClient<any>,
   _options?: GoogleToolsOptions
@@ -146,94 +146,7 @@ export async function convertMCPToolToGoogle(
   };
 }
 
-/**
- * Convert all enabled MCP tools to Google GenAI format
- * 
- * @param client - The MCP client instance (must be connected)
- * @param options - Optional configuration including provider tokens
- * @returns Array of Google GenAI compatible tool definitions
- * 
- * @example
- * ```typescript
- * // Client-side usage
- * const tools = await convertMCPToolsToGoogle(mcpClient);
- * 
- * // Server-side with provider tokens
- * const tools = await convertMCPToolsToGoogle(serverClient, {
- *   providerTokens: { github: 'ghp_...', gmail: 'ya29...' }
- * });
- * ```
- */
-export async function convertMCPToolsToGoogle(
-  client: MCPClient<any>,
-  options?: GoogleToolsOptions
-): Promise<GoogleTool[]> {
-  const mcpTools = client.getEnabledTools();
-  return await Promise.all(
-    mcpTools.map(mcpTool => convertMCPToolToGoogle(mcpTool, client, options))
-  );
-}
 
-/**
- * Execute a function call from Google GenAI
- * 
- * Automatically extracts provider tokens from the request if not provided.
- * 
- * @param client - The MCP client instance
- * @param functionCall - The function call from Google GenAI response
- * @param options - Optional configuration including provider tokens
- * @returns Tool execution result as JSON string
- * 
- * @example
- * ```typescript
- * // Tokens are automatically extracted
- * const result = await executeGoogleFunctionCall(client, {
- *   name: 'github_create_issue',
- *   args: { owner: 'user', repo: 'repo', title: 'Bug' }
- * });
- * ```
- * 
- * @example
- * ```typescript
- * // Or explicitly pass provider tokens
- * const result = await executeGoogleFunctionCall(client, {
- *   name: 'github_create_issue',
- *   args: { owner: 'user', repo: 'repo', title: 'Bug' }
- * }, { providerTokens });
- * ```
- */
-export async function executeGoogleFunctionCall(
-  client: MCPClient<any>,
-  functionCall: GoogleFunctionCall,
-  options?: GoogleToolsOptions
-): Promise<string> {
-  if (!functionCall?.name) {
-    throw new Error('Function call must have a name');
-  }
-  
-  // Auto-extract tokens if not provided
-  let providerTokens = options?.providerTokens;
-  if (!providerTokens) {
-    try {
-      providerTokens = await getProviderTokens();
-    } catch {
-      // Token extraction failed - that's okay
-    }
-  }
-
-  const finalOptions = providerTokens ? { ...options, providerTokens } : options;
-  
-  // Extract args - the actual GoogleFunctionCall type has args as a property
-  const args = (functionCall as any).args || {};
-  
-  const result = await executeToolWithToken(
-    client, 
-    functionCall.name, 
-    args, 
-    finalOptions
-  );
-  return JSON.stringify(result);
-}
 
 /**
  * Execute multiple function calls from Google GenAI response
@@ -300,7 +213,22 @@ export async function executeGoogleFunctionCalls(
   const finalOptions = providerTokens ? { ...options, providerTokens } : options;
   
   const results = await Promise.all(
-    functionCalls.map(call => executeGoogleFunctionCall(client, call, finalOptions))
+    functionCalls.map(async (call) => {
+      if (!call?.name) {
+        throw new Error('Function call must have a name');
+      }
+      
+      // Extract args - the actual GoogleFunctionCall type has args as a property
+      const args = (call as any).args || {};
+      
+      const result = await executeToolWithToken(
+        client, 
+        call.name, 
+        args, 
+        finalOptions
+      );
+      return JSON.stringify(result);
+    })
   );
   
   return results;
@@ -397,6 +325,9 @@ export async function getGoogleTools(
   }
 
   const finalOptions = providerTokens ? { ...options, providerTokens } : options;
-  return convertMCPToolsToGoogle(client, finalOptions);
+  const mcpTools = client.getEnabledTools();
+  return await Promise.all(
+    mcpTools.map(mcpTool => convertMCPToolToGoogle(mcpTool, client, finalOptions))
+  );
 }
 

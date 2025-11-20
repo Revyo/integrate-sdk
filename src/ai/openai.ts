@@ -47,7 +47,7 @@ export interface OpenAIToolsOptions extends AIToolsOptions {
  * const openaiTool = convertMCPToolToOpenAI(mcpTool, client, { strict: true });
  * ```
  */
-export function convertMCPToolToOpenAI(
+function convertMCPToolToOpenAI(
   mcpTool: MCPTool,
   _client: MCPClient<any>,
   options?: OpenAIToolsOptions
@@ -63,62 +63,7 @@ export function convertMCPToolToOpenAI(
   };
 }
 
-/**
- * Convert all enabled MCP tools to OpenAI Responses API format
- * 
- * @param client - The MCP client instance (must be connected)
- * @param options - Optional configuration including provider tokens and strict mode
- * @returns Array of OpenAI compatible tool definitions
- * 
- * @example
- * ```typescript
- * // Client-side usage
- * const tools = convertMCPToolsToOpenAI(mcpClient);
- * 
- * // Server-side with provider tokens
- * const tools = convertMCPToolsToOpenAI(serverClient, {
- *   providerTokens: { github: 'ghp_...', gmail: 'ya29...' }
- * });
- * ```
- */
-export function convertMCPToolsToOpenAI(
-  client: MCPClient<any>,
-  options?: OpenAIToolsOptions
-): OpenAITool[] {
-  const mcpTools = client.getEnabledTools();
-  return mcpTools.map(mcpTool => convertMCPToolToOpenAI(mcpTool, client, options));
-}
 
-/**
- * Execute a tool call from OpenAI's response
- * 
- * @param client - The MCP client instance
- * @param toolCall - The tool call from OpenAI response
- * @param options - Optional configuration including provider tokens
- * @returns Tool execution result as JSON string
- * 
- * @example
- * ```typescript
- * const result = await executeOpenAIToolCall(client, {
- *   id: 'call_123',
- *   name: 'github_create_issue',
- *   arguments: '{"owner":"user","repo":"repo","title":"Bug"}'
- * }, { providerTokens });
- * ```
- */
-export async function executeOpenAIToolCall(
-  client: MCPClient<any>,
-  toolCall: {
-    id: string;
-    name: string;
-    arguments: string;
-  },
-  options?: OpenAIToolsOptions
-): Promise<string> {
-  const args = JSON.parse(toolCall.arguments);
-  const result = await executeToolWithToken(client, toolCall.name, args, options);
-  return JSON.stringify(result);
-}
 
 /**
  * Get tools in a format compatible with OpenAI Responses API
@@ -176,7 +121,8 @@ export async function getOpenAITools(
   }
 
   const finalOptions = providerTokens ? { ...options, providerTokens } : options;
-  return convertMCPToolsToOpenAI(client, finalOptions);
+  const mcpTools = client.getEnabledTools();
+  return mcpTools.map(mcpTool => convertMCPToolToOpenAI(mcpTool, client, finalOptions));
 }
 
 /**
@@ -214,7 +160,7 @@ export async function getOpenAITools(
  * });
  * ```
  */
-export async function handleOpenAIToolCalls(
+async function handleOpenAIToolCalls(
   client: MCPClient<any>,
   toolCalls: OpenAI.Responses.ResponseOutputItem[],
   options?: OpenAIToolsOptions
@@ -230,11 +176,13 @@ export async function handleOpenAIToolCalls(
       };
 
       try {
-        const result = await executeOpenAIToolCall(client, toolCall, options);
+        const args = JSON.parse(toolCall.arguments);
+        const result = await executeToolWithToken(client, toolCall.name, args, options);
+        const resultString = JSON.stringify(result);
         toolOutputs.push({
           call_id: output.call_id ?? output.id ?? '',
           type: 'function_call_output',
-          output: result,
+          output: resultString,
           status: 'completed',
         });
       } catch (error) {

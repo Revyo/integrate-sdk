@@ -517,50 +517,20 @@ export const GET = async (
 
 // AI Tools Exports
 export { getVercelAITools } from './ai/vercel-ai.js';
-export { 
-  getOpenAITools, 
-  convertMCPToolToOpenAI, 
-  convertMCPToolsToOpenAI, 
-  executeOpenAIToolCall,
-  handleOpenAIToolCalls,
-  handleOpenAIResponse 
+export {
+  getOpenAITools,
+  handleOpenAIResponse
 } from './ai/openai.js';
-export { 
-  getAnthropicTools, 
-  convertMCPToolToAnthropic, 
-  convertMCPToolsToAnthropic, 
-  executeAnthropicToolCall,
-  handleAnthropicToolCalls,
-  handleAnthropicMessage 
+export {
+  getAnthropicTools,
+  handleAnthropicMessage
 } from './ai/anthropic.js';
-export { 
-  getGoogleTools, 
-  convertMCPToolToGoogle, 
-  convertMCPToolsToGoogle, 
-  executeGoogleFunctionCall,
+export {
+  getGoogleTools,
   executeGoogleFunctionCalls
 } from './ai/google.js';
-export { 
-  getCloudflareTools, 
-  convertMCPToolToCloudflare, 
-  convertMCPToolsToCloudflare 
-} from './ai/cloudflare.js';
-export { 
-  getLangChainTools, 
-  convertMCPToolToLangChain, 
-  convertMCPToolsToLangChain 
-} from './ai/langchain.js';
-export { 
-  getLlamaIndexTools, 
-  convertMCPToolToLlamaIndex, 
-  convertMCPToolsToLlamaIndex 
-} from './ai/llamaindex.js';
-export { 
-  getMastraTools, 
-  convertMCPToolToMastra, 
-  convertMCPToolsToMastra 
-} from './ai/mastra.js';
-export { getAITools } from './ai/index.js';
+// AI tools are exported from ai/index.ts
+export * from './ai/index.js';
 
 
 /**

@@ -28,53 +28,30 @@ export * from './src/adapters/index.js';
 export {
   // Vercel AI
   getVercelAITools,
-  convertMCPToolsToVercelAI,
-  convertMCPToolToVercelAI,
+  type VercelAITool,
+  type VercelAIToolsOptions,
+  
   // OpenAI
   getOpenAITools,
-  convertMCPToolsToOpenAI,
-  convertMCPToolToOpenAI,
-  executeOpenAIToolCall,
+  handleOpenAIResponse,
+  type OpenAITool,
+  type OpenAIToolsOptions,
+  
   // Anthropic
   getAnthropicTools,
-  convertMCPToolsToAnthropic,
-  convertMCPToolToAnthropic,
-  executeAnthropicToolCall,
+  handleAnthropicMessage,
+  type AnthropicTool,
+  type AnthropicToolsOptions,
+  type AnthropicToolUseBlock,
+  type AnthropicToolResultBlock,
+  
   // Google
   getGoogleTools,
-  convertMCPToolsToGoogle,
-  convertMCPToolToGoogle,
-  executeGoogleFunctionCall,
   executeGoogleFunctionCalls,
-  // Cloudflare
-  getCloudflareTools,
-  convertMCPToolsToCloudflare,
-  convertMCPToolToCloudflare,
-  executeCloudflareToolCall,
-  // LangChain
-  getLangChainTools,
-  convertMCPToolsToLangChain,
-  convertMCPToolToLangChain,
-  // LlamaIndex
-  getLlamaIndexTools,
-  convertMCPToolsToLlamaIndex,
-  convertMCPToolToLlamaIndex,
-  // Mastra
-  getMastraTools,
-  convertMCPToolsToMastra,
-  convertMCPToolToMastra,
-  // Unified interface
-  getAITools,
-  // Utilities
-  getProviderForTool,
-  executeToolWithToken,
-  // Types
-  type AIProviderName,
-  type AIToolsOptions,
-  type VercelAITool,
-  type OpenAITool,
-  type AnthropicTool,
   type GoogleTool,
-  type CloudflareTool,
+  type GoogleFunctionCall,
+  type GoogleToolsOptions,
+  
+  // Utilities
+  type AIToolsOptions
 } from './src/ai/index.js';
-

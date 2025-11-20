@@ -42,7 +42,7 @@ export interface VercelAIToolsOptions extends AIToolsOptions {
  * @param options - Optional configuration including provider tokens and context
  * @returns Vercel AI SDK compatible tool definition
  */
-export function convertMCPToolToVercelAI(
+function convertMCPToolToVercelAI(
   mcpTool: MCPTool,
   client: MCPClient<any>,
   options?: VercelAIToolsOptions
@@ -55,81 +55,13 @@ export function convertMCPToolToVercelAI(
       if (options?.providerTokens) {
         return await executeToolWithToken(client, mcpTool.name, args, options);
       }
-      
+
       // Otherwise, pass context through to _callToolByName for token callbacks
       return await client._callToolByName(mcpTool.name, args, options?.context ? { context: options.context } : undefined);
     },
   };
 }
 
-/**
- * Convert all enabled MCP tools to Vercel AI SDK v5 format
- * 
- * @param client - The MCP client instance (must be connected)
- * @param options - Optional configuration including provider tokens for server-side usage
- * @returns Object mapping tool names to Vercel AI SDK v5 tool definitions (compatible with CoreTool from 'ai' package v5)
- * 
- * @example
- * ```typescript
- * // Client-side usage
- * import { createMCPClient, githubIntegration } from 'integrate-sdk';
- * import { convertMCPToolsToVercelAI } from 'integrate-sdk/vercel-ai';
- * import { generateText } from 'ai';
- * 
- * const mcpClient = createMCPClient({
- *   integrations: [githubIntegration({ clientId: '...', clientSecret: '...' })],
- * });
- * 
- * await mcpClient.connect();
- * 
- * const tools = convertMCPToolsToVercelAI(mcpClient);
- * 
- * const result = await generateText({
- *   model: openai('gpt-5'),
- *   prompt: 'Create a GitHub issue in my repo',
- *   tools,
- * });
- * ```
- * 
- * @example
- * ```typescript
- * // Server-side usage with token passing
- * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
- * import { convertMCPToolsToVercelAI } from 'integrate-sdk/vercel-ai';
- * 
- * const { client: serverClient } = createMCPServer({
- *   integrations: [githubIntegration({ clientId: '...', clientSecret: '...' })],
- * });
- * 
- * // In your API route handler
- * export async function POST(req: Request) {
- *   const providerTokens = JSON.parse(req.headers.get('x-integrate-tokens') || '{}');
- *   
- *   const tools = convertMCPToolsToVercelAI(serverClient, { providerTokens });
- *   
- *   const result = await generateText({
- *     model: openai('gpt-4'),
- *     prompt: 'Create a GitHub issue',
- *     tools,
- *   });
- *   
- *   return Response.json(result);
- * }
- * ```
- */
-export function convertMCPToolsToVercelAI(
-  client: MCPClient<any>,
-  options?: VercelAIToolsOptions
-): Record<string, any> {
-  const mcpTools = client.getEnabledTools();
-  const vercelTools: Record<string, any> = {};
-
-  for (const mcpTool of mcpTools) {
-    vercelTools[mcpTool.name] = convertMCPToolToVercelAI(mcpTool, client, options);
-  }
-
-  return vercelTools;
-}
 
 /**
  * Get tools in a format compatible with Vercel AI SDK v5's tools parameter
@@ -202,6 +134,13 @@ export async function getVercelAITools(
   }
 
   const finalOptions = providerTokens ? { ...options, providerTokens } : options;
-  return convertMCPToolsToVercelAI(client, finalOptions);
+  const mcpTools = client.getEnabledTools();
+  const vercelTools: Record<string, any> = {};
+
+  for (const mcpTool of mcpTools) {
+    vercelTools[mcpTool.name] = convertMCPToolToVercelAI(mcpTool, client, finalOptions);
+  }
+
+  return vercelTools;
 }
 

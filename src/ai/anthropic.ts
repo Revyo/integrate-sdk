@@ -61,7 +61,7 @@ export interface AnthropicToolResultBlock {
  * const anthropicTool = convertMCPToolToAnthropic(mcpTool, client);
  * ```
  */
-export function convertMCPToolToAnthropic(
+function convertMCPToolToAnthropic(
   mcpTool: MCPTool,
   _client: MCPClient<any>,
   _options?: AnthropicToolsOptions
@@ -77,58 +77,7 @@ export function convertMCPToolToAnthropic(
   };
 }
 
-/**
- * Convert all enabled MCP tools to Anthropic Claude API format
- * 
- * @param client - The MCP client instance (must be connected)
- * @param options - Optional configuration including provider tokens
- * @returns Array of Anthropic compatible tool definitions
- * 
- * @example
- * ```typescript
- * // Client-side usage
- * const tools = convertMCPToolsToAnthropic(mcpClient);
- * 
- * // Server-side with provider tokens
- * const tools = convertMCPToolsToAnthropic(serverClient, {
- *   providerTokens: { github: 'ghp_...', gmail: 'ya29...' }
- * });
- * ```
- */
-export function convertMCPToolsToAnthropic(
-  client: MCPClient<any>,
-  options?: AnthropicToolsOptions
-): AnthropicTool[] {
-  const mcpTools = client.getEnabledTools();
-  return mcpTools.map(mcpTool => convertMCPToolToAnthropic(mcpTool, client, options));
-}
 
-/**
- * Execute a tool call from Anthropic's response
- * 
- * @param client - The MCP client instance
- * @param toolUse - The tool use block from Anthropic response
- * @param options - Optional configuration including provider tokens
- * @returns Tool execution result as JSON string
- * 
- * @example
- * ```typescript
- * const result = await executeAnthropicToolCall(client, {
- *   type: 'tool_use',
- *   id: 'toolu_123',
- *   name: 'github_create_issue',
- *   input: { owner: 'user', repo: 'repo', title: 'Bug' }
- * }, { providerTokens });
- * ```
- */
-export async function executeAnthropicToolCall(
-  client: MCPClient<any>,
-  toolUse: AnthropicToolUseBlock,
-  options?: AnthropicToolsOptions
-): Promise<string> {
-  const result = await executeToolWithToken(client, toolUse.name, toolUse.input, options);
-  return JSON.stringify(result);
-}
 
 /**
  * Handle all tool calls from Anthropic's message response
@@ -168,7 +117,7 @@ export async function executeAnthropicToolCall(
  * });
  * ```
  */
-export async function handleAnthropicToolCalls(
+async function handleAnthropicToolCalls(
   client: MCPClient<any>,
   messageContent: Array<{ type: string;[key: string]: any }>,
   options?: AnthropicToolsOptions
@@ -187,11 +136,12 @@ export async function handleAnthropicToolCalls(
   // Execute each tool call
   for (const toolUse of toolUseBlocks) {
     try {
-      const result = await executeAnthropicToolCall(client, toolUse, options);
+      const result = await executeToolWithToken(client, toolUse.name, toolUse.input, options);
+      const resultString = JSON.stringify(result);
       toolResults.push({
         type: 'tool_result',
         tool_use_id: toolUse.id,
-        content: result,
+        content: resultString,
       });
     } catch (error) {
       // Return error as tool result
@@ -267,7 +217,8 @@ export async function getAnthropicTools(
   }
 
   const finalOptions = providerTokens ? { ...options, providerTokens } : options;
-  return convertMCPToolsToAnthropic(client, finalOptions);
+  const mcpTools = client.getEnabledTools();
+  return mcpTools.map(mcpTool => convertMCPToolToAnthropic(mcpTool, client, finalOptions));
 }
 
 /**

@@ -1,6 +1,6 @@
 {
   "name": "integrate-sdk",
-  "version": "0.7.54",
+  "version": "0.7.55",
   "description": "Type-safe 3rd party integration SDK for the Integrate MCP server",
   "type": "module",
   "main": "./dist/index.js",
@@ -46,22 +46,6 @@
     "./ai/google": {
       "types": "./dist/ai/google.d.ts",
       "import": "./dist/ai/google.js"
-    },
-    "./ai/cloudflare": {
-      "types": "./dist/ai/cloudflare.d.ts",
-      "import": "./dist/ai/cloudflare.js"
-    },
-    "./ai/langchain": {
-      "types": "./dist/ai/langchain.d.ts",
-      "import": "./dist/ai/langchain.js"
-    },
-    "./ai/llamaindex": {
-      "types": "./dist/ai/llamaindex.d.ts",
-      "import": "./dist/ai/llamaindex.js"
-    },
-    "./ai/mastra": {
-      "types": "./dist/ai/mastra.d.ts",
-      "import": "./dist/ai/mastra.js"
     }
   },
   "files": [
@@ -76,9 +60,9 @@
     "prep": "bun run type-check && bun run build",
     "build": "bun run build:client && bun run build:server && bun run build:adapters && bun run build:ai && bun run build:types && bun run build:copy-types",
     "build:client": "bun build index.ts react.ts --outdir dist --target browser --format esm --external react",
-    "build:server": "bun build server.ts oauth.ts --outdir dist --target node --format esm --external @google/genai --external @anthropic-ai/sdk --external openai --external ai --external @langchain/core --external llamaindex --external @mastra/core --external @cloudflare/workers-types --external @openai/agents",
+    "build:server": "bun build server.ts oauth.ts --outdir dist --target node --format esm --external @google/genai --external @anthropic-ai/sdk --external openai --external ai --external @openai/agents",
     "build:adapters": "cd src/adapters && bun build *.ts --outdir ../../dist/adapters --target node --format esm && cd ../..",
-    "build:ai": "cd src/ai && bun build *.ts --outdir ../../dist/ai --target node --format esm --external @google/genai --external @anthropic-ai/sdk --external openai --external ai --external @langchain/core --external llamaindex --external @mastra/core --external @cloudflare/workers-types --external @openai/agents && cd ../..",
+    "build:ai": "cd src/ai && bun build *.ts --outdir ../../dist/ai --target node --format esm --external @google/genai --external @anthropic-ai/sdk --external openai --external ai --external @openai/agents && cd ../..",
     "build:types": "tsc --emitDeclarationOnly --declaration --declarationMap",
     "build:copy-types": "cp dist/src/ai/*.d.ts dist/ai/ && cp dist/src/ai/*.d.ts.map dist/ai/ && cp dist/src/adapters/*.d.ts dist/adapters/ && cp dist/src/adapters/*.d.ts.map dist/adapters/",
     "dev": "bun --watch src/index.ts",
@@ -115,11 +99,7 @@
     "ai": ">=4.0.0",
     "openai": ">=4.0.0",
     "@anthropic-ai/sdk": ">=0.20.0",
-    "@google/genai": "",
-    "@cloudflare/workers-types": ">=4.0.0",
-    "@langchain/core": ">=0.1.0",
-    "llamaindex": ">=0.1.0",
-    "@mastra/core": ">=0.1.0"
+    "@google/genai": ""
   },
   "peerDependenciesMeta": {
     "react": {
@@ -138,18 +118,6 @@
       "optional": true
     },
     "@google/genai": {
-      "optional": true
-    },
-    "@cloudflare/workers-types": {
-      "optional": true
-    },
-    "@langchain/core": {
-      "optional": true
-    },
-    "llamaindex": {
-      "optional": true
-    },
-    "@mastra/core": {
       "optional": true
     }
   },
