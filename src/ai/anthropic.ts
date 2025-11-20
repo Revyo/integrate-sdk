@@ -319,9 +319,9 @@ export async function getAnthropicTools(
  */
 export async function handleAnthropicMessage(
   client: MCPClient<any>,
-  message: { content: Array<{ type: string;[key: string]: any }> },
+  message: { role: string; content: Array<{ type: string;[key: string]: any }> } & Record<string, any>,
   options?: AnthropicToolsOptions
-): Promise<Anthropic.Messages.MessageParam[] | { content: Array<{ type: string;[key: string]: any }> }> {
+): Promise<Anthropic.Messages.MessageParam[] | ({ role: string; content: Array<{ type: string;[key: string]: any }> } & Record<string, any>)> {
   // Auto-extract tokens if not provided
   let providerTokens = options?.providerTokens;
   if (!providerTokens) {
@@ -333,17 +333,23 @@ export async function handleAnthropicMessage(
   }
 
   const finalOptions = providerTokens ? { ...options, providerTokens } : options;
-  
+
   // Execute all tool calls and get results
   const toolResults = await handleAnthropicToolCalls(client, message.content, finalOptions);
-  
+
   // If no tool results, return the original message
   if (toolResults.length === 0) {
     return message;
   }
-  
-  // Format as MessageParam with user role
+
+  // Format as MessageParams:
+  // 1. The assistant message (containing the tool use)
+  // 2. The user message (containing the tool results)
   return [
+    {
+      role: message.role as 'assistant',
+      content: message.content as any,
+    },
     {
       role: 'user',
       content: toolResults,

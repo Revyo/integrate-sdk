@@ -515,6 +515,54 @@ export const GET = async (
   return routes.GET(req, context);
 };
 
+// AI Tools Exports
+export { getVercelAITools } from './ai/vercel-ai.js';
+export { 
+  getOpenAITools, 
+  convertMCPToolToOpenAI, 
+  convertMCPToolsToOpenAI, 
+  executeOpenAIToolCall,
+  handleOpenAIToolCalls,
+  handleOpenAIResponse 
+} from './ai/openai.js';
+export { 
+  getAnthropicTools, 
+  convertMCPToolToAnthropic, 
+  convertMCPToolsToAnthropic, 
+  executeAnthropicToolCall,
+  handleAnthropicToolCalls,
+  handleAnthropicMessage 
+} from './ai/anthropic.js';
+export { 
+  getGoogleTools, 
+  convertMCPToolToGoogle, 
+  convertMCPToolsToGoogle, 
+  executeGoogleFunctionCall,
+  executeGoogleFunctionCalls
+} from './ai/google.js';
+export { 
+  getCloudflareTools, 
+  convertMCPToolToCloudflare, 
+  convertMCPToolsToCloudflare 
+} from './ai/cloudflare.js';
+export { 
+  getLangChainTools, 
+  convertMCPToolToLangChain, 
+  convertMCPToolsToLangChain 
+} from './ai/langchain.js';
+export { 
+  getLlamaIndexTools, 
+  convertMCPToolToLlamaIndex, 
+  convertMCPToolsToLlamaIndex 
+} from './ai/llamaindex.js';
+export { 
+  getMastraTools, 
+  convertMCPToolToMastra, 
+  convertMCPToolsToMastra 
+} from './ai/mastra.js';
+export { getAITools } from './ai/index.js';
+
+
 /**
  * Create catch-all route handlers for Next.js
  * 
