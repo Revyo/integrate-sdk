@@ -2,6 +2,7 @@
     "pages": [
         "installation",
         "basic-usage",
+        "event-listeners",
         "advanced-usage"
     ]
 }

@@ -93,47 +93,25 @@ Create a chat route that converts MCP tools to Anthropic format:
 ```typescript
 // app/api/chat/route.ts
 import { serverClient } from "@/lib/integrate";
-import {
-  getAnthropicTools,
-  handleAnthropicToolCalls,
-} from "integrate-sdk/server";
+import { getAnthropicTools } from "integrate-sdk/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { handleAnthropicMessage } from "integrate-sdk/ai/anthropic";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const anthropic = new Anthropic();
 
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
-  const tools = await getAnthropicTools(serverClient);
-
-  const message = await anthropic.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 1024,
-    tools,
+  const msg = await anthropic.messages.create({
+    model: "claude-sonnet-4-5",
     messages,
+    tools: await getAnthropicTools(serverClient),
+    max_tokens: 1000,
   });
 
-  const toolResults = await handleAnthropicToolCalls(
-    serverClient,
-    message.content
-  );
+  const result = await handleAnthropicMessage(serverClient, msg);
 
-  if (toolResults.length > 0) {
-    const finalMessage = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1024,
-      tools,
-      messages: [
-        ...messages,
-        { role: "assistant", content: message.content },
-        { role: "user", content: toolResults },
-      ],
-    });
-
-    return Response.json(finalMessage);
-  }
-
-  return Response.json(message);
+  return Response.json(result);
 }
 ```
 
@@ -145,34 +123,72 @@ Use Anthropic's Claude in any component:
 // app/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { client } from "integrate-sdk";
+import Anthropic from "@anthropic-ai/sdk";
+import { Streamdown } from "streamdown";
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Anthropic.MessageParam[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [githubAuthorized, setGithubAuthorized] = useState(false);
+
+  async function updateButtonStates() {
+    try {
+      const authorized = await client.isAuthorized("github");
+      setGithubAuthorized(authorized);
+    } catch (error) {
+      console.error("Error checking authorization:", error);
+    }
+  }
 
   async function handleGithubClick() {
     try {
       if (githubAuthorized) {
         await client.disconnectProvider("github");
-        setGithubAuthorized(false);
       } else {
         await client.authorize("github");
-        setGithubAuthorized(true);
       }
     } catch (error) {
       console.error("Error:", error);
     }
   }
 
+  useEffect(() => {
+    const handleAuthComplete = () => {
+      updateButtonStates();
+    };
+
+    const handleAuthError = ({ error }: { provider: string; error: Error }) => {
+      console.error("Auth error:", error);
+    };
+
+    const handleAuthDisconnect = () => {
+      updateButtonStates();
+    };
+
+    client.on("auth:complete", handleAuthComplete);
+    client.on("auth:error", handleAuthError);
+    client.on("auth:disconnect", handleAuthDisconnect);
+
+    queueMicrotask(() => void updateButtonStates());
+
+    return () => {
+      client.off("auth:complete", handleAuthComplete);
+      client.off("auth:error", handleAuthError);
+      client.off("auth:disconnect", handleAuthDisconnect);
+    };
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim()) return;
 
-    const userMessage = { role: "user", content: input };
+    const userMessage: Anthropic.MessageParam = {
+      role: "user",
+      content: input,
+    };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
@@ -187,9 +203,15 @@ export default function ChatPage() {
       });
 
       const data = await response.json();
+
+      const newMessages = Array.isArray(data) ? data : [data];
+
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.content },
+        ...newMessages.map((msg: Anthropic.MessageParam) => ({
+          role: msg.role,
+          content: msg.content,
+        })),
       ]);
     } catch (error) {
       console.error("Error:", error);
@@ -198,19 +220,122 @@ export default function ChatPage() {
     }
   }
 
+  const renderContent = (
+    content: Anthropic.MessageParam["content"],
+    isAssistant: boolean
+  ) => {
+    if (typeof content === "string") {
+      if (isAssistant) {
+        return <Streamdown isAnimating={loading}>{content}</Streamdown>;
+      }
+      return <div className="whitespace-pre-wrap">{content}</div>;
+    }
+
+    if (Array.isArray(content)) {
+      return (
+        <div className="space-y-2">
+          {content.map((block, index) => {
+            if (block.type === "text") {
+              if (isAssistant) {
+                return (
+                  <Streamdown key={index} isAnimating={loading}>
+                    {block.text}
+                  </Streamdown>
+                );
+              }
+              return (
+                <div key={index} className="whitespace-pre-wrap">
+                  {block.text}
+                </div>
+              );
+            }
+            if (block.type === "tool_use") {
+              return null;
+            }
+            if (block.type === "tool_result") {
+              let displayContent = block.content;
+
+              if (typeof block.content === "string") {
+                try {
+                  const parsed = JSON.parse(block.content);
+                  if (parsed.content && Array.isArray(parsed.content)) {
+                    return (
+                      <div key={index} className="space-y-2">
+                        {parsed.content.map(
+                          (
+                            innerBlock: { type: string; text: string },
+                            innerIndex: number
+                          ) => {
+                            if (innerBlock.type === "text") {
+                              return (
+                                <div
+                                  key={innerIndex}
+                                  className="whitespace-pre-wrap"
+                                >
+                                  {innerBlock.text}
+                                </div>
+                              );
+                            }
+                            return null;
+                          }
+                        )}
+                      </div>
+                    );
+                  }
+                  displayContent = JSON.stringify(parsed, null, 2);
+                } catch {}
+              }
+
+              return (
+                <div key={index} className="whitespace-pre-wrap">
+                  {typeof displayContent === "string"
+                    ? displayContent
+                    : JSON.stringify(displayContent)}
+                </div>
+              );
+            }
+            return null;
+          })}
+        </div>
+      );
+    }
+
+    return JSON.stringify(content);
+  };
+
   return (
     <div className="flex flex-col h-screen">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={m.role === "user" ? "text-right" : "text-left"}
-          >
-            <div className="inline-block max-w-2xl">
-              {JSON.stringify(m.content)}
+        {messages.map((m, i) => {
+          let hasRenderableContent = false;
+          let isToolResult = false;
+
+          if (typeof m.content === "string") hasRenderableContent = true;
+          else if (Array.isArray(m.content)) {
+            hasRenderableContent = m.content.some(
+              (block) => block.type === "text" || block.type === "tool_result"
+            );
+            isToolResult = m.content.some(
+              (block) => block.type === "tool_result"
+            );
+          }
+
+          if (!hasRenderableContent) return null;
+
+          const alignmentClass =
+            m.role === "user" && !isToolResult ? "text-right" : "text-left";
+
+          return (
+            <div key={i} className={alignmentClass}>
+              <div className="inline-block max-w-2xl">
+                {renderContent(
+                  m.content,
+                  m.role === "assistant" || isToolResult
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <form
         onSubmit={handleSubmit}

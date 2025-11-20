@@ -93,7 +93,7 @@ Create a chat route that converts MCP tools to OpenAI format:
 ```typescript
 // app/api/chat/route.ts
 import { serverClient } from "@/lib/integrate";
-import { getOpenAITools, executeOpenAIToolCall } from "integrate-sdk/server";
+import { getOpenAITools, handleOpenAIResponse } from "integrate-sdk/server";
 import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -101,44 +101,15 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
-  const tools = await getOpenAITools(serverClient, { strict: true });
-
   const response = await openai.responses.create({
-    model: "gpt-4o-2024-11-20",
+    model: "gpt-5-nano",
     input: messages,
-    tools,
+    tools: await getOpenAITools(serverClient),
   });
 
-  const toolCalls = response.output.filter((o) => o.type === "function_call");
+  const result = await handleOpenAIResponse(serverClient, response);
 
-  if (toolCalls.length > 0) {
-    const toolResults = [];
-
-    for (const toolCall of toolCalls) {
-      const result = await executeOpenAIToolCall(serverClient, {
-        id: toolCall.id,
-        name: toolCall.name,
-        arguments: toolCall.arguments,
-      });
-
-      toolResults.push({
-        call_id: toolCall.call_id,
-        type: "function_call_output",
-        output: result,
-        status: "completed",
-      });
-    }
-
-    const finalResponse = await openai.responses.create({
-      model: "gpt-4o-2024-11-20",
-      input: [...messages, ...toolResults],
-      tools,
-    });
-
-    return Response.json(finalResponse);
-  }
-
-  return Response.json(response);
+  return Response.json(result);
 }
 ```
 
@@ -150,26 +121,123 @@ Use OpenAI's API in any component:
 // app/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { client } from "integrate-sdk";
+import { Streamdown } from "streamdown";
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [githubAuthorized, setGithubAuthorized] = useState(false);
+
+  const isLoading = loading;
+
+  async function updateButtonStates() {
+    try {
+      const authorized = await client.isAuthorized("github");
+      setGithubAuthorized(authorized);
+    } catch (error) {
+      console.error("Error checking authorization:", error);
+    }
+  }
 
   async function handleGithubClick() {
     try {
       if (githubAuthorized) {
         await client.disconnectProvider("github");
-        setGithubAuthorized(false);
       } else {
         await client.authorize("github");
-        setGithubAuthorized(true);
       }
     } catch (error) {
       console.error("Error:", error);
+    }
+  }
+
+  useEffect(() => {
+    const handleAuthComplete = () => {
+      updateButtonStates();
+    };
+
+    const handleAuthError = ({ error }: { provider: string; error: Error }) => {
+      console.error("Auth error:", error);
+    };
+
+    const handleAuthDisconnect = () => {
+      updateButtonStates();
+    };
+
+    client.on("auth:complete", handleAuthComplete);
+    client.on("auth:error", handleAuthError);
+    client.on("auth:disconnect", handleAuthDisconnect);
+
+    queueMicrotask(() => void updateButtonStates());
+
+    return () => {
+      client.off("auth:complete", handleAuthComplete);
+      client.off("auth:error", handleAuthError);
+      client.off("auth:disconnect", handleAuthDisconnect);
+    };
+  }, []);
+
+  function formatFunctionOutput(output: unknown): string {
+    try {
+      const data = typeof output === "string" ? JSON.parse(output) : output;
+
+      if (data.structuredContent?.repositories) {
+        let displayText = "\n\n📦 **GitHub Repositories:**\n\n";
+        for (const repo of data.structuredContent.repositories) {
+          displayText += `**${repo.name}**\n`;
+          displayText += `${repo.html_url}\n`;
+          if (repo.description) {
+            displayText += `_${repo.description}_\n`;
+          }
+          displayText += `Language: ${repo.language || "N/A"} • Stars: ${
+            repo.stargazers_count
+          } • ${repo.private ? "Private" : "Public"}\n\n`;
+        }
+        return displayText;
+      }
+
+      if (data.content && Array.isArray(data.content)) {
+        let text = "";
+        for (const item of data.content) {
+          if (item.type === "text" && item.text) {
+            try {
+              const parsed = JSON.parse(item.text);
+              if (parsed.repositories) {
+                let repoText = "\n\n📦 **GitHub Repositories:**\n\n";
+                for (const repo of parsed.repositories) {
+                  repoText += `**${repo.name}**\n`;
+                  repoText += `${repo.html_url}\n`;
+                  if (repo.description) {
+                    repoText += `_${repo.description}_\n`;
+                  }
+                  repoText += `Language: ${repo.language || "N/A"} • Stars: ${
+                    repo.stargazers_count
+                  } • ${repo.private ? "Private" : "Public"}\n\n`;
+                }
+                text += repoText;
+              } else {
+                text += JSON.stringify(parsed, null, 2);
+              }
+            } catch {
+              text += item.text;
+            }
+          }
+        }
+        return text;
+      }
+
+      return JSON.stringify(data, null, 2);
+    } catch (e) {
+      console.error("Error formatting function output:", e);
+      return String(output);
     }
   }
 
@@ -177,7 +245,7 @@ export default function ChatPage() {
     e.preventDefault();
     if (!input.trim()) return;
 
-    const userMessage = { role: "user", content: input };
+    const userMessage: Message = { role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
@@ -191,10 +259,52 @@ export default function ChatPage() {
         }),
       });
 
-      const data = await response.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data }]);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      let assistantContent = "";
+
+      const outputArray = Array.isArray(result) ? result : result.output;
+
+      if (outputArray && Array.isArray(outputArray)) {
+        for (const item of outputArray) {
+          if (item.type === "message" && item.content) {
+            for (const content of item.content) {
+              if (content.type === "text" || content.type === "output_text") {
+                assistantContent += content.text + "\n";
+              }
+            }
+          } else if (item.type === "function_call") {
+            assistantContent += `🔧 Called function: ${item.name}\n`;
+          } else if (item.type === "function_call_output") {
+            assistantContent += formatFunctionOutput(item.output);
+          }
+        }
+      }
+
+      if (!assistantContent.trim()) {
+        assistantContent =
+          "Response received but no displayable content found.";
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: assistantContent.trim() },
+      ]);
     } catch (error) {
       console.error("Error:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `Error: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+        },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -208,9 +318,14 @@ export default function ChatPage() {
             key={i}
             className={m.role === "user" ? "text-right" : "text-left"}
           >
-            <div className="inline-block max-w-2xl">
-              {JSON.stringify(m.content)}
-            </div>
+            <Streamdown
+              isAnimating={
+                isLoading && m.role === "assistant" && i === messages.length - 1
+              }
+              className="inline-block max-w-2xl whitespace-pre-wrap"
+            >
+              {m.content}
+            </Streamdown>
           </div>
         ))}
       </div>

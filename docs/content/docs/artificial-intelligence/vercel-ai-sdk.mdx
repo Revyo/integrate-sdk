@@ -94,18 +94,19 @@ Create a chat route that converts MCP tools to Vercel AI format:
 // app/api/chat/route.ts
 import { serverClient } from "@/lib/integrate";
 import { getVercelAITools } from "integrate-sdk/server";
-import { streamText } from "ai";
+import { convertToModelMessages, stepCountIs, streamText } from "ai";
 
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
   const result = streamText({
-    model: "openai/gpt-4o-mini",
-    messages,
+    model: "openai/gpt-5-mini",
+    messages: convertToModelMessages(messages),
     tools: await getVercelAITools(serverClient),
+    stopWhen: stepCountIs(5),
   });
 
-  return result.toDataStreamResponse();
+  return result.toUIMessageStreamResponse();
 }
 ```
 
@@ -118,13 +119,17 @@ Use the Vercel AI SDK's `useChat` hook in any component:
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { Streamdown } from "streamdown";
 import { useState, useEffect } from "react";
 import { client } from "integrate-sdk";
 
 export default function ChatPage() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } =
-    useChat();
+  const { messages, sendMessage, status } = useChat();
+  const [input, setInput] = useState("");
+
   const [githubAuthorized, setGithubAuthorized] = useState(false);
+
+  const isLoading = status === "streaming";
 
   async function updateButtonStates() {
     try {
@@ -181,17 +186,32 @@ export default function ChatPage() {
             key={message.id}
             className={message.role === "user" ? "text-right" : "text-left"}
           >
-            <div className="inline-block max-w-2xl">{message.content}</div>
+            <div className="inline-block max-w-2xl">
+              <Streamdown
+                isAnimating={isLoading && message.role === "assistant"}
+              >
+                {message.parts
+                  .filter((part) => part.type === "text")
+                  .map((part) => ("text" in part ? part.text : ""))
+                  .join("")}
+              </Streamdown>
+            </div>
           </div>
         ))}
       </div>
       <form
-        onSubmit={handleSubmit}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (input.trim()) {
+            sendMessage({ text: input });
+            setInput("");
+          }
+        }}
         className="p-4 border-t border-gray-500 space-y-2"
       >
         <input
           value={input}
-          onChange={handleInputChange}
+          onChange={(e) => setInput(e.target.value)}
           placeholder="Ask me anything..."
           className="w-full px-4 py-2 border border-gray-500 rounded-lg"
           disabled={isLoading}
