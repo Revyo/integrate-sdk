@@ -1,7 +1,7 @@
 import { RootProvider } from 'fumadocs-ui/provider/next';
 import './global.css';
 import { Inter } from 'next/font/google';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -107,6 +107,10 @@ const jsonLd = {
     name: 'Integrate',
     url: 'https://integrate.dev',
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#143163',
 };
 
 export default function Layout({ children }: LayoutProps<'/'>) {
