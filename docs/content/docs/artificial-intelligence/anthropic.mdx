@@ -132,16 +132,9 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Anthropic.MessageParam[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [githubAuthorized, setGithubAuthorized] = useState(false);
-
-  async function updateButtonStates() {
-    try {
-      const authorized = await client.isAuthorized("github");
-      setGithubAuthorized(authorized);
-    } catch (error) {
-      console.error("Error checking authorization:", error);
-    }
-  }
+  const [githubAuthorized, setGithubAuthorized] = useState(
+    client.isAuthorized("github")
+  );
 
   async function handleGithubClick() {
     try {
@@ -150,36 +143,11 @@ export default function ChatPage() {
       } else {
         await client.authorize("github");
       }
+      setGithubAuthorized(client.isAuthorized("github"));
     } catch (error) {
       console.error("Error:", error);
     }
   }
-
-  useEffect(() => {
-    const handleAuthComplete = () => {
-      updateButtonStates();
-    };
-
-    const handleAuthError = ({ error }: { provider: string; error: Error }) => {
-      console.error("Auth error:", error);
-    };
-
-    const handleAuthDisconnect = () => {
-      updateButtonStates();
-    };
-
-    client.on("auth:complete", handleAuthComplete);
-    client.on("auth:error", handleAuthError);
-    client.on("auth:disconnect", handleAuthDisconnect);
-
-    queueMicrotask(() => void updateButtonStates());
-
-    return () => {
-      client.off("auth:complete", handleAuthComplete);
-      client.off("auth:error", handleAuthError);
-      client.off("auth:disconnect", handleAuthDisconnect);
-    };
-  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

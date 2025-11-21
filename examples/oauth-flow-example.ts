@@ -38,7 +38,7 @@ async function popupFlowExample() {
 
   try {
     // Check if already authorized
-    const isAuthorized = await client.isAuthorized('github');
+    const isAuthorized = client.isAuthorized('github');
     console.log(`GitHub authorized: ${isAuthorized}`);
 
     if (!isAuthorized) {
@@ -117,7 +117,7 @@ async function redirectFlowExample() {
     }
   } else {
     // Main page - check if authorized
-    const isAuthorized = await client.isAuthorized('github');
+    const isAuthorized = client.isAuthorized('github');
     console.log(`GitHub authorized: ${isAuthorized}`);
 
     if (!isAuthorized) {
@@ -159,7 +159,7 @@ async function multipleProvidersExample() {
   });
 
   // Get list of all authorized providers
-  const authorizedList = await client.authorizedProviders();
+  const authorizedList = client.authorizedProviders();
   console.log("Currently authorized:", authorizedList);
 
   // Check authorization status for each provider
@@ -182,7 +182,7 @@ async function multipleProvidersExample() {
   }
 
   // Check authorized list again
-  const updatedList = await client.authorizedProviders();
+  const updatedList = client.authorizedProviders();
   console.log("\n✓ All providers authorized:", updatedList);
 
   // Now you can use both services
@@ -219,7 +219,7 @@ async function sessionRestorationExample() {
   });
 
   // Check if session is still valid
-  const isAuthorized = await client.isAuthorized('github');
+  const isAuthorized = client.isAuthorized('github');
 
   if (!isAuthorized) {
     console.log("Session expired, need to re-authorize");
@@ -296,7 +296,7 @@ async function customCallbackExample() {
     },
   });
 
-  const isAuthorized = await client.isAuthorized('github');
+  const isAuthorized = client.isAuthorized('github');
 
   if (!isAuthorized) {
     await client.authorize('github');
@@ -325,7 +325,7 @@ async function errorHandlingExample() {
   });
 
   try {
-    const isAuthorized = await client.isAuthorized('github');
+    const isAuthorized = client.isAuthorized('github');
 
     if (!isAuthorized) {
       await client.authorize('github');

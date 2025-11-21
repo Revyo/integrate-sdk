@@ -216,17 +216,6 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
       }
     );
 
-    // Load provider tokens from database (via callback) or localStorage
-    const providers = this.integrations
-      .filter(p => p.oauth)
-      .map(p => p.oauth!.provider);
-
-    // Note: loadAllProviderTokens is now async, but we don't await it here
-    // to avoid blocking client initialization. Tokens will be loaded in the background.
-    this.oauthManager.loadAllProviderTokens(providers).catch(error => {
-      console.error('Failed to load provider tokens:', error);
-    });
-
     // Collect all enabled tool names from integrations
     for (const integration of this.integrations) {
       for (const toolName of integration.tools) {
@@ -234,21 +223,48 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
       }
 
       // Initialize auth state for integrations with OAuth
-      // Note: We'll check token availability asynchronously after initialization
+      // Set to false initially, will be updated after tokens are loaded
       if (integration.oauth) {
         const provider = integration.oauth.provider;
         this.authState.set(provider, { authenticated: false });
-        
-        // Check token availability asynchronously
-        this.oauthManager.getProviderToken(provider).then(tokenData => {
-          if (tokenData) {
-            this.authState.set(provider, { authenticated: true });
-          }
-        }).catch(error => {
-          console.error(`Failed to check token for ${provider}:`, error);
-        });
       }
     }
+
+    // Load provider tokens from database (via callback) or localStorage
+    // and update auth state once loaded (only during initialization)
+    const providers = this.integrations
+      .filter(p => p.oauth)
+      .map(p => p.oauth!.provider);
+
+    // Load all provider tokens in the background and update auth state
+    // This ensures isAuthorized() returns the correct value after tokens are loaded
+    // Only update state if it hasn't been changed by other methods (e.g., authorize, reauthenticate)
+    this.oauthManager.loadAllProviderTokens(providers).then(async () => {
+      // Update auth state based on loaded tokens
+      for (const integration of this.integrations) {
+        if (integration.oauth) {
+          const provider = integration.oauth.provider;
+          try {
+            // getProviderToken returns from cache after loadAllProviderTokens
+            const tokenData = await this.oauthManager.getProviderToken(provider);
+            // Only update if state is still at initial false value (not changed by other methods)
+            const currentState = this.authState.get(provider);
+            if (currentState && !currentState.authenticated && !currentState.lastError) {
+              this.authState.set(provider, { authenticated: !!tokenData });
+            }
+          } catch (error) {
+            console.error(`Failed to check token for ${provider}:`, error);
+            // Only set to false if state hasn't been modified
+            const currentState = this.authState.get(provider);
+            if (currentState && !currentState.authenticated && !currentState.lastError) {
+              this.authState.set(provider, { authenticated: false });
+            }
+          }
+        }
+      }
+    }).catch(error => {
+      console.error('Failed to load provider tokens:', error);
+    });
 
     // Initialize integration namespaces dynamically based on configuration
     const integrationIds = this.integrations.map(i => i.id);
@@ -910,33 +926,35 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
 
   /**
    * Check if a provider is authorized via OAuth
-   * Queries the MCP server to verify OAuth token validity
+   * Returns the cached authorization status that is automatically updated when
+   * authorize() or disconnectProvider() are called
    * 
    * @param provider - Provider name (github, gmail, etc.)
-   * @returns Authorization status
+   * @returns Authorization status from cache
    * 
    * @example
    * ```typescript
-   * const isAuthorized = await client.isAuthorized('github');
+   * const isAuthorized = client.isAuthorized('github');
    * if (!isAuthorized) {
    *   await client.authorize('github');
+   *   // isAuthorized is now automatically true
+   *   console.log(client.isAuthorized('github')); // true
    * }
    * ```
    */
-  async isAuthorized(provider: string): Promise<boolean> {
-    const status = await this.oauthManager.checkAuthStatus(provider);
-    return status.authorized;
+  isAuthorized(provider: string): boolean {
+    return this.authState.get(provider)?.authenticated ?? false;
   }
 
   /**
    * Get list of all authorized providers
-   * Checks all configured OAuth providers and returns names of authorized ones
+   * Returns cached authorization status for all configured OAuth providers
    * 
    * @returns Array of authorized provider names
    * 
    * @example
    * ```typescript
-   * const authorized = await client.authorizedProviders();
+   * const authorized = client.authorizedProviders();
    * console.log('Authorized services:', authorized); // ['github', 'gmail']
    * 
    * // Check if specific service is in the list
@@ -945,15 +963,15 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * }
    * ```
    */
-  async authorizedProviders(): Promise<string[]> {
+  authorizedProviders(): string[] {
     const authorized: string[] = [];
 
     // Check each integration with OAuth config
     for (const integration of this.integrations) {
       if (integration.oauth) {
-        const status = await this.oauthManager.checkAuthStatus(integration.oauth.provider);
-        if (status.authorized) {
-          authorized.push(integration.oauth.provider);
+        const provider = integration.oauth.provider;
+        if (this.authState.get(provider)?.authenticated) {
+          authorized.push(provider);
         }
       }
     }

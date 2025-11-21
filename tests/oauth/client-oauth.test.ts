@@ -98,7 +98,7 @@ describe("Client OAuth Methods", () => {
         expiresIn: 3600,
       });
 
-      const isAuthorized = await client.isAuthorized("github");
+      const isAuthorized = client.isAuthorized("github");
       expect(typeof isAuthorized).toBe("boolean");
     });
 
@@ -120,7 +120,7 @@ describe("Client OAuth Methods", () => {
         singleton: false,
       });
 
-      const isAuthorized = await client.isAuthorized("github");
+      const isAuthorized = client.isAuthorized("github");
       expect(isAuthorized).toBe(false);
     });
   });
@@ -176,7 +176,7 @@ describe("Client OAuth Methods", () => {
         singleton: false,
       });
 
-      const authorized = await client.authorizedProviders();
+      const authorized = client.authorizedProviders();
       expect(authorized).toEqual([]);
     });
 
@@ -209,7 +209,7 @@ describe("Client OAuth Methods", () => {
         singleton: false,
       });
 
-      const authorized = await client.authorizedProviders();
+      const authorized = client.authorizedProviders();
 
       expect(authorized).toBeInstanceOf(Array);
       expect(authorized.length).toBeGreaterThanOrEqual(0);
@@ -235,7 +235,7 @@ describe("Client OAuth Methods", () => {
         singleton: false,
       });
 
-      const authorized = await client.authorizedProviders();
+      const authorized = client.authorizedProviders();
 
       // Should only check integrations with OAuth config
       expect(authorized).toBeInstanceOf(Array);

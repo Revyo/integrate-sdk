@@ -39,8 +39,8 @@ async function main() {
 
     // Check authorization status
     console.log("\n--- Authorization Status ---");
-    const isGitHubAuthorized = await client.isAuthorized('github');
-    const isGmailAuthorized = await client.isAuthorized('gmail');
+    const isGitHubAuthorized = client.isAuthorized('github');
+    const isGmailAuthorized = client.isAuthorized('gmail');
     console.log("GitHub authorized:", isGitHubAuthorized);
     console.log("Gmail authorized:", isGmailAuthorized);
 
