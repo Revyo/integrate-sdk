@@ -418,6 +418,26 @@ export interface MCPClientConfig<TIntegrations extends readonly MCPIntegration[]
   autoHandleOAuthCallback?: boolean;
 
   /**
+   * Skip saving OAuth tokens to localStorage
+   * Set to true when using server-side database storage for tokens
+   * 
+   * When true, tokens will not be saved to browser localStorage.
+   * This is useful when your server handles all token storage via database callbacks.
+   * 
+   * @default false (tokens are saved to localStorage)
+   * 
+   * @example
+   * ```typescript
+   * // Browser client when server uses database storage
+   * const client = createMCPClient({
+   *   integrations: [githubIntegration({ ... })],
+   *   skipLocalStorage: true // Don't save tokens in browser
+   * });
+   * ```
+   */
+  skipLocalStorage?: boolean;
+
+  /**
    * Configure behavior when OAuth callback processing fails
    * 
    * - 'silent': Clean up URL hash and suppress errors (default)

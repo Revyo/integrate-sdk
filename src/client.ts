@@ -219,6 +219,7 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
       {
         getProviderToken: (config as any).getProviderToken,
         setProviderToken: (config as any).setProviderToken,
+        skipLocalStorage: config.skipLocalStorage,
       }
     );
 

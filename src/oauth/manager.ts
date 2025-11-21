@@ -29,6 +29,7 @@ export class OAuthManager {
   private apiBaseUrl?: string;
   private getTokenCallback?: (provider: string, context?: MCPContext) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
   private setTokenCallback?: (provider: string, tokenData: ProviderTokenData, context?: MCPContext) => Promise<void> | void;
+  private skipLocalStorage: boolean;
 
   constructor(
     oauthApiBase: string,
@@ -37,6 +38,7 @@ export class OAuthManager {
     tokenCallbacks?: {
       getProviderToken?: (provider: string, context?: MCPContext) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
       setProviderToken?: (provider: string, tokenData: ProviderTokenData, context?: MCPContext) => Promise<void> | void;
+      skipLocalStorage?: boolean;
     }
   ) {
     this.oauthApiBase = oauthApiBase;
@@ -49,6 +51,9 @@ export class OAuthManager {
     };
     this.getTokenCallback = tokenCallbacks?.getProviderToken;
     this.setTokenCallback = tokenCallbacks?.setProviderToken;
+    // Skip localStorage if explicitly requested OR if getTokenCallback is provided
+    // (indicating server-side database storage is being used)
+    this.skipLocalStorage = tokenCallbacks?.skipLocalStorage ?? !!tokenCallbacks?.getProviderToken;
 
     // Clean up any expired pending auth entries from localStorage
     this.cleanupExpiredPendingAuths();
@@ -399,7 +404,7 @@ export class OAuthManager {
    * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    */
   private async saveProviderToken(provider: string, tokenData: ProviderTokenData, context?: MCPContext): Promise<void> {
-    // If callback is provided, use it exclusively
+    // If callback is provided, use it exclusively (server-side with database)
     if (this.setTokenCallback) {
       try {
         await this.setTokenCallback(provider, tokenData, context);
@@ -410,7 +415,14 @@ export class OAuthManager {
       return;
     }
 
-    // Otherwise use localStorage
+    // If skipLocalStorage is enabled, don't save to localStorage
+    // This happens when server-side database storage is being used
+    if (this.skipLocalStorage) {
+      // Token storage is handled server-side, skip localStorage
+      return;
+    }
+
+    // Otherwise use localStorage (browser-only, no database callbacks)
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const key = `integrate_token_${provider}`;
