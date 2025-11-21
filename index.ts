@@ -45,8 +45,9 @@ import { notionIntegration } from './src/integrations/notion.js';
  * Default configuration:
  * - Calls API routes at: {window.location.origin}/api/integrate/mcp
  * - OAuth routes at: {window.location.origin}/api/integrate/oauth/*
+ * - Does NOT save tokens to localStorage (tokens are managed server-side)
  * 
- * For custom configuration (different apiBaseUrl, apiRouteBase, etc.),
+ * For custom configuration (different apiBaseUrl, apiRouteBase, localStorage, etc.),
  * use `createMCPClient()` instead.
  * 
  * @example
@@ -59,6 +60,17 @@ import { notionIntegration } from './src/integrations/notion.js';
  * // Use Gmail integration
  * const messages = await client.gmail.listMessages({});
  * ```
+ * 
+ * @example
+ * ```typescript
+ * // If you need localStorage or custom config, create your own client:
+ * import { createMCPClient, githubIntegration } from 'integrate-sdk';
+ * 
+ * const customClient = createMCPClient({
+ *   integrations: [githubIntegration()],
+ *   skipLocalStorage: false, // Enable localStorage if needed
+ * });
+ * ```
  */
 export const client = createMCPClient({
   integrations: [
@@ -66,5 +78,8 @@ export const client = createMCPClient({
     gmailIntegration(),
     notionIntegration(),
   ],
+  // Default client doesn't use localStorage - tokens are managed server-side
+  // If you need localStorage, create your own client with createMCPClient()
+  skipLocalStorage: true,
 });
 
