@@ -160,7 +160,12 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
   private eventEmitter: SimpleEventEmitter = new SimpleEventEmitter();
   private apiRouteBase: string;
   private apiBaseUrl?: string;
-  private oauthCallbackPromise?: Promise<void> | null;
+  
+  /**
+   * Promise that resolves when OAuth callback processing is complete
+   * @internal Used by createMCPClient to store callback promise
+   */
+  oauthCallbackPromise?: Promise<void> | null;
 
   // Server namespace - always available for server-level tools
   public readonly server!: ServerIntegrationClient;
