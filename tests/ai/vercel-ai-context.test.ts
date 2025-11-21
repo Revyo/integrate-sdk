@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MCPClientBase } from '../../src/client.js';
-import { convertMCPToolsToVercelAI } from '../../src/ai/vercel-ai.js';
+import { getVercelAITools } from '../../src/ai/vercel-ai.js';
 import type { MCPClientConfig, MCPContext, ProviderTokenData } from '../../src/config/types.js';
 import type { MCPIntegration } from '../../src/integrations/types.js';
 
@@ -62,6 +62,10 @@ describe('Vercel AI SDK Context Passing', () => {
 
       // Mock getEnabledTools to return our mock tool object
       vi.spyOn(client, 'getEnabledTools').mockReturnValue([mockToolObject]);
+      
+      // Mock ensureClientConnected (which calls connect)
+      // @ts-ignore - mocking internal/private method or related logic
+      vi.spyOn(client, 'isConnected').mockReturnValue(true);
 
       // Mock _callToolByName to verify it receives the context
       const callToolByNameSpy = vi.spyOn(client, '_callToolByName').mockResolvedValue({
@@ -74,7 +78,7 @@ describe('Vercel AI SDK Context Passing', () => {
       };
 
       // Convert tools with context
-      const tools = convertMCPToolsToVercelAI(client, { context });
+      const tools = await getVercelAITools(client, { context });
 
       // Execute the tool
       await tools['github_list_repos'].execute({ per_page: 10 });
@@ -100,6 +104,8 @@ describe('Vercel AI SDK Context Passing', () => {
 
       // Mock getEnabledTools to return our mock tool object
       vi.spyOn(client, 'getEnabledTools').mockReturnValue([mockToolObject]);
+      // @ts-ignore
+      vi.spyOn(client, 'isConnected').mockReturnValue(true);
 
       // Mock _callToolByName
       const callToolByNameSpy = vi.spyOn(client, '_callToolByName').mockResolvedValue({
@@ -107,7 +113,7 @@ describe('Vercel AI SDK Context Passing', () => {
       });
 
       // Convert tools without context
-      const tools = convertMCPToolsToVercelAI(client);
+      const tools = await getVercelAITools(client);
 
       // Execute the tool
       await tools['github_list_repos'].execute({ per_page: 10 });
@@ -147,6 +153,8 @@ describe('Vercel AI SDK Context Passing', () => {
       });
       (client as any).transport.setHeader = vi.fn();
       (client as any).transport.removeHeader = vi.fn();
+      // @ts-ignore
+      vi.spyOn(client, 'isConnected').mockReturnValue(true);
 
       // Mock getEnabledTools to return our mock tool object
       vi.spyOn(client, 'getEnabledTools').mockReturnValue([mockToolObject]);
@@ -156,7 +164,7 @@ describe('Vercel AI SDK Context Passing', () => {
       };
 
       // Convert tools with context
-      const tools = convertMCPToolsToVercelAI(client, { context });
+      const tools = await getVercelAITools(client, { context });
 
       // Execute the tool (which should trigger the full call chain)
       await tools['github_list_repos'].execute({ per_page: 10 });
@@ -200,17 +208,19 @@ describe('Vercel AI SDK Context Passing', () => {
       });
       (client as any).transport.setHeader = vi.fn();
       (client as any).transport.removeHeader = vi.fn();
+      // @ts-ignore
+      vi.spyOn(client, 'isConnected').mockReturnValue(true);
 
       // Mock getEnabledTools to return our mock tool object
       vi.spyOn(client, 'getEnabledTools').mockReturnValue([mockToolObject]);
 
       // Create tools for user1
-      const toolsUser1 = convertMCPToolsToVercelAI(client, {
+      const toolsUser1 = await getVercelAITools(client, {
         context: { userId: 'user1' },
       });
 
       // Create tools for user2
-      const toolsUser2 = convertMCPToolsToVercelAI(client, {
+      const toolsUser2 = await getVercelAITools(client, {
         context: { userId: 'user2' },
       });
 
@@ -239,6 +249,8 @@ describe('Vercel AI SDK Context Passing', () => {
 
       // Mock getEnabledTools to return our mock tool object
       vi.spyOn(client, 'getEnabledTools').mockReturnValue([mockToolObject]);
+      // @ts-ignore
+      vi.spyOn(client, 'isConnected').mockReturnValue(true);
 
       // Mock _callToolByName
       const callToolByNameSpy = vi.spyOn(client, '_callToolByName').mockResolvedValue({
@@ -246,7 +258,7 @@ describe('Vercel AI SDK Context Passing', () => {
       });
 
       // Convert tools with empty context
-      const tools = convertMCPToolsToVercelAI(client, { context: {} });
+      const tools = await getVercelAITools(client, { context: {} });
 
       // Execute the tool
       await tools['github_list_repos'].execute({ per_page: 10 });
@@ -286,6 +298,8 @@ describe('Vercel AI SDK Context Passing', () => {
       });
       (client as any).transport.setHeader = vi.fn();
       (client as any).transport.removeHeader = vi.fn();
+      // @ts-ignore
+      vi.spyOn(client, 'isConnected').mockReturnValue(true);
 
       // Mock getEnabledTools to return our mock tool object
       vi.spyOn(client, 'getEnabledTools').mockReturnValue([mockToolObject]);
@@ -297,7 +311,7 @@ describe('Vercel AI SDK Context Passing', () => {
       };
 
       // Convert tools with custom context fields
-      const tools = convertMCPToolsToVercelAI(client, { context });
+      const tools = await getVercelAITools(client, { context });
 
       // Execute the tool
       await tools['github_list_repos'].execute({ per_page: 10 });
@@ -336,13 +350,15 @@ describe('Vercel AI SDK Context Passing', () => {
       });
       (client as any).transport.setHeader = vi.fn();
       (client as any).transport.removeHeader = vi.fn();
+      // @ts-ignore
+      vi.spyOn(client, 'isConnected').mockReturnValue(true);
 
       // Mock getEnabledTools to return our mock tool object
       vi.spyOn(client, 'getEnabledTools').mockReturnValue([mockToolObject]);
 
       // Simulate API route handler
       const userId = 'user-from-session';
-      const tools = convertMCPToolsToVercelAI(client, {
+      const tools = await getVercelAITools(client, {
         context: { userId },
       });
 
@@ -386,6 +402,8 @@ describe('Vercel AI SDK Context Passing', () => {
       });
       (client as any).transport.setHeader = vi.fn();
       (client as any).transport.removeHeader = vi.fn();
+      // @ts-ignore
+      vi.spyOn(client, 'isConnected').mockReturnValue(true);
 
       // Mock getEnabledTools to return our mock tool object
       vi.spyOn(client, 'getEnabledTools').mockReturnValue([mockToolObject]);
@@ -396,7 +414,7 @@ describe('Vercel AI SDK Context Passing', () => {
         organizationId: 'org456',
       };
 
-      const tools = convertMCPToolsToVercelAI(client, { context });
+      const tools = await getVercelAITools(client, { context });
 
       // Execute tool
       await tools['github_list_repos'].execute({ per_page: 10 });
@@ -407,4 +425,3 @@ describe('Vercel AI SDK Context Passing', () => {
     });
   });
 });
-

@@ -7,14 +7,12 @@ import { z } from "zod";
 import { createMCPClient } from "../../src/client.js";
 import { createSimpleIntegration } from "../../src/integrations/generic.js";
 import {
-  convertMCPToolToVercelAI,
-  convertMCPToolsToVercelAI,
   getVercelAITools,
 } from "../../src/ai/vercel-ai.js";
 import type { MCPTool } from "../../src/protocol/messages.js";
 
 describe("Vercel AI SDK Integration", () => {
-  describe("convertMCPToolToVercelAI", () => {
+  describe("convertMCPToolToVercelAI (via getVercelAITools)", () => {
     test("converts MCP tool to Vercel AI format with Zod schema", async () => {
       const mockTool: MCPTool = {
         name: "test_tool",
@@ -40,7 +38,13 @@ describe("Vercel AI SDK Integration", () => {
         ],
       });
 
-      const vercelTool = convertMCPToolToVercelAI(mockTool, client);
+      // Setup mock tool map directly since we can't easily mock the connection process in unit tests
+      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
+      (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
+
+      const tools = await getVercelAITools(client);
+      const vercelTool = tools["test_tool"];
 
       expect(vercelTool).toBeDefined();
       expect(vercelTool.description).toBe("A test tool");
@@ -72,7 +76,12 @@ describe("Vercel AI SDK Integration", () => {
         ],
       });
 
-      const vercelTool = convertMCPToolToVercelAI(mockTool, client);
+      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
+      (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
+
+      const tools = await getVercelAITools(client);
+      const vercelTool = tools["test_tool"];
 
       expect(vercelTool.description).toBe("Execute test_tool");
       // Verify it returns a Zod object schema even with no properties
@@ -114,7 +123,12 @@ describe("Vercel AI SDK Integration", () => {
         ],
       });
 
-      const vercelTool = convertMCPToolToVercelAI(mockTool, client);
+      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
+      (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
+
+      const tools = await getVercelAITools(client);
+      const vercelTool = tools["complex_tool"];
 
       // Verify it's a Zod object schema
       expect(vercelTool.inputSchema._def.typeName).toBe("ZodObject");
@@ -136,7 +150,7 @@ describe("Vercel AI SDK Integration", () => {
     });
   });
 
-  describe("convertMCPToolsToVercelAI", () => {
+  describe("convertMCPToolsToVercelAI (via getVercelAITools)", () => {
     let client: ReturnType<typeof createMCPClient>;
 
     beforeAll(async () => {
@@ -173,10 +187,11 @@ describe("Vercel AI SDK Integration", () => {
         mockTools.map((tool) => [tool.name, tool])
       );
       (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
     });
 
-    test("converts all enabled tools", () => {
-      const vercelTools = convertMCPToolsToVercelAI(client);
+    test("converts all enabled tools", async () => {
+      const vercelTools = await getVercelAITools(client);
 
       expect(Object.keys(vercelTools)).toHaveLength(3);
       expect(vercelTools["tool1"]).toBeDefined();
@@ -184,8 +199,8 @@ describe("Vercel AI SDK Integration", () => {
       expect(vercelTools["tool3"]).toBeDefined();
     });
 
-    test("each converted tool has required properties", () => {
-      const vercelTools = convertMCPToolsToVercelAI(client);
+    test("each converted tool has required properties", async () => {
+      const vercelTools = await getVercelAITools(client);
 
       for (const [name, tool] of Object.entries(vercelTools)) {
         expect(tool.description).toBeString();
@@ -194,44 +209,12 @@ describe("Vercel AI SDK Integration", () => {
       }
     });
 
-    test("tool names match original MCP tool names", () => {
-      const vercelTools = convertMCPToolsToVercelAI(client);
+    test("tool names match original MCP tool names", async () => {
+      const vercelTools = await getVercelAITools(client);
 
       expect(vercelTools).toHaveProperty("tool1");
       expect(vercelTools).toHaveProperty("tool2");
       expect(vercelTools).toHaveProperty("tool3");
-    });
-  });
-
-  describe("getVercelAITools", () => {
-    test("is an alias for convertMCPToolsToVercelAI", async () => {
-      const client = createMCPClient({
-        singleton: false,
-        integrations: [
-          createSimpleIntegration({
-            id: "test",
-            tools: ["test_tool"],
-          }),
-        ],
-      });
-
-      const mockTool: MCPTool = {
-        name: "test_tool",
-        description: "Test",
-        inputSchema: { type: "object", properties: {} },
-      };
-
-      (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
-      (client as any).initialized = true;
-      (client as any).transport = { isConnected: () => true };
-
-      const result1 = await getVercelAITools(client);
-      const result2 = convertMCPToolsToVercelAI(client);
-
-      expect(Object.keys(result1)).toEqual(Object.keys(result2));
-      expect(result1["test_tool"].description).toBe(
-        result2["test_tool"].description
-      );
     });
   });
 
@@ -254,6 +237,7 @@ describe("Vercel AI SDK Integration", () => {
 
       (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
       (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
 
       // Mock _callToolByName to track calls
       let calledWith: any = null;
@@ -266,7 +250,8 @@ describe("Vercel AI SDK Integration", () => {
         };
       };
 
-      const vercelTool = convertMCPToolToVercelAI(mockTool, client);
+      const tools = await getVercelAITools(client);
+      const vercelTool = tools["test_tool"];
       const testArgs = { input: "test value" };
       await vercelTool.execute(testArgs);
 
@@ -293,6 +278,7 @@ describe("Vercel AI SDK Integration", () => {
 
       (client as any).availableTools = new Map([[mockTool.name, mockTool]]);
       (client as any).initialized = true;
+      (client as any).transport = { isConnected: () => true };
 
       const mockResponse = {
         content: [{ type: "text", text: "success" }],
@@ -301,7 +287,8 @@ describe("Vercel AI SDK Integration", () => {
 
       client._callToolByName = async () => mockResponse;
 
-      const vercelTool = convertMCPToolToVercelAI(mockTool, client);
+      const tools = await getVercelAITools(client);
+      const vercelTool = tools["test_tool"];
       const result = await vercelTool.execute({ input: "test" });
 
       expect(result).toEqual(mockResponse);
@@ -795,4 +782,3 @@ describe("Vercel AI SDK Integration", () => {
     });
   });
 });
-
