@@ -242,12 +242,6 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
       .filter(p => p.oauth)
       .map(p => p.oauth!.provider);
 
-    // Check if there's an OAuth callback in the URL that needs to be processed first
-    const hasOAuthCallback = typeof window !== 'undefined' && 
-                            window.location && 
-                            window.location.hash && 
-                            window.location.hash.includes('oauth_callback=');
-
     // Determine if we're using database callbacks or localStorage
     const usingDatabaseCallbacks = !!(config as any).getProviderToken;
 
@@ -283,27 +277,20 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
       });
     } else {
       // localStorage: Load tokens synchronously for immediate availability
-      // This ensures isAuthorized() returns correct value immediately after client creation
+      // Always load existing tokens first, even if there's an OAuth callback pending
+      // This ensures any previously saved tokens are available immediately
+      this.oauthManager.loadAllProviderTokensSync(providers);
       
-      if (!hasOAuthCallback) {
-        // No OAuth callback in URL: load tokens immediately
-        this.oauthManager.loadAllProviderTokensSync(providers);
-        
-        // Update auth state immediately based on loaded tokens (synchronously)
-        for (const integration of this.integrations) {
-          if (integration.oauth) {
-            const provider = integration.oauth.provider;
-            // Get token from cache synchronously (cache was just populated above)
-            const tokenData = this.oauthManager.getProviderTokenFromCache(provider);
-            if (tokenData) {
-              this.authState.set(provider, { authenticated: true });
-            }
+      // Update auth state immediately based on loaded tokens (synchronously)
+      for (const integration of this.integrations) {
+        if (integration.oauth) {
+          const provider = integration.oauth.provider;
+          // Get token from cache synchronously (cache was just populated above)
+          const tokenData = this.oauthManager.getProviderTokenFromCache(provider);
+          if (tokenData) {
+            this.authState.set(provider, { authenticated: true });
           }
         }
-      } else {
-        // OAuth callback in URL: defer token loading until after callback is processed
-        // The callback will save the token and update auth state
-        // We'll reload tokens after the callback completes
       }
     }
 
@@ -1453,27 +1440,8 @@ function processOAuthCallbackFromHash(
         // Validate that we have code and state
         if (callbackParams.code && callbackParams.state) {
           // Process the callback and return the promise
-          // After callback completes, reload tokens so isAuthorized() returns correct value
+          // handleOAuthCallback will save the token and update auth state
           return client.handleOAuthCallback(callbackParams).then(() => {
-            // Reload tokens from localStorage after callback completes
-            // This ensures isAuthorized() returns true immediately
-            const providers = (client as any).integrations
-              .filter((p: any) => p.oauth)
-              .map((p: any) => p.oauth.provider);
-            
-            (client as any).oauthManager.loadAllProviderTokensSync(providers);
-            
-            // Update auth state for all providers
-            for (const integration of (client as any).integrations) {
-              if (integration.oauth) {
-                const provider = integration.oauth.provider;
-                const tokenData = (client as any).oauthManager.getProviderTokenFromCache(provider);
-                if (tokenData) {
-                  (client as any).authState.set(provider, { authenticated: true });
-                }
-              }
-            }
-            
             // Clean up URL hash after successful callback
             if (mode !== 'redirect' || !errorBehavior?.redirectUrl) {
               window.history.replaceState(null, '', window.location.pathname + window.location.search);
