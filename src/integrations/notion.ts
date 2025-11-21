@@ -5,14 +5,6 @@
 
 import type { MCPIntegration, OAuthConfig } from "./types.js";
 import { getEnv } from "../utils/env.js";
-
-/**
- * Notion integration configuration
- * 
- * SERVER-SIDE: Automatically reads NOTION_CLIENT_ID and NOTION_CLIENT_SECRET from environment.
- * You can override by providing explicit clientId and clientSecret values.
- * CLIENT-SIDE: Omit clientId and clientSecret when using createMCPClient()
- */
 export interface NotionIntegrationConfig {
   /** Notion OAuth client ID (defaults to NOTION_CLIENT_ID env var) */
   clientId?: string;
@@ -50,43 +42,6 @@ const NOTION_TOOLS = [
  * - Requires an 'owner' parameter ('user' or 'workspace')
  * - Does not use traditional OAuth scopes
  * 
- * @example Server-side (minimal - uses env vars):
- * ```typescript
- * import { createMCPServer, notionIntegration } from 'integrate-sdk/server';
- * 
- * // Automatically uses NOTION_CLIENT_ID and NOTION_CLIENT_SECRET from env
- * export const { client } = createMCPServer({
- *   integrations: [
- *     notionIntegration(),
- *   ],
- * });
- * ```
- * 
- * @example Server-side (with explicit override):
- * ```typescript
- * import { createMCPServer, notionIntegration } from 'integrate-sdk/server';
- * 
- * export const { client } = createMCPServer({
- *   integrations: [
- *     notionIntegration({
- *       clientId: process.env.NOTION_CLIENT_ID!,
- *       clientSecret: process.env.NOTION_CLIENT_SECRET!,
- *       owner: 'workspace', // or 'user' (default)
- *     }),
- *   ],
- * });
- * ```
- * 
- * @example Client-side (without secrets):
- * ```typescript
- * import { createMCPClient, notionIntegration } from 'integrate-sdk';
- * 
- * const client = createMCPClient({
- *   integrations: [
- *     notionIntegration(),
- *   ],
- * });
- * ```
  */
 export function notionIntegration(config: NotionIntegrationConfig = {}): MCPIntegration<"notion"> {
   const oauth: OAuthConfig = {

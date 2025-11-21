@@ -51,56 +51,7 @@ const GITHUB_TOOLS = [
   "github_get_commit",
 ] as const;
 
-/**
- * GitHub Integration
- * 
- * Enables GitHub integration with OAuth authentication.
- * 
- * By default, reads GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET from environment variables.
- * You can override these by providing explicit values in the config.
- * 
- * @example Server-side (minimal - uses env vars):
- * ```typescript
- * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
- * 
- * // Automatically uses GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET from env
- * export const { client } = createMCPServer({
- *   integrations: [
- *     githubIntegration({
- *       scopes: ['repo', 'user', 'read:org'],
- *     }),
- *   ],
- * });
- * ```
- * 
- * @example Server-side (with explicit override):
- * ```typescript
- * import { createMCPServer, githubIntegration } from 'integrate-sdk/server';
- * 
- * export const { client } = createMCPServer({
- *   integrations: [
- *     githubIntegration({
- *       clientId: process.env.CUSTOM_GITHUB_ID!,
- *       clientSecret: process.env.CUSTOM_GITHUB_SECRET!,
- *       scopes: ['repo', 'user', 'read:org'],
- *     }),
- *   ],
- * });
- * ```
- * 
- * @example Client-side (without secrets):
- * ```typescript
- * import { createMCPClient, githubIntegration } from 'integrate-sdk';
- * 
- * const client = createMCPClient({
- *   integrations: [
- *     githubIntegration({
- *       scopes: ['repo', 'user', 'read:org'],
- *     }),
- *   ],
- * });
- * ```
- */
+
 export function githubIntegration(config: GitHubIntegrationConfig = {}): MCPIntegration<"github"> {
   const oauth: OAuthConfig = {
     provider: "github",

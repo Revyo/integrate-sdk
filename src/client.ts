@@ -314,6 +314,9 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
     if (integrationIds.includes("gmail")) {
       (this as any).gmail = this.createIntegrationProxy("gmail");
     }
+    if (integrationIds.includes("notion")) {
+      (this as any).notion = this.createIntegrationProxy("notion");
+    }
     
     // Server namespace is always available
     this.server = this.createServerProxy() as any;
