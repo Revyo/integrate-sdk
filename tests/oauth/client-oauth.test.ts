@@ -123,6 +123,64 @@ describe("Client OAuth Methods", () => {
       const isAuthorized = client.isAuthorized("github");
       expect(isAuthorized).toBe(false);
     });
+
+    test("returns true immediately after client creation when token exists in localStorage", () => {
+      // Set up localStorage with a token
+      const tokenData = {
+        accessToken: 'test-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      };
+
+      const mockLocalStorage = {
+        getItem: mock((key: string) => {
+          if (key === 'integrate_token_github') {
+            return JSON.stringify(tokenData);
+          }
+          return null;
+        }),
+        setItem: mock(() => {}),
+        removeItem: mock(() => {}),
+        clear: mock(() => {}),
+        key: mock(() => null),
+        length: 0,
+      };
+
+      // Mock window and localStorage
+      const originalWindow = global.window;
+      const originalLocalStorage = global.localStorage;
+      
+      (global as any).window = { localStorage: mockLocalStorage };
+      global.localStorage = mockLocalStorage as any;
+
+      try {
+        const client = createMCPClient({
+          integrations: [
+            githubIntegration({
+              clientId: "test-id",
+              clientSecret: "test-secret",
+            }),
+          ],
+          singleton: false,
+        });
+
+        // isAuthorized should return true immediately without any async operations
+        const isAuthorized = client.isAuthorized("github");
+        expect(isAuthorized).toBe(true);
+      } finally {
+        // Restore original window and localStorage
+        if (originalWindow) {
+          global.window = originalWindow;
+        } else {
+          delete (global as any).window;
+        }
+        if (originalLocalStorage) {
+          global.localStorage = originalLocalStorage;
+        } else {
+          delete (global as any).localStorage;
+        }
+      }
+    });
   });
 
   describe("getAuthorizationStatus", () => {

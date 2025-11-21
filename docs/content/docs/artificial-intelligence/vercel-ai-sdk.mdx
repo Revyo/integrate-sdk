@@ -127,11 +127,13 @@ export default function ChatPage() {
   const { messages, sendMessage, status } = useChat();
   const [input, setInput] = useState("");
 
-  const [githubAuthorized, setGithubAuthorized] = useState(
-    client.isAuthorized("github")
-  );
+  const [githubAuthorized, setGithubAuthorized] = useState(false);
 
   const isLoading = status === "streaming";
+
+  useEffect(() => {
+    setGithubAuthorized(client.isAuthorized("github"));
+  }, []);
 
   async function handleGithubClick() {
     try {

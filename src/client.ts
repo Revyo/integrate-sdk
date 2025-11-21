@@ -230,41 +230,59 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
       }
     }
 
-    // Load provider tokens from database (via callback) or localStorage
-    // and update auth state once loaded (only during initialization)
+    // Get list of OAuth providers
     const providers = this.integrations
       .filter(p => p.oauth)
       .map(p => p.oauth!.provider);
 
-    // Load all provider tokens in the background and update auth state
-    // This ensures isAuthorized() returns the correct value after tokens are loaded
-    // Only update state if it hasn't been changed by other methods (e.g., authorize, reauthenticate)
-    this.oauthManager.loadAllProviderTokens(providers).then(async () => {
-      // Update auth state based on loaded tokens
-      for (const integration of this.integrations) {
-        if (integration.oauth) {
-          const provider = integration.oauth.provider;
-          try {
-            // getProviderToken returns from cache after loadAllProviderTokens
-            const tokenData = await this.oauthManager.getProviderToken(provider);
-            // Only update if state is still at initial false value (not changed by other methods)
-            const currentState = this.authState.get(provider);
-            if (currentState && !currentState.authenticated && !currentState.lastError) {
-              this.authState.set(provider, { authenticated: !!tokenData });
-            }
-          } catch (error) {
-            console.error(`Failed to check token for ${provider}:`, error);
-            // Only set to false if state hasn't been modified
-            const currentState = this.authState.get(provider);
-            if (currentState && !currentState.authenticated && !currentState.lastError) {
-              this.authState.set(provider, { authenticated: false });
+    // Determine if we're using database callbacks or localStorage
+    const usingDatabaseCallbacks = !!(config as any).getProviderToken;
+
+    if (usingDatabaseCallbacks) {
+      // Database callbacks: Load tokens asynchronously
+      // This ensures isAuthorized() returns the correct value after tokens are loaded
+      // Only update state if it hasn't been changed by other methods (e.g., authorize, reauthenticate)
+      this.oauthManager.loadAllProviderTokens(providers).then(async () => {
+        // Update auth state based on loaded tokens
+        for (const integration of this.integrations) {
+          if (integration.oauth) {
+            const provider = integration.oauth.provider;
+            try {
+              // getProviderToken returns from cache after loadAllProviderTokens
+              const tokenData = await this.oauthManager.getProviderToken(provider);
+              // Only update if state is still at initial false value (not changed by other methods)
+              const currentState = this.authState.get(provider);
+              if (currentState && !currentState.authenticated && !currentState.lastError) {
+                this.authState.set(provider, { authenticated: !!tokenData });
+              }
+            } catch (error) {
+              console.error(`Failed to check token for ${provider}:`, error);
+              // Only set to false if state hasn't been modified
+              const currentState = this.authState.get(provider);
+              if (currentState && !currentState.authenticated && !currentState.lastError) {
+                this.authState.set(provider, { authenticated: false });
+              }
             }
           }
         }
+      }).catch(error => {
+        console.error('Failed to load provider tokens:', error);
+      });
+    } else {
+      // localStorage: Load tokens synchronously for immediate availability
+      // This ensures isAuthorized() returns correct value immediately after client creation
+      this.oauthManager.loadAllProviderTokensSync(providers);
+      
+      // Update auth state immediately based on loaded tokens (synchronously)
+      for (const integration of this.integrations) {
+        if (integration.oauth) {
+          const provider = integration.oauth.provider;
+          // Get token from cache synchronously (cache was just populated above)
+          const tokenData = this.oauthManager.getProviderTokenFromCache(provider);
+          this.authState.set(provider, { authenticated: !!tokenData });
+        }
       }
-    }).catch(error => {
-      console.error('Failed to load provider tokens:', error);
-    });
+    }
 
     // Initialize integration namespaces dynamically based on configuration
     const integrationIds = this.integrations.map(i => i.id);

@@ -304,6 +304,16 @@ export class OAuthManager {
   }
 
   /**
+   * Get provider token from in-memory cache synchronously
+   * Only returns cached tokens, does not call database callbacks
+   * Used for immediate synchronous checks after tokens are loaded
+   * @param provider - Provider name (e.g., 'github', 'gmail')
+   */
+  getProviderTokenFromCache(provider: string): ProviderTokenData | undefined {
+    return this.providerTokens.get(provider);
+  }
+
+  /**
    * Set provider token (for manual token management)
    * Uses callback if provided, otherwise uses localStorage
    * @param provider - Provider name (e.g., 'github', 'gmail')
@@ -447,6 +457,52 @@ export class OAuthManager {
   async loadAllProviderTokens(providers: string[]): Promise<void> {
     for (const provider of providers) {
       const tokenData = await this.loadProviderToken(provider);
+      if (tokenData) {
+        this.providerTokens.set(provider, tokenData);
+      }
+    }
+  }
+
+  /**
+   * Load provider token synchronously from localStorage only
+   * Returns undefined if not found or if using database callbacks
+   * This method is synchronous and should only be used during initialization
+   * when database callbacks are NOT configured
+   */
+  private loadProviderTokenSync(provider: string): ProviderTokenData | undefined {
+    // Only works for localStorage, not database callbacks
+    if (this.getTokenCallback) {
+      return undefined;
+    }
+
+    // Read from localStorage synchronously
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const key = `integrate_token_${provider}`;
+        const stored = window.localStorage.getItem(key);
+        if (stored) {
+          return JSON.parse(stored) as ProviderTokenData;
+        }
+      } catch (error) {
+        console.error(`Failed to load token for ${provider} from localStorage:`, error);
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Load all provider tokens synchronously from localStorage on initialization
+   * Only works when database callbacks are NOT configured
+   * This ensures tokens are available immediately for isAuthorized() calls
+   */
+  loadAllProviderTokensSync(providers: string[]): void {
+    // Only works for localStorage, not database callbacks
+    if (this.getTokenCallback) {
+      return;
+    }
+
+    for (const provider of providers) {
+      const tokenData = this.loadProviderTokenSync(provider);
       if (tokenData) {
         this.providerTokens.set(provider, tokenData);
       }

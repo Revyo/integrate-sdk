@@ -132,9 +132,11 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Anthropic.MessageParam[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [githubAuthorized, setGithubAuthorized] = useState(
-    client.isAuthorized("github")
-  );
+  const [githubAuthorized, setGithubAuthorized] = useState(false);
+
+  useEffect(() => {
+    setGithubAuthorized(client.isAuthorized("github"));
+  }, []);
 
   async function handleGithubClick() {
     try {
