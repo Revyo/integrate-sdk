@@ -338,8 +338,8 @@ export class OAuthManager {
   clearProviderToken(provider: string): void {
     this.providerTokens.delete(provider);
     
-    // Only clear from localStorage if not using callbacks
-    if (!this.getTokenCallback && typeof window !== 'undefined' && window.localStorage) {
+    // Only clear from localStorage if not using server-side database storage
+    if (!this.skipLocalStorage && typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.removeItem(`integrate_token_${provider}`);
       } catch (error) {
@@ -357,8 +357,8 @@ export class OAuthManager {
     const providers = Array.from(this.providerTokens.keys());
     this.providerTokens.clear();
 
-    // Only clear from localStorage if not using callbacks
-    if (!this.getTokenCallback && typeof window !== 'undefined' && window.localStorage) {
+    // Only clear from localStorage if not using server-side database storage
+    if (!this.skipLocalStorage && typeof window !== 'undefined' && window.localStorage) {
       for (const provider of providers) {
         try {
           window.localStorage.removeItem(`integrate_token_${provider}`);

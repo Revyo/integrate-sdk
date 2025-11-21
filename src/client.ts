@@ -1043,6 +1043,7 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * @param provider - Provider name (github, gmail, etc.)
    * @param options - Optional configuration for the authorization flow
    * @param options.returnUrl - URL to redirect to after OAuth completion (for redirect mode)
+   * @param options.useExistingConnection - If true and a connection exists, skip OAuth and use existing token. If false or undefined, proceed with OAuth flow (allows creating new account even if one exists)
    * 
    * @example
    * ```typescript
@@ -1058,15 +1059,51 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * await client.authorize('github', { 
    *   returnUrl: window.location.pathname 
    * });
+   * 
+   * // Use existing connection if available
+   * await client.authorize('github', { 
+   *   useExistingConnection: true 
+   * });
+   * 
+   * // Force new connection (default behavior)
+   * await client.authorize('github', { 
+   *   useExistingConnection: false 
+   * });
    * ```
    */
-  async authorize(provider: string, options?: { returnUrl?: string }): Promise<void> {
+  async authorize(provider: string, options?: { returnUrl?: string; useExistingConnection?: boolean }): Promise<void> {
     const integration = this.integrations.find(p => p.oauth?.provider === provider);
 
     if (!integration?.oauth) {
       const error = new Error(`No OAuth configuration found for provider: ${provider}`);
       this.eventEmitter.emit('auth:error', { provider, error });
       throw error;
+    }
+
+    // Check if we should use existing connection
+    if (options?.useExistingConnection) {
+      const authStatus = await this.oauthManager.checkAuthStatus(provider);
+      
+      if (authStatus.authorized) {
+        // Connection exists, use it without OAuth flow
+        const tokenData = await this.oauthManager.getProviderToken(provider);
+        
+        if (tokenData) {
+          // Emit auth:complete event with existing token
+          this.eventEmitter.emit('auth:complete', {
+            provider,
+            accessToken: tokenData.accessToken,
+            expiresAt: tokenData.expiresAt
+          });
+          
+          // Update auth state
+          this.authState.set(provider, { authenticated: true });
+        }
+        
+        // Return early, skipping OAuth flow
+        return;
+      }
+      // If useExistingConnection is true but no connection exists, fall through to OAuth flow
     }
 
     // Emit auth:started event
