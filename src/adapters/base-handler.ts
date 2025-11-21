@@ -415,7 +415,9 @@ export class OAuthHandler {
     const result: CallbackResponse = data as CallbackResponse;
     
     // Call setProviderToken callback if configured
-    if (this.config.setProviderToken && context) {
+    // Note: We save the token even if context is undefined, as some apps
+    // may use single-user scenarios or handle context internally in their callback
+    if (this.config.setProviderToken) {
       try {
         const tokenData: ProviderTokenData = {
           accessToken: result.accessToken,
@@ -423,6 +425,7 @@ export class OAuthHandler {
           tokenType: result.tokenType,
           expiresIn: result.expiresIn,
           expiresAt: result.expiresAt,
+          scopes: result.scopes, // Include scopes in token data
         };
         
         await this.config.setProviderToken(callbackRequest.provider, tokenData, context);
