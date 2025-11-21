@@ -452,9 +452,9 @@ const client = createMCPClient({
   ],
 });
 
-const isAuthorized = client.isAuthorized("github");
+const isAuthorized = await client.isAuthorized("github");
 
-const authorized = client.authorizedProviders();
+const authorized = await client.authorizedProviders();
 console.log(authorized);
 
 const status = await client.getAuthorizationStatus("github");
@@ -480,7 +480,7 @@ const client = createMCPClient({
 
 await client.disconnectProvider("github");
 
-const isAuthorized = client.isAuthorized("github");
+const isAuthorized = await client.isAuthorized("github");
 
 await client.logout();
 

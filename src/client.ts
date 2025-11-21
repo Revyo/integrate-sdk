@@ -160,6 +160,7 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
   private eventEmitter: SimpleEventEmitter = new SimpleEventEmitter();
   private apiRouteBase: string;
   private apiBaseUrl?: string;
+  private oauthCallbackPromise?: Promise<void> | null;
 
   // Server namespace - always available for server-level tools
   public readonly server!: ServerIntegrationClient;
@@ -235,6 +236,12 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
       .filter(p => p.oauth)
       .map(p => p.oauth!.provider);
 
+    // Check if there's an OAuth callback in the URL that needs to be processed first
+    const hasOAuthCallback = typeof window !== 'undefined' && 
+                            window.location && 
+                            window.location.hash && 
+                            window.location.hash.includes('oauth_callback=');
+
     // Determine if we're using database callbacks or localStorage
     const usingDatabaseCallbacks = !!(config as any).getProviderToken;
 
@@ -271,16 +278,26 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
     } else {
       // localStorage: Load tokens synchronously for immediate availability
       // This ensures isAuthorized() returns correct value immediately after client creation
-      this.oauthManager.loadAllProviderTokensSync(providers);
       
-      // Update auth state immediately based on loaded tokens (synchronously)
-      for (const integration of this.integrations) {
-        if (integration.oauth) {
-          const provider = integration.oauth.provider;
-          // Get token from cache synchronously (cache was just populated above)
-          const tokenData = this.oauthManager.getProviderTokenFromCache(provider);
-          this.authState.set(provider, { authenticated: !!tokenData });
+      if (!hasOAuthCallback) {
+        // No OAuth callback in URL: load tokens immediately
+        this.oauthManager.loadAllProviderTokensSync(providers);
+        
+        // Update auth state immediately based on loaded tokens (synchronously)
+        for (const integration of this.integrations) {
+          if (integration.oauth) {
+            const provider = integration.oauth.provider;
+            // Get token from cache synchronously (cache was just populated above)
+            const tokenData = this.oauthManager.getProviderTokenFromCache(provider);
+            if (tokenData) {
+              this.authState.set(provider, { authenticated: true });
+            }
+          }
         }
+      } else {
+        // OAuth callback in URL: defer token loading until after callback is processed
+        // The callback will save the token and update auth state
+        // We'll reload tokens after the callback completes
       }
     }
 
@@ -947,20 +964,28 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * Returns the cached authorization status that is automatically updated when
    * authorize() or disconnectProvider() are called
    * 
+   * Automatically waits for any pending OAuth callback to complete, ensuring
+   * the auth state is always up-to-date, even immediately after OAuth redirects
+   * 
    * @param provider - Provider name (github, gmail, etc.)
-   * @returns Authorization status from cache
+   * @returns Promise that resolves to authorization status
    * 
    * @example
    * ```typescript
-   * const isAuthorized = client.isAuthorized('github');
+   * const isAuthorized = await client.isAuthorized('github');
    * if (!isAuthorized) {
    *   await client.authorize('github');
    *   // isAuthorized is now automatically true
-   *   console.log(client.isAuthorized('github')); // true
+   *   console.log(await client.isAuthorized('github')); // true
    * }
    * ```
    */
-  isAuthorized(provider: string): boolean {
+  async isAuthorized(provider: string): Promise<boolean> {
+    // Wait for any pending OAuth callback to complete first
+    if (this.oauthCallbackPromise) {
+      await this.oauthCallbackPromise;
+      this.oauthCallbackPromise = null; // Clear it after first use
+    }
     return this.authState.get(provider)?.authenticated ?? false;
   }
 
@@ -968,11 +993,13 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * Get list of all authorized providers
    * Returns cached authorization status for all configured OAuth providers
    * 
-   * @returns Array of authorized provider names
+   * Automatically waits for any pending OAuth callback to complete
+   * 
+   * @returns Promise that resolves to array of authorized provider names
    * 
    * @example
    * ```typescript
-   * const authorized = client.authorizedProviders();
+   * const authorized = await client.authorizedProviders();
    * console.log('Authorized services:', authorized); // ['github', 'gmail']
    * 
    * // Check if specific service is in the list
@@ -981,7 +1008,13 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * }
    * ```
    */
-  authorizedProviders(): string[] {
+  async authorizedProviders(): Promise<string[]> {
+    // Wait for any pending OAuth callback to complete first
+    if (this.oauthCallbackPromise) {
+      await this.oauthCallbackPromise;
+      this.oauthCallbackPromise = null; // Clear it after first use
+    }
+
     const authorized: string[] = [];
 
     // Check each integration with OAuth config
@@ -1369,8 +1402,9 @@ export function createMCPClient<TIntegrations extends readonly MCPIntegration[]>
     }
 
     // Automatically handle OAuth callback if enabled
+    // This is done synchronously to ensure tokens are loaded before client is used
     if (config.autoHandleOAuthCallback !== false) {
-      processOAuthCallbackFromHash(client, config.oauthCallbackErrorBehavior);
+      client.oauthCallbackPromise = processOAuthCallbackFromHash(client, config.oauthCallbackErrorBehavior);
     }
 
     return client;
@@ -1380,14 +1414,15 @@ export function createMCPClient<TIntegrations extends readonly MCPIntegration[]>
 /**
  * Process OAuth callback from URL hash fragment
  * Automatically detects and processes #oauth_callback={...} in the URL
+ * Returns a promise that resolves when callback processing is complete
  */
 function processOAuthCallbackFromHash(
   client: MCPClientBase<any>,
   errorBehavior?: { mode: 'silent' | 'console' | 'redirect'; redirectUrl?: string }
-): void {
+): Promise<void> | null {
   // Only run in browser environment with proper window.location
   if (typeof window === 'undefined' || !window.location) {
-    return;
+    return null;
   }
 
   // Default to silent mode
@@ -1408,8 +1443,33 @@ function processOAuthCallbackFromHash(
 
         // Validate that we have code and state
         if (callbackParams.code && callbackParams.state) {
-          // Process the callback asynchronously
-          client.handleOAuthCallback(callbackParams).catch((error) => {
+          // Process the callback and return the promise
+          // After callback completes, reload tokens so isAuthorized() returns correct value
+          return client.handleOAuthCallback(callbackParams).then(() => {
+            // Reload tokens from localStorage after callback completes
+            // This ensures isAuthorized() returns true immediately
+            const providers = (client as any).integrations
+              .filter((p: any) => p.oauth)
+              .map((p: any) => p.oauth.provider);
+            
+            (client as any).oauthManager.loadAllProviderTokensSync(providers);
+            
+            // Update auth state for all providers
+            for (const integration of (client as any).integrations) {
+              if (integration.oauth) {
+                const provider = integration.oauth.provider;
+                const tokenData = (client as any).oauthManager.getProviderTokenFromCache(provider);
+                if (tokenData) {
+                  (client as any).authState.set(provider, { authenticated: true });
+                }
+              }
+            }
+            
+            // Clean up URL hash after successful callback
+            if (mode !== 'redirect' || !errorBehavior?.redirectUrl) {
+              window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
+          }).catch((error) => {
             // Handle error based on configured behavior
             if (mode === 'console') {
               console.error('Failed to process OAuth callback:', error);
@@ -1418,13 +1478,11 @@ function processOAuthCallbackFromHash(
               window.location.href = errorBehavior.redirectUrl;
               return; // Don't clean up hash, let the redirect happen
             }
-            // 'silent' mode: do nothing, just clean up below
+            // 'silent' mode: do nothing, just clean up hash
+            if (mode !== 'redirect' || !errorBehavior?.redirectUrl) {
+              window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
           });
-
-          // Clean up URL hash (unless redirecting)
-          if (mode !== 'redirect' || !errorBehavior?.redirectUrl) {
-            window.history.replaceState(null, '', window.location.pathname + window.location.search);
-          }
         }
       }
     }
@@ -1434,7 +1492,7 @@ function processOAuthCallbackFromHash(
       console.error('Failed to process OAuth callback from hash:', error);
     } else if (mode === 'redirect' && errorBehavior?.redirectUrl) {
       window.location.href = errorBehavior.redirectUrl;
-      return;
+      return null;
     }
     // 'silent' mode: suppress error
     
@@ -1447,6 +1505,8 @@ function processOAuthCallbackFromHash(
       // Ignore cleanup errors
     }
   }
+  
+  return null;
 }
 
 /**

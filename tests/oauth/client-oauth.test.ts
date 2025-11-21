@@ -98,7 +98,7 @@ describe("Client OAuth Methods", () => {
         expiresIn: 3600,
       });
 
-      const isAuthorized = client.isAuthorized("github");
+      const isAuthorized = await client.isAuthorized("github");
       expect(typeof isAuthorized).toBe("boolean");
     });
 
@@ -120,11 +120,11 @@ describe("Client OAuth Methods", () => {
         singleton: false,
       });
 
-      const isAuthorized = client.isAuthorized("github");
+      const isAuthorized = await client.isAuthorized("github");
       expect(isAuthorized).toBe(false);
     });
 
-    test("returns true immediately after client creation when token exists in localStorage", () => {
+    test("returns true immediately after client creation when token exists in localStorage", async () => {
       // Set up localStorage with a token
       const tokenData = {
         accessToken: 'test-token',
@@ -164,8 +164,8 @@ describe("Client OAuth Methods", () => {
           singleton: false,
         });
 
-        // isAuthorized should return true immediately without any async operations
-        const isAuthorized = client.isAuthorized("github");
+        // isAuthorized should return true immediately (with automatic OAuth callback handling)
+        const isAuthorized = await client.isAuthorized("github");
         expect(isAuthorized).toBe(true);
       } finally {
         // Restore original window and localStorage
@@ -234,7 +234,7 @@ describe("Client OAuth Methods", () => {
         singleton: false,
       });
 
-      const authorized = client.authorizedProviders();
+      const authorized = await client.authorizedProviders();
       expect(authorized).toEqual([]);
     });
 
@@ -267,7 +267,7 @@ describe("Client OAuth Methods", () => {
         singleton: false,
       });
 
-      const authorized = client.authorizedProviders();
+      const authorized = await client.authorizedProviders();
 
       expect(authorized).toBeInstanceOf(Array);
       expect(authorized.length).toBeGreaterThanOrEqual(0);
@@ -293,7 +293,7 @@ describe("Client OAuth Methods", () => {
         singleton: false,
       });
 
-      const authorized = client.authorizedProviders();
+      const authorized = await client.authorizedProviders();
 
       // Should only check integrations with OAuth config
       expect(authorized).toBeInstanceOf(Array);

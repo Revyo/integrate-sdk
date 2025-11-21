@@ -34,7 +34,7 @@ Here's a complete example that calls a GitHub tool:
 ```typescript
 import { client } from "integrate-sdk";
 
-if (!client.isAuthorized("github")) {
+if (!(await client.isAuthorized("github"))) {
   await client.authorize("github");
 }
 

@@ -246,7 +246,7 @@ The SDK implements OAuth 2.0 Authorization Code Flow with PKCE for secure author
 
 ```typescript
 // Check authorization
-if (!client.isAuthorized("github")) {
+if (!(await client.isAuthorized("github"))) {
   await client.authorize("github"); // Opens popup or redirects
 }
 

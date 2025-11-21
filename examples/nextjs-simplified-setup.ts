@@ -120,7 +120,7 @@ export function GitHubConnect() {
 
   useEffect(() => {
     // Check if already authorized
-    setAuthorized(client.isAuthorized('github'));
+    client.isAuthorized('github').then(setAuthorized);
   }, [client]);
 
   const handleAuthorize = async () => {

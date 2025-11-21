@@ -132,7 +132,7 @@ export default function ChatPage() {
   const isLoading = status === "streaming";
 
   useEffect(() => {
-    setGithubAuthorized(client.isAuthorized("github"));
+    client.isAuthorized("github").then(setGithubAuthorized);
   }, []);
 
   async function handleGithubClick() {
