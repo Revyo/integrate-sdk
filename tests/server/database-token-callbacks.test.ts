@@ -142,7 +142,7 @@ describe("Database Token Callbacks", () => {
       expect(statusUnauthorized.provider).toBe("gitlab");
     });
 
-    test("disconnectProvider uses callback to check token before disconnect", async () => {
+    test("disconnectProvider uses setProviderToken(null) when no removeProviderToken callback", async () => {
       const mockTokenData: ProviderTokenData = {
         accessToken: "token",
         tokenType: "Bearer",
@@ -153,18 +153,23 @@ describe("Database Token Callbacks", () => {
         return provider === "github" ? mockTokenData : undefined;
       });
 
+      const setTokenMock = mock(async (provider: string, tokenData: ProviderTokenData | null) => {});
+
       const manager = new OAuthManager(
         TEST_OAUTH_API_BASE,
         undefined,
         undefined,
         {
           getProviderToken: getTokenMock,
+          setProviderToken: setTokenMock,
         }
       );
 
       await manager.disconnectProvider("github");
       
+      // Should check for token and then call setProviderToken(null)
       expect(getTokenMock).toHaveBeenCalledWith("github", undefined);
+      expect(setTokenMock).toHaveBeenCalledWith("github", null, undefined);
     });
 
     test("handles callback errors gracefully in getProviderToken", async () => {
@@ -338,6 +343,135 @@ describe("Database Token Callbacks", () => {
       // Should update in-memory cache
       const allTokens = manager.getAllProviderTokens();
       expect(allTokens.get("github")).toEqual(newTokenData);
+    });
+
+    test("uses removeProviderToken callback when provided", async () => {
+      const mockTokenData: ProviderTokenData = {
+        accessToken: "token-to-delete",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      };
+
+      const getTokenMock = mock(async (provider: string) => {
+        return provider === "github" ? mockTokenData : undefined;
+      });
+
+      const removeTokenMock = mock(async (provider: string) => {
+        // Simulate database deletion
+      });
+
+      const manager = new OAuthManager(
+        TEST_OAUTH_API_BASE,
+        undefined,
+        undefined,
+        {
+          getProviderToken: getTokenMock,
+          removeProviderToken: removeTokenMock,
+        }
+      );
+
+      // Disconnect should use removeProviderToken callback
+      await manager.disconnectProvider("github");
+
+      expect(removeTokenMock).toHaveBeenCalledWith("github", undefined);
+      // Should not call getTokenMock since removeProviderToken is provided
+      expect(getTokenMock).not.toHaveBeenCalled();
+    });
+
+    test("disconnectProvider falls back to setProviderToken(null) when removeProviderToken not provided", async () => {
+      const mockTokenData: ProviderTokenData = {
+        accessToken: "token-to-delete",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      };
+
+      const getTokenMock = mock(async (provider: string) => {
+        return provider === "github" ? mockTokenData : undefined;
+      });
+
+      const setTokenMock = mock(async (provider: string, tokenData: ProviderTokenData | null) => {
+        // Should be called with null for deletion
+      });
+
+      const manager = new OAuthManager(
+        TEST_OAUTH_API_BASE,
+        undefined,
+        undefined,
+        {
+          getProviderToken: getTokenMock,
+          setProviderToken: setTokenMock,
+        }
+      );
+
+      // Disconnect should fall back to setProviderToken(null)
+      await manager.disconnectProvider("github");
+
+      expect(getTokenMock).toHaveBeenCalledWith("github", undefined);
+      expect(setTokenMock).toHaveBeenCalledWith("github", null, undefined);
+    });
+
+    test("disconnectProvider is idempotent when removeProviderToken is provided", async () => {
+      const removeTokenMock = mock(async (provider: string) => {
+        // Simulate database deletion (idempotent - safe to call multiple times)
+      });
+
+      const manager = new OAuthManager(
+        TEST_OAUTH_API_BASE,
+        undefined,
+        undefined,
+        {
+          removeProviderToken: removeTokenMock,
+        }
+      );
+
+      // Call disconnect multiple times - should not throw
+      await manager.disconnectProvider("github");
+      await manager.disconnectProvider("github");
+      await manager.disconnectProvider("github");
+
+      // Should be called each time (idempotent operation)
+      expect(removeTokenMock).toHaveBeenCalledTimes(3);
+    });
+
+    test("disconnectProvider handles removeProviderToken errors gracefully", async () => {
+      const removeTokenMock = mock(async (provider: string) => {
+        throw new Error("Database deletion failed");
+      });
+
+      const manager = new OAuthManager(
+        TEST_OAUTH_API_BASE,
+        undefined,
+        undefined,
+        {
+          removeProviderToken: removeTokenMock,
+        }
+      );
+
+      // Should not throw - errors are logged but operation continues
+      await manager.disconnectProvider("github");
+
+      expect(removeTokenMock).toHaveBeenCalledWith("github", undefined);
+    });
+
+    test("disconnectProvider prefers removeProviderToken over setProviderToken(null)", async () => {
+      const removeTokenMock = mock(async (provider: string) => {});
+      const setTokenMock = mock(async (provider: string, tokenData: ProviderTokenData | null) => {});
+
+      const manager = new OAuthManager(
+        TEST_OAUTH_API_BASE,
+        undefined,
+        undefined,
+        {
+          removeProviderToken: removeTokenMock,
+          setProviderToken: setTokenMock,
+        }
+      );
+
+      await manager.disconnectProvider("github");
+
+      // Should use removeProviderToken, not setProviderToken
+      expect(removeTokenMock).toHaveBeenCalledWith("github", undefined);
+      expect(setTokenMock).not.toHaveBeenCalled();
     });
   });
 });

@@ -332,7 +332,7 @@ describe("Storage and Cleanup", () => {
   });
 
   describe("Event System Storage Integration", () => {
-    test("emits error event when disconnect fails without access token", async () => {
+    test("disconnectProvider is idempotent when no access token exists", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -348,9 +348,13 @@ describe("Storage and Cleanup", () => {
         errorFired = true;
       });
 
-      // Should throw and emit error because no access token
-      await expect(client.disconnectProvider('github')).rejects.toThrow();
-      expect(errorFired).toBe(true);
+      // Should not throw - disconnectProvider is now idempotent
+      // It should succeed even when no token exists
+      await client.disconnectProvider('github');
+      expect(errorFired).toBe(false);
+      
+      // State should be false after disconnect
+      expect(client.isProviderAuthenticated('github')).toBe(false);
     });
   });
 
@@ -396,6 +400,11 @@ describe("Storage and Cleanup", () => {
     });
 
     test("disconnecting provider in one instance does not affect others", async () => {
+      // Clear localStorage to ensure clean state
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('integrate_token_github');
+      }
+
       const client1 = createMCPClient({
         integrations: [
           githubIntegration({
@@ -416,21 +425,30 @@ describe("Storage and Cleanup", () => {
         singleton: false,
       });
 
-      client1.setProviderToken('github', {
+      await client1.setProviderToken('github', {
         accessToken: 'token1',
         tokenType: 'Bearer',
         expiresIn: 3600,
       });
 
-      client2.setProviderToken('github', {
+      await client2.setProviderToken('github', {
         accessToken: 'token2',
         tokenType: 'Bearer',
         expiresIn: 3600,
       });
 
+      // Verify both are authenticated before disconnect
+      expect(client1.isProviderAuthenticated('github')).toBe(true);
+      expect(client2.isProviderAuthenticated('github')).toBe(true);
+
       await client1.disconnectProvider('github');
 
+      // After disconnect, client1 should be disconnected
       expect(client1.isProviderAuthenticated('github')).toBe(false);
+      
+      // Client2 should still be authenticated (its in-memory state is independent)
+      // Note: localStorage is shared, so the token is cleared there, but client2's
+      // in-memory authState should still be true
       expect(client2.isProviderAuthenticated('github')).toBe(true);
     });
   });

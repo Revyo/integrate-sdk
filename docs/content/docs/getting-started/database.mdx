@@ -46,6 +46,9 @@ export const { client: serverClient } = createMCPServer({
   setProviderToken: async (provider, tokenData, context) => {
     // Save token to database
   },
+  removeProviderToken: async (provider, context) => {
+    // Delete token from database
+  },
 });
 ```
 
@@ -231,6 +234,69 @@ The SDK calls this callback automatically after OAuth completion. You don't need
 - After successful OAuth authorization
 - When tokens are refreshed automatically
 - When manually setting tokens via `client.setProviderToken()`
+
+**Note:** For backward compatibility, you can also handle token deletion by checking for `null` in `setProviderToken`:
+
+```typescript
+setProviderToken: async (provider, tokenData, context) => {
+  if (tokenData === null) {
+    // Handle deletion
+    await db.tokens.delete({ where: { provider, userId: context?.userId } });
+    return;
+  }
+  // Handle upsert
+  await db.tokens.upsert({ ... });
+}
+```
+
+However, using the dedicated `removeProviderToken` callback is recommended for cleaner code.
+
+## removeProviderToken
+
+Deletes a provider token from your database when a user disconnects a provider. This is called automatically when `client.disconnectProvider()` is invoked.
+
+**Signature:**
+
+```typescript
+removeProviderToken?: (
+  provider: string,
+  context?: MCPContext
+) => Promise<void> | void;
+```
+
+**Parameters:**
+
+- `provider`: The provider name (e.g., `'github'`, `'gmail'`)
+- `context`: Optional user context from `getSessionContext`
+
+**Example:**
+
+```typescript
+removeProviderToken: async (provider, context) => {
+  const userId = context?.userId;
+
+  if (!userId) {
+    throw new Error('Cannot delete token: No userId in context');
+  }
+
+  // Delete token from database
+  await db.query(
+    `DELETE FROM oauth_tokens WHERE user_id = ? AND provider = ?`,
+    [userId, provider]
+  );
+},
+```
+
+**When it's called automatically:**
+
+The SDK calls this callback automatically when disconnecting providers. You don't need to call it manually:
+
+- When `client.disconnectProvider(provider)` is called
+- The callback is idempotent - safe to call even if the token doesn't exist
+
+**Backward compatibility:**
+
+If `removeProviderToken` is not provided, the SDK will fall back to calling `setProviderToken(provider, null, context)` for backward compatibility. However, using the dedicated callback is recommended for cleaner separation of concerns.
 
 ## Database Schema
 

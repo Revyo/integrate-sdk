@@ -219,6 +219,7 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
       {
         getProviderToken: (config as any).getProviderToken,
         setProviderToken: (config as any).setProviderToken,
+        removeProviderToken: (config as any).removeProviderToken,
         skipLocalStorage: config.skipLocalStorage,
       }
     );
@@ -964,11 +965,17 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * Automatically waits for any pending OAuth callback to complete, ensuring
    * the auth state is always up-to-date, even immediately after OAuth redirects
    * 
+   * When using database callbacks (server-side), provide context to check
+   * the correct user's token. Without context, it will check without user
+   * identification (works for single-user scenarios).
+   * 
    * @param provider - Provider name (github, gmail, etc.)
+   * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    * @returns Promise that resolves to authorization status
    * 
    * @example
    * ```typescript
+   * // Client-side usage (no context needed)
    * const isAuthorized = await client.isAuthorized('github');
    * if (!isAuthorized) {
    *   await client.authorize('github');
@@ -976,8 +983,15 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    *   console.log(await client.isAuthorized('github')); // true
    * }
    * ```
+   * 
+   * @example
+   * ```typescript
+   * // Server-side usage with context
+   * const context = await getSessionContext(request);
+   * const isAuthorized = await client.isAuthorized('github', context);
+   * ```
    */
-  async isAuthorized(provider: string): Promise<boolean> {
+  async isAuthorized(provider: string, context?: MCPContext): Promise<boolean> {
     // Wait for any pending OAuth callback to complete first
     if (this.oauthCallbackPromise) {
       await this.oauthCallbackPromise;
@@ -985,8 +999,9 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
     }
     
     // Check current token status and update cache
+    // Pass context to getProviderToken so it can retrieve the correct user's token from database
     try {
-      const tokenData = await this.oauthManager.getProviderToken(provider);
+      const tokenData = await this.oauthManager.getProviderToken(provider, context);
       const isAuthenticated = !!tokenData;
       
       // Update the cache with current value

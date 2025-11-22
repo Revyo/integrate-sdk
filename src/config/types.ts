@@ -188,7 +188,39 @@ export interface MCPServerConfig<TIntegrations extends readonly MCPIntegration[]
    * });
    * ```
    */
-  setProviderToken?: (provider: string, tokenData: ProviderTokenData, context?: MCPContext) => Promise<void> | void;
+  setProviderToken?: (provider: string, tokenData: ProviderTokenData | null, context?: MCPContext) => Promise<void> | void;
+
+  /**
+   * Custom token deletion callback (SERVER-SIDE ONLY)
+   * Allows deleting OAuth provider tokens from your database
+   * 
+   * When provided, this callback is used for deleting tokens when disconnecting providers.
+   * If not provided, the SDK will fall back to calling `setProviderToken(provider, null, context)`
+   * for backward compatibility.
+   * 
+   * @param provider - Provider name (e.g., 'github', 'gmail')
+   * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
+   * 
+   * @example
+   * ```typescript
+   * import { createMCPServer } from 'integrate-sdk/server';
+   * 
+   * createMCPServer({
+   *   integrations: [...],
+   *   removeProviderToken: async (provider, context) => {
+   *     const userId = context?.userId;
+   *     if (!userId) return;
+   *     
+   *     await db.tokens.delete({
+   *       where: { 
+   *         provider_userId: { provider, userId } 
+   *       }
+   *     });
+   *   }
+   * });
+   * ```
+   */
+  removeProviderToken?: (provider: string, context?: MCPContext) => Promise<void> | void;
 }
 
 /**

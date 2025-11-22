@@ -209,7 +209,7 @@ describe("OAuth Features", () => {
       );
     });
 
-    test("throws error when no access token available", async () => {
+    test("succeeds when no access token available (idempotent)", async () => {
       // Clear localStorage to ensure no tokens from previous tests
       if (typeof window !== 'undefined' && window.localStorage) {
         try {
@@ -232,10 +232,11 @@ describe("OAuth Features", () => {
       // Verify no token is set
       expect(await client.getProviderToken('github')).toBeUndefined();
 
-      // Should throw because no access token for provider
-      await expect(client.disconnectProvider("github")).rejects.toThrow(
-        'No access token available for provider "github"'
-      );
+      // Should succeed even without a token (idempotent operation)
+      await client.disconnectProvider("github");
+      
+      // Verify state is cleared
+      expect(await client.isAuthorized('github')).toBe(false);
     });
 
     test("resets authentication state for provider with access token", async () => {

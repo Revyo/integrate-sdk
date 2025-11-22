@@ -28,7 +28,8 @@ export class OAuthManager {
   private oauthApiBase: string;
   private apiBaseUrl?: string;
   private getTokenCallback?: (provider: string, context?: MCPContext) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
-  private setTokenCallback?: (provider: string, tokenData: ProviderTokenData, context?: MCPContext) => Promise<void> | void;
+  private setTokenCallback?: (provider: string, tokenData: ProviderTokenData | null, context?: MCPContext) => Promise<void> | void;
+  private removeTokenCallback?: (provider: string, context?: MCPContext) => Promise<void> | void;
   private skipLocalStorage: boolean;
 
   constructor(
@@ -37,7 +38,8 @@ export class OAuthManager {
     apiBaseUrl?: string,
     tokenCallbacks?: {
       getProviderToken?: (provider: string, context?: MCPContext) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
-      setProviderToken?: (provider: string, tokenData: ProviderTokenData, context?: MCPContext) => Promise<void> | void;
+      setProviderToken?: (provider: string, tokenData: ProviderTokenData | null, context?: MCPContext) => Promise<void> | void;
+      removeProviderToken?: (provider: string, context?: MCPContext) => Promise<void> | void;
       skipLocalStorage?: boolean;
     }
   ) {
@@ -51,6 +53,7 @@ export class OAuthManager {
     };
     this.getTokenCallback = tokenCallbacks?.getProviderToken;
     this.setTokenCallback = tokenCallbacks?.setProviderToken;
+    this.removeTokenCallback = tokenCallbacks?.removeProviderToken;
     // Skip localStorage if explicitly requested OR if getTokenCallback is provided
     // (indicating server-side database storage is being used)
     this.skipLocalStorage = tokenCallbacks?.skipLocalStorage ?? !!tokenCallbacks?.getProviderToken;
@@ -248,29 +251,57 @@ export class OAuthManager {
 
   /**
    * Disconnect a specific provider
-   * Clears the local token for the provider (stateless operation)
+   * Clears the local token for the provider and removes it from the database if using callbacks
    * 
-   * Note: This only clears the local/in-memory token. It does not revoke the token
+   * This method is idempotent - it can be called safely even if the provider
+   * is already disconnected or has no token. If no token exists, it will
+   * simply ensure all state is cleared and return successfully.
+   * 
+   * When using database callbacks (server-side), this will also delete the token
+   * from the database. It first tries to use `removeProviderToken` callback if provided,
+   * otherwise falls back to calling `setProviderToken` with null for backward compatibility.
+   * 
+   * Note: This only clears the local/in-memory token and database token. It does not revoke the token
    * on the provider's side. For full revocation, handle that separately
    * in your application if needed.
    * 
    * @param provider - OAuth provider to disconnect
+   * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    * @returns Promise that resolves when disconnection is complete
    * 
    * @example
    * ```typescript
    * await oauthManager.disconnectProvider('github');
-   * // GitHub token is now cleared from cache
+   * // GitHub token is now cleared from cache and database
    * ```
    */
-  async disconnectProvider(provider: string): Promise<void> {
-    const tokenData = await this.getProviderToken(provider);
-
-    if (!tokenData) {
-      throw new Error(`No access token available for provider "${provider}". Cannot disconnect provider.`);
+  async disconnectProvider(provider: string, context?: MCPContext): Promise<void> {
+    // Delete token from database if using callbacks
+    if (this.removeTokenCallback) {
+      // Use dedicated removeProviderToken callback if available
+      try {
+        await this.removeTokenCallback(provider, context);
+      } catch (error) {
+        // If deletion fails, log but don't throw - we'll still clear local cache
+        console.error(`Failed to delete token for ${provider} from database via removeProviderToken:`, error);
+      }
+    } else if (this.setTokenCallback) {
+      // Fall back to setProviderToken(null) for backward compatibility
+      try {
+        // Try to get the token from the database to check if it exists
+        const tokenData = await this.getProviderToken(provider, context);
+        
+        // If token exists in database, delete it by calling setProviderToken with null
+        if (tokenData) {
+          await this.setTokenCallback(provider, null, context);
+        }
+      } catch (error) {
+        // If deletion fails, log but don't throw - we'll still clear local cache
+        console.error(`Failed to delete token for ${provider} from database via setProviderToken:`, error);
+      }
     }
-
-    // Clear provider token from in-memory cache
+    
+    // Clear provider token from in-memory cache (idempotent - safe to call even if already cleared)
     this.providerTokens.delete(provider);
     this.clearProviderToken(provider);
   }
@@ -325,8 +356,14 @@ export class OAuthManager {
    * @param tokenData - Token data to store
    * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    */
-  async setProviderToken(provider: string, tokenData: ProviderTokenData, context?: MCPContext): Promise<void> {
-    this.providerTokens.set(provider, tokenData);
+  async setProviderToken(provider: string, tokenData: ProviderTokenData | null, context?: MCPContext): Promise<void> {
+    if (tokenData === null) {
+      // Delete token
+      this.providerTokens.delete(provider);
+    } else {
+      // Set token
+      this.providerTokens.set(provider, tokenData);
+    }
     await this.saveProviderToken(provider, tokenData, context);
   }
 
@@ -400,18 +437,24 @@ export class OAuthManager {
   /**
    * Save provider token to database (via callback) or localStorage
    * @param provider - Provider name (e.g., 'github', 'gmail')
-   * @param tokenData - Token data to store
+   * @param tokenData - Token data to store, or null to delete
    * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    */
-  private async saveProviderToken(provider: string, tokenData: ProviderTokenData, context?: MCPContext): Promise<void> {
+  private async saveProviderToken(provider: string, tokenData: ProviderTokenData | null, context?: MCPContext): Promise<void> {
     // If callback is provided, use it exclusively (server-side with database)
     if (this.setTokenCallback) {
       try {
         await this.setTokenCallback(provider, tokenData, context);
       } catch (error) {
-        console.error(`Failed to save token for ${provider} via callback:`, error);
+        console.error(`Failed to ${tokenData === null ? 'delete' : 'save'} token for ${provider} via callback:`, error);
         throw error;
       }
+      return;
+    }
+    
+    // If tokenData is null and we're using localStorage, delete it
+    if (tokenData === null) {
+      this.clearProviderToken(provider);
       return;
     }
 
