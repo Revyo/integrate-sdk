@@ -824,9 +824,18 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
 
   /**
    * Clear all provider tokens from localStorage
+   * Also updates authState to reflect that all providers are disconnected
    */
   clearSessionToken(): void {
     this.oauthManager.clearAllProviderTokens();
+    
+    // Update authState to reflect that tokens are cleared
+    for (const integration of this.integrations) {
+      if (integration.oauth) {
+        const provider = integration.oauth.provider;
+        this.authState.set(provider, { authenticated: false });
+      }
+    }
   }
 
   /**
@@ -1244,14 +1253,23 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
   /**
    * Set provider token manually
    * Use this if you have an existing provider token
+   * Pass null to delete the token
    * 
    * @param provider - Provider name
-   * @param tokenData - Provider token data
+   * @param tokenData - Provider token data, or null to delete
    * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    */
-  async setProviderToken(provider: string, tokenData: import('./oauth/types.js').ProviderTokenData, context?: MCPContext): Promise<void> {
+  async setProviderToken(provider: string, tokenData: import('./oauth/types.js').ProviderTokenData | null, context?: MCPContext): Promise<void> {
     await this.oauthManager.setProviderToken(provider, tokenData, context);
-    this.authState.set(provider, { authenticated: true });
+    
+    // Update authState based on whether token is being set or deleted
+    if (tokenData === null) {
+      // Token is being deleted - update authState to reflect disconnection
+      this.authState.set(provider, { authenticated: false });
+    } else {
+      // Token is being set - update authState to reflect connection
+      this.authState.set(provider, { authenticated: true });
+    }
   }
 
   /**

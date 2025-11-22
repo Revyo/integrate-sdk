@@ -397,6 +397,51 @@ describe("OAuth Features", () => {
       expect(fetchMock).toHaveBeenCalled();
       expect(await client.getProviderToken("github")).toBeUndefined();
     });
+
+    test("handles missing disconnect route gracefully (404)", async () => {
+      const client = createMCPClient({
+        integrations: [
+          githubIntegration({
+            clientId: "test-id",
+            clientSecret: "test-secret",
+          }),
+        ],
+        singleton: false,
+        oauthApiBase: "/api/integrate/oauth",
+      });
+
+      // Set provider token
+      await client.setProviderToken("github", {
+        accessToken: "test-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+      });
+
+      // Mock fetch to return 404 (route doesn't exist)
+      const consoleWarnSpy = mock(() => {});
+      const originalWarn = console.warn;
+      console.warn = consoleWarnSpy as any;
+
+      global.fetch = mock(async () => {
+        return new Response(JSON.stringify({ error: "Not found" }), { status: 404 });
+      }) as any;
+
+      // Should not throw - should continue and clear local state
+      await client.disconnectProvider("github");
+
+      // Verify warning was logged
+      expect(consoleWarnSpy).toHaveBeenCalled();
+      const warnCall = (consoleWarnSpy as any).mock.calls[0]?.[0] || "";
+      expect(warnCall).toContain("OAuth disconnect route not found");
+      expect(warnCall).toContain("Local token will still be cleared");
+
+      // Verify local state was cleared despite 404
+      expect(await client.getProviderToken("github")).toBeUndefined();
+      expect(client.isProviderAuthenticated("github")).toBe(false);
+
+      // Restore console.warn
+      console.warn = originalWarn;
+    });
   });
 
   describe("logout", () => {

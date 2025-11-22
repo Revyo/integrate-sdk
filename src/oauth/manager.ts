@@ -324,14 +324,46 @@ export class OAuthManager {
           });
 
           if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Failed to disconnect ${provider} via API: ${response.status} ${errorText}`);
+            // Handle 404 (route doesn't exist) with a helpful warning
+            if (response.status === 404) {
+              console.warn(
+                `[Integrate SDK] OAuth disconnect route not found at ${url}. ` +
+                `The route may not be set up on your server. ` +
+                `Local token will still be cleared. ` +
+                `To enable server-side disconnect, set up the route handler at ${this.oauthApiBase}/disconnect`
+              );
+            } else {
+              // Other errors - log with details
+              const errorText = await response.text();
+              console.warn(
+                `[Integrate SDK] Failed to disconnect ${provider} via API: ${response.status} ${errorText}. ` +
+                `Local token will still be cleared.`
+              );
+            }
             // Continue to clear local state even if API call fails (idempotent)
           }
         }
       } catch (error) {
-        // If API call fails, log but don't throw - we'll still clear local cache
-        console.error(`Failed to disconnect ${provider} via API:`, error);
+        // Network errors or other fetch failures
+        const url = this.apiBaseUrl 
+          ? `${this.apiBaseUrl}${this.oauthApiBase}/disconnect`
+          : `${this.oauthApiBase}/disconnect`;
+        
+        // Check if it's a network error that might indicate route doesn't exist
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          console.warn(
+            `[Integrate SDK] Could not reach disconnect route at ${url}. ` +
+            `The route may not be set up on your server. ` +
+            `Local token will still be cleared. ` +
+            `To enable server-side disconnect, set up the route handler at ${this.oauthApiBase}/disconnect`
+          );
+        } else {
+          console.warn(
+            `[Integrate SDK] Failed to disconnect ${provider} via API: ${error}. ` +
+            `Local token will still be cleared.`
+          );
+        }
+        // Continue to clear local cache (idempotent operation)
       }
     }
     
