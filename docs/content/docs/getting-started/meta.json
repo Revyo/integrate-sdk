@@ -2,7 +2,7 @@
     "pages": [
         "installation",
         "basic-usage",
-        "event-listeners",
+        "database",
         "advanced-usage"
     ]
 }

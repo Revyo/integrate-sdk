@@ -1,0 +1,572 @@
+---
+title: Database
+description: Store OAuth tokens in your database for multi-user and multi-device support
+---
+
+The Integrate SDK can be configured to store OAuth provider tokens in your database instead of browser localStorage. This enables:
+
+- **Multi-device sync**: Access tokens across devices and sessions
+- **Server-side usage**: Use tokens in API routes and background jobs
+- **Long-term persistence**: Tokens survive browser clears and device changes
+
+This guide assumes you've already set up a database and followed our [installation guide](/docs/getting-started/installation).
+
+## Overview
+
+When using database storage, the SDK uses three callback functions to interact with your database:
+
+1. **`getSessionContext`**: Extracts user context from incoming requests during OAuth flows
+2. **`getProviderToken`**: Retrieves stored tokens from your database
+3. **`setProviderToken`**: Saves tokens to your database after OAuth completion
+
+These callbacks are only available on `createMCPServer` (server-side configuration).
+
+## Configuration
+
+Add the three callbacks to your `createMCPServer` configuration:
+
+```typescript
+// integrate.ts
+import { createMCPServer, githubIntegration } from "integrate-sdk/server";
+import type { ProviderTokenData } from "integrate-sdk/server";
+
+export const { client: serverClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+  ],
+  getSessionContext: async (req) => {
+    // Extract user context from request
+  },
+  getProviderToken: async (provider, context) => {
+    // Retrieve token from database
+  },
+  setProviderToken: async (provider, tokenData, context) => {
+    // Save token to database
+  },
+});
+```
+
+## getSessionContext
+
+Extracts user context (like `userId` or `organizationId`) from incoming OAuth requests. This context is then passed to `getProviderToken` and `setProviderToken` to identify which user's tokens to retrieve or save.
+
+**Signature:**
+
+```typescript
+getSessionContext?: (request: Request) => Promise<MCPContext | undefined> | MCPContext | undefined;
+```
+
+**Parameters:**
+
+- `request`: The incoming Web Request object from OAuth authorize/callback endpoints
+
+**Returns:**
+
+- An object with `userId` and optionally `organizationId`, or `undefined` if no session found
+
+**Example:**
+
+```typescript
+getSessionContext: async (req) => {
+  // Get session from your auth library
+  const session = await getSession(req);
+
+  if (!session?.user) {
+    return undefined;
+  }
+
+  return {
+    userId: session.user.id,
+    organizationId: session.organizationId, // Optional
+  };
+},
+```
+
+**When it's called automatically:**
+
+The SDK calls this callback automatically during OAuth flows. You don't need to call it manually:
+
+- During OAuth authorization flow (when user clicks "Connect")
+- During OAuth callback (when provider redirects back)
+- When checking authorization status
+
+## getProviderToken
+
+Retrieves a stored provider token from your database. Called whenever the SDK needs an access token for API calls.
+
+**Signature:**
+
+```typescript
+getProviderToken?: (
+  provider: string,
+  context?: MCPContext
+) => Promise<ProviderTokenData | undefined> | ProviderTokenData | undefined;
+```
+
+**Parameters:**
+
+- `provider`: The provider name (e.g., `'github'`, `'gmail'`)
+- `context`: Optional user context from `getSessionContext`
+
+**Returns:**
+
+- `ProviderTokenData` object with token information, or `undefined` if not found
+
+**ProviderTokenData structure:**
+
+```typescript
+interface ProviderTokenData {
+  accessToken: string; // Required
+  refreshToken?: string;
+  tokenType: string; // Required
+  expiresIn: number; // Required
+  expiresAt?: string; // ISO 8601 date string
+  scopes?: string[];
+}
+```
+
+**Note:** When returning from `getProviderToken`, you must provide `accessToken`, `tokenType`, and `expiresIn`. Other fields are optional but recommended.
+
+**Example:**
+
+```typescript
+getProviderToken: async (provider, context) => {
+  const userId = context?.userId;
+
+  if (!userId) {
+    return undefined;
+  }
+
+  // Query your database for the token
+  const token = await db.query(
+    'SELECT * FROM oauth_tokens WHERE user_id = ? AND provider = ?',
+    [userId, provider]
+  );
+
+  if (!token) {
+    return undefined;
+  }
+
+  return {
+    accessToken: token.access_token,
+    refreshToken: token.refresh_token,
+    tokenType: token.token_type || "Bearer",
+    expiresIn: token.expires_in || 3600,
+    expiresAt: token.expires_at?.toISOString(),
+    scopes: token.scopes,
+  };
+},
+```
+
+**When it's called automatically:**
+
+The SDK calls this callback automatically whenever it needs a token. You don't need to call it manually:
+
+- Before making API calls to integrated services
+- When checking if a provider is authorized
+- When refreshing expired tokens
+
+## setProviderToken
+
+Saves a provider token to your database after OAuth completion. This is called automatically when a user successfully authorizes a provider.
+
+**Signature:**
+
+```typescript
+setProviderToken?: (
+  provider: string,
+  tokenData: ProviderTokenData,
+  context?: MCPContext
+) => Promise<void> | void;
+```
+
+**Parameters:**
+
+- `provider`: The provider name (e.g., `'github'`, `'gmail'`)
+- `tokenData`: The complete token data from the OAuth provider
+- `context`: Optional user context from `getSessionContext`
+
+**Example:**
+
+```typescript
+setProviderToken: async (provider, tokenData, context) => {
+  const userId = context?.userId;
+
+  if (!userId) {
+    throw new Error('Cannot save token: No userId in context');
+  }
+
+  // Upsert token in your database
+  await db.query(
+    `INSERT INTO oauth_tokens (user_id, provider, access_token, refresh_token, expires_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (user_id, provider)
+     DO UPDATE SET
+       access_token = ?,
+       refresh_token = ?,
+       expires_at = ?,
+       updated_at = NOW()`,
+    [
+      userId,
+      provider,
+      tokenData.accessToken,
+      tokenData.refreshToken,
+      tokenData.expiresAt ? new Date(tokenData.expiresAt) : null,
+      // Update values
+      tokenData.accessToken,
+      tokenData.refreshToken,
+      tokenData.expiresAt ? new Date(tokenData.expiresAt) : null,
+    ]
+  );
+},
+```
+
+**When it's called automatically:**
+
+The SDK calls this callback automatically after OAuth completion. You don't need to call it manually:
+
+- After successful OAuth authorization
+- When tokens are refreshed automatically
+- When manually setting tokens via `client.setProviderToken()`
+
+## Database Schema
+
+Your database should have a table to store OAuth tokens. Here's a recommended schema structure:
+
+**Required fields:**
+
+- `user_id` (or equivalent): Foreign key to your users table
+- `provider`: The provider name (e.g., `'github'`, `'gmail'`)
+- `access_token`: The OAuth access token (encrypted recommended)
+
+**Optional but recommended fields:**
+
+- `refresh_token`: For token refresh (if provider supports it)
+- `expires_at`: Token expiration timestamp
+- `scopes`: Array of granted OAuth scopes
+- `created_at`: When the token was first created
+- `updated_at`: When the token was last updated
+
+**Example schema (PostgreSQL):**
+
+```sql
+CREATE TABLE oauth_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider VARCHAR(50) NOT NULL,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT,
+  expires_at TIMESTAMP,
+  scopes TEXT[],
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, provider)
+);
+
+CREATE INDEX idx_oauth_tokens_user_provider ON oauth_tokens(user_id, provider);
+```
+
+## Error Handling
+
+All three callbacks should handle errors gracefully:
+
+```typescript
+getSessionContext: async (req) => {
+  try {
+    const session = await getSession(req);
+    return session ? { userId: session.userId } : undefined;
+  } catch (error) {
+    console.error('[Integrate SDK] Error getting session context:', error);
+    return undefined; // Return undefined on error
+  }
+},
+
+getProviderToken: async (provider, context) => {
+  try {
+    // Your database query
+    return tokenData;
+  } catch (error) {
+    console.error('[Integrate SDK] Error fetching provider token:', error);
+    return undefined; // Return undefined on error
+  }
+},
+
+setProviderToken: async (provider, tokenData, context) => {
+  try {
+    // Your database save
+  } catch (error) {
+    console.error('[Integrate SDK] Error saving provider token:', error);
+    throw error; // Re-throw to surface the error
+  }
+},
+```
+
+## Multi-Organization Support
+
+If your app supports multiple organizations, you can use `organizationId` in the context:
+
+```typescript
+getSessionContext: async (req) => {
+  const session = await getSession(req);
+  return {
+    userId: session.userId,
+    organizationId: session.activeOrganizationId, // Optional
+  };
+},
+
+getProviderToken: async (provider, context) => {
+  const { userId, organizationId } = context || {};
+
+  // Query with both user and organization
+  const token = await db.query(
+    'SELECT * FROM oauth_tokens WHERE user_id = ? AND organization_id = ? AND provider = ?',
+    [userId, organizationId, provider]
+  );
+
+  return token ? formatTokenData(token) : undefined;
+},
+```
+
+## Complete Example
+
+Here's a complete example showing all three callbacks working together:
+
+```typescript
+import {
+  createMCPServer,
+  githubIntegration,
+  gmailIntegration,
+} from "integrate-sdk/server";
+import type { ProviderTokenData } from "integrate-sdk/server";
+
+export const { client: serverClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+    gmailIntegration({
+      scopes: ["https://www.googleapis.com/auth/gmail.send"],
+    }),
+  ],
+  getSessionContext: async (req) => {
+    try {
+      const session = await getSession(req);
+      return session?.user
+        ? {
+            userId: session.user.id,
+            organizationId: session.organizationId,
+          }
+        : undefined;
+    } catch (error) {
+      console.error("[Integrate SDK] Error getting session context:", error);
+      return undefined;
+    }
+  },
+  getProviderToken: async (provider, context) => {
+    const userId = context?.userId;
+    if (!userId) {
+      return undefined;
+    }
+
+    try {
+      const token = await getTokenFromDatabase(userId, provider);
+      if (!token?.accessToken) {
+        return undefined;
+      }
+
+      return {
+        accessToken: token.accessToken,
+        refreshToken: token.refreshToken,
+        tokenType: token.tokenType || "Bearer",
+        expiresIn: token.expiresIn || 3600,
+        expiresAt: token.expiresAt?.toISOString(),
+        scopes: token.scopes,
+      };
+    } catch (error) {
+      console.error("[Integrate SDK] Error fetching provider token:", error);
+      return undefined;
+    }
+  },
+  setProviderToken: async (provider, tokenData, context) => {
+    const userId = context?.userId;
+    if (!userId) {
+      console.error("[Integrate SDK] Cannot save token: No userId in context");
+      return;
+    }
+
+    try {
+      await saveTokenToDatabase(userId, provider, tokenData);
+    } catch (error) {
+      console.error("[Integrate SDK] Error saving provider token:", error);
+      throw error;
+    }
+  },
+});
+```
+
+## Example: Better Auth
+
+Here's a complete example using [Better Auth](https://www.better-auth.com/) with Drizzle ORM:
+
+```typescript
+import {
+  createMCPServer,
+  githubIntegration,
+  gmailIntegration,
+} from "integrate-sdk/server";
+import type { ProviderTokenData } from "integrate-sdk/server";
+import { db } from "./db";
+import { account } from "./db/schema";
+import { eq, and } from "drizzle-orm";
+import { auth } from "./auth";
+
+export const { client: serverClient } = createMCPServer({
+  apiKey: process.env.INTEGRATE_API_KEY,
+  integrations: [
+    githubIntegration({
+      scopes: ["repo", "user"],
+    }),
+    gmailIntegration({
+      scopes: ["https://www.googleapis.com/auth/gmail.send"],
+    }),
+  ],
+  getSessionContext: async (req) => {
+    try {
+      const session = await auth.api.getSession({
+        headers: req.headers,
+      });
+      return {
+        userId: session?.user?.id,
+        organizationId: session?.session?.activeOrganizationId,
+      };
+    } catch (error) {
+      console.error("[Integrate SDK] Error getting session context:", error);
+      return {};
+    }
+  },
+  getProviderToken: async (provider, context) => {
+    const userId = context?.userId;
+    if (!userId) {
+      return undefined;
+    }
+
+    try {
+      const accounts = await db
+        .select()
+        .from(account)
+        .where(
+          and(eq(account.userId, userId), eq(account.providerId, provider))
+        )
+        .limit(1);
+
+      if (accounts.length === 0) {
+        return undefined;
+      }
+
+      const accountData = accounts[0];
+      return {
+        accessToken: accountData.accessToken,
+        refreshToken: accountData.refreshToken || undefined,
+        tokenType: "Bearer",
+        expiresIn: accountData.accessTokenExpiresAt
+          ? Math.floor(
+              (accountData.accessTokenExpiresAt.getTime() - Date.now()) / 1000
+            )
+          : 3600,
+        expiresAt: accountData.accessTokenExpiresAt?.toISOString(),
+        scopes: accountData.scopes,
+      };
+    } catch (error) {
+      console.error("[Integrate SDK] Error fetching provider token:", error);
+      return undefined;
+    }
+  },
+  setProviderToken: async (provider, tokenData, context) => {
+    const userId = context?.userId;
+    if (!userId) {
+      console.error("[Integrate SDK] Cannot save token: No userId in context");
+      return;
+    }
+
+    try {
+      const existing = await db
+        .select()
+        .from(account)
+        .where(
+          and(eq(account.userId, userId), eq(account.providerId, provider))
+        )
+        .limit(1);
+
+      const expiresAt = tokenData.expiresAt
+        ? new Date(tokenData.expiresAt)
+        : null;
+
+      if (existing.length > 0) {
+        await db
+          .update(account)
+          .set({
+            accessToken: tokenData.accessToken,
+            refreshToken: tokenData.refreshToken || null,
+            accessTokenExpiresAt: expiresAt,
+            updatedAt: new Date(),
+          })
+          .where(eq(account.id, existing[0].id));
+      } else {
+        await db.insert(account).values({
+          id: `${userId}-${provider}-${Date.now()}`,
+          userId,
+          providerId: provider,
+          accountId: userId,
+          accessToken: tokenData.accessToken,
+          refreshToken: tokenData.refreshToken || null,
+          accessTokenExpiresAt: expiresAt,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    } catch (error) {
+      console.error("[Integrate SDK] Error saving provider token:", error);
+      throw error;
+    }
+  },
+});
+```
+
+### Account Schema
+
+Modified better auth account schema in PostgreSQL.
+
+```typescript
+export const account = pgTable("account", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+  scope: text("scope"),
+  idToken: text("id_token"),
+  password: text("password"),
+  createdAt: timestamp("created_at")
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: timestamp("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
+});
+```
+
+## Next Steps
+
+- Learn about [OAuth Authorization Flow](/docs/guides/oauth-flow) to handle user authentication
+- Explore [Advanced Usage](/docs/getting-started/advanced-usage) for more configuration options
+- Check out [Built-in Integrations](/docs/integrations) to see what integrations are available
