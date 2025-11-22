@@ -291,12 +291,24 @@ removeProviderToken: async (provider, context) => {
 
 The SDK calls this callback automatically when disconnecting providers. You don't need to call it manually:
 
-- When `client.disconnectProvider(provider)` is called
+- When `client.disconnectProvider(provider, context)` is called
 - The callback is idempotent - safe to call even if the token doesn't exist
+- The `context` parameter is passed from `disconnectProvider` to identify which user's token to delete
+
+**Example usage:**
+
+```typescript
+// Disconnect a provider with context
+const context = await getSessionContext(request);
+await client.disconnectProvider('github', context);
+// removeProviderToken callback is called with the context
+```
 
 **Backward compatibility:**
 
 If `removeProviderToken` is not provided, the SDK will fall back to calling `setProviderToken(provider, null, context)` for backward compatibility. However, using the dedicated callback is recommended for cleaner separation of concerns.
+
+**Note:** The `context` parameter is optional. If not provided, the callback will receive `undefined` for context, which works for single-user scenarios.
 
 ## Database Schema
 

@@ -834,21 +834,30 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
    * Removes authorization for a single provider while keeping others connected
    * Makes a server-side call to revoke the provider's authorization
    * 
+   * When using database callbacks (server-side), provide context to delete
+   * the correct user's token from the database.
+   * 
    * @param provider - Provider name to disconnect (e.g., 'github', 'gmail')
+   * @param context - Optional user context (userId, organizationId, etc.) for multi-tenant apps
    * 
    * @example
    * ```typescript
-   * // Disconnect only GitHub, keep Gmail connected
+   * // Client-side usage (no context needed)
    * await client.disconnectProvider('github');
    * 
    * // Check if still authorized
    * const isAuthorized = await client.isAuthorized('github'); // false
+   * ```
    * 
-   * // Re-authorize if needed
-   * await client.authorize('github');
+   * @example
+   * ```typescript
+   * // Server-side usage with context (multi-tenant)
+   * const context = await getSessionContext(request);
+   * await client.disconnectProvider('github', context);
+   * // Token is now deleted from database for the specific user
    * ```
    */
-  async disconnectProvider(provider: string): Promise<void> {
+  async disconnectProvider(provider: string, context?: MCPContext): Promise<void> {
     // Verify the provider exists in integrations
     const integration = this.integrations.find(p => p.oauth?.provider === provider);
 
@@ -858,7 +867,8 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
 
     try {
       // Make server-side call to disconnect the provider
-      await this.oauthManager.disconnectProvider(provider);
+      // Pass context so removeProviderToken callback can delete the correct user's token
+      await this.oauthManager.disconnectProvider(provider, context);
 
       // Reset authentication state for this provider only
       this.authState.set(provider, { authenticated: false });

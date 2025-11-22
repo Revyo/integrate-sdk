@@ -473,6 +473,25 @@ describe("Database Token Callbacks", () => {
       expect(removeTokenMock).toHaveBeenCalledWith("github", undefined);
       expect(setTokenMock).not.toHaveBeenCalled();
     });
+
+    test("disconnectProvider passes context to removeProviderToken callback", async () => {
+      const removeTokenMock = mock(async (provider: string, context?: any) => {});
+      const context = { userId: "user123", organizationId: "org456" };
+
+      const manager = new OAuthManager(
+        TEST_OAUTH_API_BASE,
+        undefined,
+        undefined,
+        {
+          removeProviderToken: removeTokenMock,
+        }
+      );
+
+      await manager.disconnectProvider("github", context);
+
+      // Verify context was passed to callback
+      expect(removeTokenMock).toHaveBeenCalledWith("github", context);
+    });
   });
 });
 
