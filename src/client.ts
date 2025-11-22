@@ -957,7 +957,8 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
 
   /**
    * Check if a provider is authorized via OAuth
-   * Returns the cached authorization status that is automatically updated when
+   * Checks the current token status and updates the cache accordingly.
+   * Returns the authorization status that is automatically updated when
    * authorize() or disconnectProvider() are called
    * 
    * Automatically waits for any pending OAuth callback to complete, ensuring
@@ -982,7 +983,36 @@ export class MCPClientBase<TIntegrations extends readonly MCPIntegration[] = rea
       await this.oauthCallbackPromise;
       this.oauthCallbackPromise = null; // Clear it after first use
     }
-    return this.authState.get(provider)?.authenticated ?? false;
+    
+    // Check current token status and update cache
+    try {
+      const tokenData = await this.oauthManager.getProviderToken(provider);
+      const isAuthenticated = !!tokenData;
+      
+      // Update the cache with current value
+      const currentState = this.authState.get(provider);
+      if (currentState) {
+        currentState.authenticated = isAuthenticated;
+        // Clear lastError if we now have a valid token
+        if (isAuthenticated) {
+          currentState.lastError = undefined;
+        }
+      } else {
+        // Initialize state if it doesn't exist
+        this.authState.set(provider, { authenticated: isAuthenticated });
+      }
+      
+      return isAuthenticated;
+    } catch (error) {
+      // If there's an error checking the token, update cache to false
+      const currentState = this.authState.get(provider);
+      if (currentState) {
+        currentState.authenticated = false;
+      } else {
+        this.authState.set(provider, { authenticated: false });
+      }
+      return false;
+    }
   }
 
   /**
