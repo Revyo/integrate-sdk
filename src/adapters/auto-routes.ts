@@ -121,7 +121,8 @@ export async function POST(
         return createErrorResponse('Missing provider in request body', 400);
       }
       
-      const result = await handler.handleDisconnect({ provider: body.provider }, accessToken);
+      // Pass the request object for context extraction
+      const result = await handler.handleDisconnect({ provider: body.provider }, accessToken, req);
       return createSuccessResponse(result);
     }
 

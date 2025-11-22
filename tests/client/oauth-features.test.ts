@@ -363,7 +363,7 @@ describe("OAuth Features", () => {
       expect(await client.getProviderToken("google")).toBeDefined();
     });
 
-    test("performs local disconnect without server call", async () => {
+    test("makes API call to server route when disconnecting", async () => {
       const client = createMCPClient({
         integrations: [
           githubIntegration({
@@ -372,6 +372,7 @@ describe("OAuth Features", () => {
           }),
         ],
         singleton: false,
+        oauthApiBase: "/api/integrate/oauth",
       });
 
       // Set provider token
@@ -381,15 +382,20 @@ describe("OAuth Features", () => {
         expiresIn: 3600,
       });
 
-      // Mock fetch to throw - if it's called, test will fail
-      global.fetch = mock(async () => {
-        throw new Error("Should not call server for disconnect");
+      // Mock fetch to verify API call is made
+      const fetchMock = mock(async (url: string, options?: any) => {
+        expect(url).toContain("/api/integrate/oauth/disconnect");
+        expect(options?.method).toBe("POST");
+        expect(options?.headers?.["Authorization"]).toBe("Bearer test-token");
+        expect(JSON.parse(options?.body || "{}")).toEqual({ provider: "github" });
+        return new Response(JSON.stringify({ success: true }), { status: 200 });
       }) as any;
+      global.fetch = fetchMock;
 
       await client.disconnectProvider("github");
 
+      expect(fetchMock).toHaveBeenCalled();
       expect(await client.getProviderToken("github")).toBeUndefined();
-      expect(global.fetch).not.toHaveBeenCalled();
     });
   });
 

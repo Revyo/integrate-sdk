@@ -207,6 +207,7 @@ export function createMCPServer<TIntegrations extends readonly MCPIntegration[]>
     apiKey: config.apiKey,
     getSessionContext: config.getSessionContext,
     setProviderToken: config.setProviderToken,
+    removeProviderToken: config.removeProviderToken,
   };
 
   // Create route handlers with the provider configuration
@@ -216,6 +217,7 @@ export function createMCPServer<TIntegrations extends readonly MCPIntegration[]>
     apiKey: config.apiKey,
     getSessionContext: config.getSessionContext,
     setProviderToken: config.setProviderToken,
+    removeProviderToken: config.removeProviderToken,
   });
 
   /**
@@ -441,6 +443,7 @@ function createOAuthRouteHandlers(config: {
   apiKey?: string;
   getSessionContext?: (request: Request) => Promise<import('./config/types.js').MCPContext | undefined> | import('./config/types.js').MCPContext | undefined;
   setProviderToken?: (provider: string, tokenData: import('./oauth/types.js').ProviderTokenData, context?: import('./config/types.js').MCPContext) => Promise<void> | void;
+  removeProviderToken?: (provider: string, context?: import('./config/types.js').MCPContext) => Promise<void> | void;
 }) {
   const handler = createNextOAuthHandler(config);
   return handler.createRoutes();
@@ -640,6 +643,7 @@ export function toNextJsHandler<TIntegrations extends readonly MCPIntegration[] 
       apiKey: options.apiKey,
       getSessionContext: options.getSessionContext,
       setProviderToken: options.setProviderToken,
+      removeProviderToken: options.removeProviderToken,
     };
     redirectUrl = options.redirectUrl;
     errorRedirectUrl = options.errorRedirectUrl;

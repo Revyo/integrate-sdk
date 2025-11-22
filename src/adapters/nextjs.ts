@@ -320,7 +320,8 @@ export function createNextOAuthHandler(config: OAuthHandlerConfig) {
           );
         }
 
-        const result = await handler.handleDisconnect({ provider }, accessToken);
+        // Pass the request object for context extraction
+        const result = await handler.handleDisconnect({ provider }, accessToken, req);
         return Response.json(result);
       } catch (error: any) {
         console.error('[OAuth Disconnect] Error:', error);

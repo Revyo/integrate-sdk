@@ -173,7 +173,8 @@ export function toNodeHandler(config: OAuthHandlerConfig) {
                 }
               );
             } else {
-              const result = await oauthHandler.handleDisconnect({ provider }, accessToken);
+              // Pass the request object for context extraction
+              const result = await oauthHandler.handleDisconnect({ provider }, accessToken, webReq);
               webRes = new Response(JSON.stringify(result), {
                 status: 200,
                 headers: { 'Content-Type': 'application/json' },

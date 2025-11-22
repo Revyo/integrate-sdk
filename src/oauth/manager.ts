@@ -299,6 +299,40 @@ export class OAuthManager {
         // If deletion fails, log but don't throw - we'll still clear local cache
         console.error(`Failed to delete token for ${provider} from database via setProviderToken:`, error);
       }
+    } else {
+      // Client-side: no database callbacks, make API call to server route
+      try {
+        // Get the provider token to include in Authorization header
+        const tokenData = await this.getProviderToken(provider);
+        
+        if (tokenData?.accessToken) {
+          // Construct URL: {apiBaseUrl}{oauthApiBase}/disconnect
+          // If apiBaseUrl is not set, use relative URL (same origin)
+          const url = this.apiBaseUrl 
+            ? `${this.apiBaseUrl}${this.oauthApiBase}/disconnect`
+            : `${this.oauthApiBase}/disconnect`;
+
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokenData.accessToken}`,
+            },
+            body: JSON.stringify({
+              provider,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Failed to disconnect ${provider} via API: ${response.status} ${errorText}`);
+            // Continue to clear local state even if API call fails (idempotent)
+          }
+        }
+      } catch (error) {
+        // If API call fails, log but don't throw - we'll still clear local cache
+        console.error(`Failed to disconnect ${provider} via API:`, error);
+      }
     }
     
     // Clear provider token from in-memory cache (idempotent - safe to call even if already cleared)

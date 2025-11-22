@@ -540,6 +540,48 @@ describe("Next.js Catch-All Route Handler", () => {
       expect(data.success).toBe(true);
     });
 
+    it("should call removeProviderToken with context when disconnecting", async () => {
+      const removeProviderTokenMock = mock(async (provider: string, context?: any) => {});
+      const mockFetch = mock(async () => ({
+        ok: true,
+        json: async () => ({
+          success: true,
+          provider: "github",
+        }),
+      })) as any;
+
+      global.fetch = mockFetch;
+
+      const configWithRemove: OAuthHandlerConfig = {
+        ...config,
+        removeProviderToken: removeProviderTokenMock,
+        getSessionContext: async (req) => {
+          // Simulate extracting context from request
+          return { userId: "user123", organizationId: "org456" };
+        },
+      };
+
+      const handlerWithRemove = createNextOAuthHandler(configWithRemove);
+      const routes = handlerWithRemove.toNextJsHandler();
+      
+      const mockRequest = {
+        json: async () => ({ provider: "github" }),
+        headers: {
+          get: (key: string) => {
+            if (key === "authorization") return "Bearer token-123";
+            return null;
+          },
+        },
+      } as any;
+
+      const context = { params: { all: ["oauth", "disconnect"] } };
+      const response = await routes.POST(mockRequest, context);
+      const data = await response.json();
+
+      expect(data.success).toBe(true);
+      expect(removeProviderTokenMock).toHaveBeenCalledWith("github", { userId: "user123", organizationId: "org456" });
+    });
+
     it("should handle GET /oauth/status", async () => {
       const mockFetch = mock(async () => ({
         ok: true,

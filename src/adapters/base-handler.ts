@@ -75,6 +75,26 @@ export interface OAuthHandlerConfig {
    * ```
    */
   setProviderToken?: (provider: string, tokenData: ProviderTokenData, context?: MCPContext) => Promise<void> | void;
+  /**
+   * Optional callback to delete provider tokens from database
+   * Called automatically when disconnecting providers
+   * 
+   * @param provider - Provider name (e.g., 'github')
+   * @param context - User context (userId, organizationId, etc.)
+   * 
+   * @example
+   * ```typescript
+   * removeProviderToken: async (provider, context) => {
+   *   const userId = context?.userId;
+   *   if (!userId) return;
+   *   
+   *   await db.tokens.delete({
+   *     where: { provider_userId: { provider, userId } }
+   *   });
+   * }
+   * ```
+   */
+  removeProviderToken?: (provider: string, context?: MCPContext) => Promise<void> | void;
 }
 
 /**
@@ -488,14 +508,46 @@ export class OAuthHandler {
    * 
    * @param request - Disconnect request with provider name
    * @param accessToken - Access token from client
+   * @param webRequest - Optional Web Request object for context extraction
    * @returns Disconnect response
    * 
    * @throws Error if no access token provided
    * @throws Error if MCP server request fails
    */
-  async handleDisconnect(request: DisconnectRequest, accessToken: string): Promise<DisconnectResponse> {
+  async handleDisconnect(request: DisconnectRequest, accessToken: string, webRequest?: Request): Promise<DisconnectResponse> {
     if (!accessToken) {
       throw new Error('No access token provided. Cannot disconnect provider.');
+    }
+
+    // Extract context from request if available and removeProviderToken callback exists
+    if (webRequest && this.config.removeProviderToken) {
+      try {
+        let context: MCPContext | undefined;
+        
+        // Try custom session context extractor first
+        if (this.config.getSessionContext) {
+          context = await this.config.getSessionContext(webRequest);
+        }
+        
+        // Fallback to automatic detection
+        if (!context || !context.userId) {
+          const { detectSessionContext } = await import('./session-detector.js');
+          context = await detectSessionContext(webRequest);
+        }
+        
+        // Call removeProviderToken callback with context
+        if (context) {
+          try {
+            await this.config.removeProviderToken(request.provider, context);
+          } catch (error) {
+            // Log error but don't fail the request - MCP server revocation will still happen
+            console.error(`Failed to delete token for ${request.provider} from database via removeProviderToken:`, error);
+          }
+        }
+      } catch (error) {
+        // Log error but continue - context extraction failure shouldn't block disconnect
+        console.error(`Failed to extract context for disconnect:`, error);
+      }
     }
 
     // Forward to MCP server to revoke authorization
